@@ -1,8 +1,8 @@
-﻿﻿using BoomifyCS.Lexer;
-using BoomifyCS.Exceptions;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class BinaryOperatorHandler(AstBuilder builder) : TokenHandler(builder)
     {

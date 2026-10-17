@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace BoomifyCS.Exceptions
+namespace BifyLang.Exceptions
 {
     public class SimpleErrorWrapper(Exception exception)
     {

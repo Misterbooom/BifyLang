@@ -1,7 +1,7 @@
-﻿using BoomifyCS.Ast.Validators;
-using BoomifyCS.Lexer;
+﻿using BifyLang.Ast.Validators;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class WhileHandler(AstBuilder builder) : TokenHandler(builder)
     {

@@ -1,8 +1,8 @@
-﻿using BoomifyCS.Ast.Validators;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+﻿using BifyLang.Ast.Validators;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class ConditionHandler(AstBuilder builder) : TokenHandler(builder)
     {

@@ -1,4 +1,4 @@
-﻿namespace BoomifyCS.Parser
+﻿namespace BifyLang.Parser
 {
     public class StringParser
     {

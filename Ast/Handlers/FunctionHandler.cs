@@ -1,39 +1,45 @@
 ﻿using System.Collections.Generic;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using BifyLang.Ast.Validators;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class FunctionHandler(AstBuilder builder) : TokenHandler(builder)
     {
         public override void HandleToken(Token token)
         {
-
-            GetFieldInfo(Builder, out var identifierNode, out var typeNode, out var flagNode);
-        
-            if (identifierNode is not AstIdentifier)
+            if (!DeclarationParser.TryParseHeader(Builder, out DeclarationHeader header) ||
+                header.Kind != DeclarationKind.Function)
             {
-                new BifySyntaxError($"Invalid identifier name '{identifierNode?.Token?.Value}'. Expected a valid name like `x`, `value`, etc.").Throw();
+                new BifySyntaxError("Invalid function declaration syntax. Expected `Type name(params) { ... }`.").Throw();
+                return;
             }
-            if (typeNode is not (AstIdentifier or AstIndexOperator) && typeNode.Token.Type != TokenType.POINTER)
-            {
-                new BifySyntaxError($"Invalid type '{typeNode?.Token?.Value}'. Make sure the function has a valid type like `int`, `float`, etc.").Throw();
-            }
-            
+            ParseDeclaration(header);
+        }
 
+        public void ParseDeclaration(DeclarationHeader header)
+        {
+            Builder.TokenIndex = header.EndIndex;
+            ParseFunction(header.NameNode.Token, header.TypeNode, header.NameNode, header.FlagNode);
+        }
 
+       
+        public void ParseFunction(Token token, AstNode typeNode, AstIdentifier nameNode, AstFlag flagNode)
+        {
             List<List<Token>> splitedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(), TokenType.COMMA);
             AstParam[] parametersNodes = BuildParameters(splitedTokens);
             AstBinaryOp parameters = ConnectParameters(parametersNodes);
             AstBlock blockNode = Builder.HandleBody("Function");
 
-            AstNode functionNode = new AstFunctionDecl(token,typeNode,(AstIdentifier)identifierNode,parameters,blockNode,flagNode);
+            FunctionDeclarationValidator.Validate(nameNode.Token, parameters, blockNode, typeNode);
+
+            AstNode functionNode = new AstFunctionDecl(token, typeNode, nameNode, parameters, blockNode, flagNode);
             Builder.CurrentNode = functionNode;
             Builder.TokenIndex++;
             Builder.Nodes.Clear();
-
-
         }
+
         private AstBinaryOp ConnectParameters(AstParam[] parametersNodes)
         {
             AstBinaryOp binaryOp = null;

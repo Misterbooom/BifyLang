@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Spectre.Console;
 
-namespace BoomifyCS.Exceptions
+namespace BifyLang.Exceptions
 {
     public abstract class BifyError
     {

@@ -1,4 +1,4 @@
-﻿namespace BoomifyCS.Exceptions
+namespace BifyLang.Exceptions
 {
     public static class ErrorMessage
     {
@@ -71,5 +71,10 @@
         public static string InvalidVariableType(string value) => $"Invalid variable type '{value}'.";
         public static string InvalidFunctionReturnType(string type, string targetType) => $"Invalid function return type '{type}'. Expected '{targetType}'.";
         public static string UndefindedVariable(string name) => $"Undefined variable '{name}'";
+        public static string ConditionIsRequiredInSwitch() => "Condition expression is required in a 'switch' statement.";
+        public static string MultipleDefaultInSwitch() => "A 'switch' statement can only have one 'default' case.";
+        public static string ExpectedColonAfterCase() => "Expected ':' after 'case' value.";
+        public static string ExpectedColonAfterDefault() => "Expected ':' after 'default'.";
+        public static string InvalidSwitchBodyToken(string token) => $"Unexpected token '{token}' in switch body. Only 'case' and 'default' labels are allowed.";
     }
 }

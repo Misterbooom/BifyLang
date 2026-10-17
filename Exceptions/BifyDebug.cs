@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using Spectre.Console;
 
-namespace BoomifyCS.Exceptions
+namespace BifyLang.Exceptions
 {
     internal class BifyDebug
     {

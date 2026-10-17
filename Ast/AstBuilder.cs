@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
-using BoomifyCS.Parser;
-using BoomifyCS.Assembly;
-namespace BoomifyCS.Ast
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
+using BifyLang.Parser;
+namespace BifyLang.Ast
 {
     internal class AstBuilder
     {
@@ -25,7 +24,6 @@ namespace BoomifyCS.Ast
         private AstNode? _currentNode;
         public readonly bool IsHandlingLine = true;
         public List<AstNode> Nodes { get; set; } = new List<AstNode>();
-        private static readonly List<string> TypeTable = [];
 
         public AstBuilder(List<Token> tokens, bool isHandlingLine = true)
         {
@@ -127,16 +125,7 @@ namespace BoomifyCS.Ast
             }
         }
 
-        public bool IsType(Token token)
-        {
-            AssemblyCompiler compiler = AssemblyCompiler.Instance;
 
-            return compiler.VariableManager.TryGetBifyType(token.Value) != null || TypeTable.Contains(token.Value) || token.Value == "var";
-        }
-        public void AddType(string name)
-        {
-            TypeTable.Add(name);
-        }
         public Token? GetNextToken()
         {
             if (TokenIndex + 1 >= Tokens.Count)

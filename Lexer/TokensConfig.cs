@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
-namespace BoomifyCS.Lexer
+namespace BifyLang.Lexer
 {
     public class TokenConfig
     {
@@ -33,7 +33,10 @@ namespace BoomifyCS.Lexer
             {"const",TokenType.CONST },
             {"constructor",TokenType.CONSTRUCTOR },
             {"class",TokenType.CLASS},
-
+            {"switch", TokenType.SWITCH},
+            {"case", TokenType.CASE},
+            {"default", TokenType.DEFAULT},
+            {"unsafe", TokenType.UNSAFE},
         };
 
         public readonly static Dictionary<char, TokenType> SingleCharTokens = new()

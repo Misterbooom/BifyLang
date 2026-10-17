@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using BoomifyCS.Lexer;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast
+namespace BifyLang.Ast
 {
     public class AstNode(Token token, AstNode left = null, AstNode right = null)
     {
@@ -76,7 +76,7 @@ namespace BoomifyCS.Ast
         public override string ToString() => StrHelper();
     }
 
-    public class AstNumber(Token token, int value) : AstConstant(token, value);
+    public class AstInteger(Token token, int value) : AstConstant(token, value);
 
     public class AstString(Token token, string value) : AstConstant(token, value);
 
@@ -254,6 +254,51 @@ namespace BoomifyCS.Ast
             return baseStr + $"{new String(' ', 4 * (level + 1))}\n{initNode}\n{conditionStr}\n{incrementStr}\n{blockStr}";
         }
     }
+    public class AstSwitch(Token token, AstNode expressionNode, List<AstCase> cases = null, AstDefault defaultNode = null) : AstNode(token)
+    {
+        public readonly AstNode ExpressionNode = expressionNode;
+        public readonly List<AstCase> Cases = cases ?? [];
+        public AstDefault DefaultNode = defaultNode;
+
+        public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
+        {
+            string baseStr = base.StrHelper(level, note);
+            string exprStr = ExpressionNode?.StrHelper(level + 1, "Expression: ");
+            string casesStr = "";
+            foreach (var c in Cases)
+            {
+                casesStr += c?.StrHelper(level + 1, "Case: ");
+            }
+            string defaultStr = DefaultNode != null ? DefaultNode.StrHelper(level + 1, "Default: ") : "";
+            return baseStr + $"{new string(' ', 4 * (level + 1))}\n{exprStr}\n{casesStr}{defaultStr}";
+        }
+
+        public override string ToString() => StrHelper();
+    }
+    public class AstCase(Token token, AstNode valueNode, AstBlock blockNode) : AstNode(token)
+    {
+        public readonly AstNode ValueNode = valueNode;
+        public readonly AstBlock BlockNode = blockNode;
+
+        public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
+        {
+            string baseStr = base.StrHelper(level, note);
+            string valStr = ValueNode?.StrHelper(level + 1, "Value: ");
+            string blockStr = BlockNode?.StrHelper(level + 1, "Block: ");
+            return baseStr + $"{new string(' ', 4 * (level + 1))}\n{valStr}\n{blockStr}";
+        }
+    }
+    public class AstDefault(Token token, AstBlock blockNode) : AstNode(token)
+    {
+        public readonly AstBlock BlockNode = blockNode;
+
+        public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
+        {
+            string baseStr = base.StrHelper(level, note);
+            string blockStr = BlockNode?.StrHelper(level + 1, "Block: ");
+            return baseStr + $"{new string(' ', 4 * (level + 1))}\n{blockStr}";
+        }
+    }
     public class AstCall(Token token, AstNode callableName, AstNode argumentsNode = null) : AstNode(token)
     {
         public readonly AstNode CallableName = callableName;
@@ -271,6 +316,7 @@ namespace BoomifyCS.Ast
     public class AstUnaryOperator(Token token, AstNode value, bool isPrefix = false) : AstNode(token)
     {
         public readonly AstNode Operand = value;
+        public AstNode Value => Operand;
         public readonly bool IsPrefix = isPrefix;
 
         public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
@@ -410,16 +456,18 @@ namespace BoomifyCS.Ast
     public class AstRangeOperator(Token token) : AstBinaryOp(token)
     {
     }
-    public class AstClass(Token token, AstNode nameNode, AstNode bodyNode) : AstNode(token)
+    public class AstClass(Token token, AstNode nameNode, AstNode bodyNode, AstNode parentNode) : AstNode(token)
     {
         public readonly AstNode NameNode = nameNode;
         public readonly AstNode BodyNode = bodyNode;
+        public readonly AstNode ParentNode = parentNode;
         public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
         {
             string nameStr = NameNode?.StrHelper(level + 1, "Name: ");
             string bodyStr = BodyNode?.StrHelper(level + 1, "Body: ");
+            string parentStr = ParentNode?.StrHelper(level + 1, "Parent: ");
             string baseStr = base.StrHelper(level, note);
-            return baseStr + $"{new String(' ', 4 * (level + 1))}\n{nameStr}\n{bodyStr}";
+            return baseStr + $"{new String(' ', 4 * (level + 1))}\n{nameStr}\n{bodyStr}\n{parentStr}";
 
         }
     }
@@ -450,6 +498,18 @@ namespace BoomifyCS.Ast
         }
     }
     public class AstMemberAccess(Token token, AstNode left, AstNode right) : AstNode(token, left, right) { }
+
+    public class AstUnsafe(Token token, AstBlock body) : AstNode(token, null, null)
+    {
+        public AstNode BodyNode = body;
+
+        public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
+        {
+            string baseStr = base.StrHelper(level, note);
+            string bodyStr = BodyNode?.StrHelper(level + 1, "Body: ");
+            return baseStr  + bodyStr;
+        }
+}
     public class AstFlag(Token token,List<AstNode> flags): AstNode(token)
     {
         public readonly List<AstNode> Flags = flags;

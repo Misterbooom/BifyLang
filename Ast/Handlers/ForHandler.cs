@@ -1,9 +1,9 @@
-﻿using System.Linq;
-using BoomifyCS.Ast.Validators;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using System.Linq;
+using BifyLang.Ast.Validators;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class ForHandler(AstBuilder builder):TokenHandler(builder)
     {
@@ -12,7 +12,10 @@ namespace BoomifyCS.Ast.Handlers
             Builder.TokenIndex++;
             var splittedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(),TokenType.SEMICOLON);
 
-            AstNode initNode = Builder.ParseTokens(splittedTokens.ElementAtOrDefault(0));
+            var initTokens = splittedTokens.ElementAtOrDefault(0);
+            AstNode initNode = initTokens != null && initTokens.Count > 0
+                ? new AstBuilder(initTokens, true).BuildNode()
+                : null;
 
             AstNode conditionNode = Builder.ParseTokens(splittedTokens.ElementAtOrDefault(1));
 

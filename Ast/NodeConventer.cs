@@ -1,7 +1,7 @@
-﻿using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+﻿using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast
+namespace BifyLang.Ast
 {
     internal class NodeConventer
     {
@@ -36,7 +36,7 @@ namespace BoomifyCS.Ast
                                 Traceback.Instance.ThrowException(new BifyOverflowError($"Token value '{token.Value}' exceeds the maximum allowable value for a double."));
                                 return null;
                             }
-                            return new AstNumber(token, parsedIntValue);
+                            return new AstInteger(token, parsedIntValue);
                         }
                         else
                         {

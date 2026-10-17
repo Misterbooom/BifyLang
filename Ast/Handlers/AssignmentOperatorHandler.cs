@@ -1,7 +1,7 @@
-﻿using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class AssignmentOperatorHandler(AstBuilder builder) : TokenHandler(builder)
     {
@@ -11,11 +11,7 @@ namespace BoomifyCS.Ast.Handlers
             {
                 new BifySyntaxError("Assignment operator used without a preceding expression. Please ensure an identifier is present before '='.").Throw();
             }
-            if (Builder.Nodes.Count == 2 || Builder.Nodes.Count == 3)
-            {
-                new VariableDeclarationHandler(Builder).HandleToken(token);
-            }
-            else if (Builder.Nodes.Count == 1)
+            if (Builder.Nodes.Count == 1)
             {
                 HandleAssignment(token);
             }

@@ -1,7 +1,8 @@
-﻿using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using System.Collections.Generic;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class ClassHandler(AstBuilder builder) : TokenHandler(builder)
     {
@@ -13,11 +14,21 @@ namespace BoomifyCS.Ast.Handlers
                 new BifySyntaxError($"Invalid class name: '{identifierToken?.Value ?? "null"}'.").Throw();
             }
             AstNode nameNode = new AstIdentifier(identifierToken, identifierToken.Value);
-            Builder.NextToken();
+            Builder.TokenIndex += 1;
+            var nextToken = Builder.GetNextToken();
+            AstNode parentNode = null;
+            if (nextToken?.Type == TokenType.COLON)
+            {
+                List<Token> parentTokens = TokensFormatter.GetTokensBetween(builder.Tokens, ref Builder.TokenIndex, TokenType.COLON, TokenType.LCUR);
+                parentNode = Builder.ParseTokens(parentTokens);
+                builder.TokenIndex -= 1;
+            }
+          
+         
+            BifyDebug.Log($"NExt otken : {nextToken.Value}");
             AstNode bodyNode = Builder.HandleBody("Class");
             VerifyClassBody((AstBlock)bodyNode);
-            Builder.CurrentNode = new AstClass(token, nameNode, bodyNode);
-            Builder.AddType(identifierToken.Value);
+            Builder.CurrentNode = new AstClass(token, nameNode, bodyNode, parentNode);
         }
         private void VerifyClassBody(AstBlock body)
         {

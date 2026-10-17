@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
-using BoomifyCS.Exceptions;
+using BifyLang.Exceptions;
 
-namespace BoomifyCS.Lexer
+namespace BifyLang.Lexer
 {
     public partial class MyLexer
     {

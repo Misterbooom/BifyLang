@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Validators
+namespace BifyLang.Ast.Validators
 {
     internal class LoopValidator
     {

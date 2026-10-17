@@ -1,7 +1,7 @@
-﻿using BoomifyCS.Ast;
-using BoomifyCS.Ast.Handlers;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using BifyLang.Ast;
+using BifyLang.Ast.Handlers;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
 internal static class TokenHandlerFactory
 {
@@ -16,6 +16,12 @@ internal static class TokenHandlerFactory
             }
         }
 
+        if (builder.IsHandlingLine && builder.TokenIndex == 0 && builder.Nodes.Count == 0 &&
+            DeclarationParser.TryParseHeader(builder, out DeclarationHeader header))
+        {
+            return new DeclarationHandler(builder, header);
+        }
+
         return token.Type switch
         {
             _ when TokenConfig.BinaryOperators.ContainsValue(token.Type) => new BinaryOperatorHandler(builder),
@@ -26,8 +32,10 @@ internal static class TokenHandlerFactory
             TokenType.BREAK or TokenType.CONTINUE => new BreakContinueHandler(builder),
             TokenType.RETURN => new ReturnHandler(builder),
             TokenType.IF => new ConditionHandler(builder),
+            TokenType.SWITCH => new SwitchHandler(builder),
             TokenType.CLASS => new ClassHandler(builder),
             TokenType.NEW => new NewHandler(builder),
+            TokenType.UNSAFE => new UnsafeHandler(builder),
             _ => new DefaultTokenHandler(builder),
         };
     }

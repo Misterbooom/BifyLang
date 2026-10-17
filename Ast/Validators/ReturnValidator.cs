@@ -1,6 +1,6 @@
-﻿using BoomifyCS.Exceptions;
+﻿using BifyLang.Exceptions;
 
-namespace BoomifyCS.Ast.Validators
+namespace BifyLang.Ast.Validators
 {
     internal class ReturnValidator
     {

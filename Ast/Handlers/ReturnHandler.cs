@@ -1,6 +1,6 @@
-﻿using BoomifyCS.Lexer;
+﻿using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast.Handlers
+namespace BifyLang.Ast.Handlers
 {
     internal class ReturnHandler(AstBuilder builder):TokenHandler(builder)
     {

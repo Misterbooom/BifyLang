@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using BoomifyCS.Ast;
-using BoomifyCS.Lexer;
+using BifyLang.Ast;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Parser
+namespace BifyLang.Parser
 {
     public static class Extensions
     {

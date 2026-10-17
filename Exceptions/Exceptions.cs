@@ -1,4 +1,4 @@
-﻿namespace BoomifyCS.Exceptions
+﻿namespace BifyLang.Exceptions
 {
 
 

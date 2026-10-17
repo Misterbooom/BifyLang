@@ -1,0 +1,131 @@
+#nullable enable
+using System;
+using BifyLang.Ast;
+using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Types;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
+using LLVMSharp.Interop;
+
+namespace BifyLang.CodeGen.Expressions;
+
+public class BinaryOpGen
+{
+    public static TypedValue EmitBinaryOp(CodeGenContext ctx, ExpressionDispatcher dispatcher, AstBinaryOp binaryOp)
+    {
+        TypedValue left = dispatcher.EmitExpression(binaryOp.Left);
+        TypedValue right = dispatcher.EmitExpression(binaryOp.Right);
+        return EmitBinary(ctx, binaryOp.Token.Type, left, right);
+    }
+
+    public static TypedValue EmitBinary(CodeGenContext ctx, TokenType op, TypedValue left, TypedValue right)
+    {
+        if (left.Type.Name == "int" && right.Type.Name == "int")
+        {
+            return EmitIntBinary(ctx, op, left.Value, right.Value);
+        }
+
+        if (left.Type.Name is "float" or "double" || right.Type.Name is "float" or "double")
+        {
+            var targetType = (left.Type.Name == "double" || right.Type.Name == "double")
+                ? BifyType.CreateDouble(ctx)
+                : BifyType.CreateFloat(ctx);
+
+            var leftVal = TypeCaster.ImplicitCast(ctx, left, targetType).Value;
+            var rightVal = TypeCaster.ImplicitCast(ctx, right, targetType).Value;
+
+            return EmitFloatBinary(ctx, op, leftVal, rightVal, targetType);
+        }
+
+        if (left.Type.Name == "bool" && right.Type.Name == "bool")
+        {
+            return EmitBoolBinary(ctx, op, left.Value, right.Value);
+        }
+
+        if (left.Type.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind && right.Type.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind)
+        {
+            return EmitPointerComparison(ctx, op, left.Value, right.Value);
+        }
+
+        new BifyTypeError($"Operator '{op}' is not supported between '{left.Type.Name}' and '{right.Type.Name}'").Throw();
+        return default;
+    }
+
+    private static TypedValue EmitIntBinary(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right)
+    {
+        var intType = BifyType.CreateInt(ctx);
+        var boolType = BifyType.CreateBool(ctx);
+
+        return op switch
+        {
+            TokenType.ADD => new TypedValue(ctx.Builder.BuildAdd(left, right, "addtmp"), intType),
+            TokenType.SUB => new TypedValue(ctx.Builder.BuildSub(left, right, "subtmp"), intType),
+            TokenType.MUL => new TypedValue(ctx.Builder.BuildMul(left, right, "multmp"), intType),
+            TokenType.DIV => new TypedValue(ctx.Builder.BuildSDiv(left, right, "divtmp"), intType),
+            TokenType.MOD => new TypedValue(ctx.Builder.BuildSRem(left, right, "modtmp"), intType),
+
+            TokenType.EQ or TokenType.EQEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, left, right, "eqtmp"), boolType),
+            TokenType.NEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, left, right, "neqtmp"), boolType),
+            TokenType.LT => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntSLT, left, right, "lttmp"), boolType),
+            TokenType.LTE or TokenType.LTEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntSLE, left, right, "ltetmp"), boolType),
+            TokenType.GT => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntSGT, left, right, "gttmp"), boolType),
+            TokenType.GTE or TokenType.GTEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntSGE, left, right, "gtetmp"), boolType),
+
+            TokenType.BIT_AND or TokenType.BITAND => new TypedValue(ctx.Builder.BuildAnd(left, right, "andtmp"), intType),
+            TokenType.BIT_OR or TokenType.BITOR => new TypedValue(ctx.Builder.BuildOr(left, right, "ortmp"), intType),
+            TokenType.BIT_XOR or TokenType.BITXOR => new TypedValue(ctx.Builder.BuildXor(left, right, "xortmp"), intType),
+
+            _ => new BifySyntaxError($"Unsupported binary operator: {op}").Throw<TypedValue>()
+        };
+    }
+
+    private static TypedValue EmitFloatBinary(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right, BifyType floatType)
+    {
+        var boolType = BifyType.CreateBool(ctx);
+
+        return op switch
+        {
+            TokenType.ADD => new TypedValue(ctx.Builder.BuildFAdd(left, right, "faddtmp"), floatType),
+            TokenType.SUB => new TypedValue(ctx.Builder.BuildFSub(left, right, "fsubtmp"), floatType),
+            TokenType.MUL => new TypedValue(ctx.Builder.BuildFMul(left, right, "fmultmp"), floatType),
+            TokenType.DIV => new TypedValue(ctx.Builder.BuildFDiv(left, right, "fdivtmp"), floatType),
+            TokenType.MOD => new TypedValue(ctx.Builder.BuildFRem(left, right, "fremtmp"), floatType),
+
+            TokenType.EQ or TokenType.EQEQ => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOEQ, left, right, "feqtmp"), boolType),
+            TokenType.NEQ => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealONE, left, right, "fneqtmp"), boolType),
+            TokenType.LT => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOLT, left, right, "flttmp"), boolType),
+            TokenType.LTE or TokenType.LTEQ => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOLE, left, right, "fltetmp"), boolType),
+            TokenType.GT => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOGT, left, right, "fgttmp"), boolType),
+            TokenType.GTE or TokenType.GTEQ => new TypedValue(ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOGE, left, right, "fgtetmp"), boolType),
+
+            _ => new BifySyntaxError($"Unsupported float binary operator: {op}").Throw<TypedValue>()
+        };
+    }
+
+    private static TypedValue EmitBoolBinary(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right)
+    {
+        var boolType = BifyType.CreateBool(ctx);
+
+        return op switch
+        {
+            TokenType.AND => new TypedValue(ctx.Builder.BuildAnd(left, right, "andtmp"), boolType),
+            TokenType.OR => new TypedValue(ctx.Builder.BuildOr(left, right, "ortmp"), boolType),
+            TokenType.EQ or TokenType.EQEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, left, right, "eqtmp"), boolType),
+            TokenType.NEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, left, right, "neqtmp"), boolType),
+
+            _ => new BifySyntaxError($"Unsupported boolean binary operator: {op}").Throw<TypedValue>()
+        };
+    }
+
+    private static TypedValue EmitPointerComparison(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right)
+    {
+        var boolType = BifyType.CreateBool(ctx);
+
+        return op switch
+        {
+            TokenType.EQ or TokenType.EQEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, left, right, "ptreq"), boolType),
+            TokenType.NEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, left, right, "ptrneq"), boolType),
+            _ => new BifySyntaxError($"Unsupported pointer comparison operator: {op}").Throw<TypedValue>()
+        };
+    }
+}

@@ -1,4 +1,4 @@
-﻿namespace BoomifyCS.Exceptions
+﻿namespace BifyLang.Exceptions
 {
     public class CallStackFrame(string functionName, int lineNumber, string filePath, string codeLine)
     {

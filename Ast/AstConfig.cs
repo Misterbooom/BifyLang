@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using BoomifyCS.Lexer;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast
+namespace BifyLang.Ast
 {
     public static class AstConfig
     {

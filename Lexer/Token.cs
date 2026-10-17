@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
-namespace BoomifyCS.Lexer
+namespace BifyLang.Lexer
 {
     public enum TokenType
     {
@@ -96,7 +96,11 @@ namespace BoomifyCS.Lexer
         CHAR,
         PUBLIC,
         PRIVATE,
-        PROTECTED
+        PROTECTED,
+        SWITCH,
+        CASE,
+        DEFAULT,
+        UNSAFE
     }
     public class Token(TokenType type, string value, List<Token> tokens = null)
     {

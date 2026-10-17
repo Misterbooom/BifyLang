@@ -1,19 +1,19 @@
-﻿#define DEBUG_COMPILE
+#define DEBUG_COMPILE
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using BoomifyCS.Ast;
-using BoomifyCS.Lexer;
-using BoomifyCS.Parser;
-using BoomifyCS.Assembly;
-using BoomifyCS.Exceptions;
+using BifyLang.CodeGen;
+using BifyLang.Parser;
 using System.CommandLine;
 using System.Threading.Tasks;
+using BifyLang.Ast;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 using Spectre.Console;
 
-namespace BoomifyCS
+namespace BifyLang
 {
     internal class Program
     {
@@ -32,18 +32,33 @@ namespace BoomifyCS
             });
             try
             {
-                Argument<FileInfo> inputArgument = new Argument<FileInfo>("input").AcceptExistingOnly();
-                Option<FileInfo> outputOption = new Option<FileInfo>("input", aliases: ["--output", "--o"]);
+                Argument<FileInfo?> inputArgument = new Argument<FileInfo?>("input") { Arity = ArgumentArity.ZeroOrOne };
+                Option<FileInfo> outputOption = new Option<FileInfo>("output", aliases: ["--output", "--o"]);
                 Option<bool> execOption = new Option<bool>("--exec", "--exec");
-                var rootCommand = new RootCommand("BoomifyCS Compiler")
+                Option<bool> testOption = new Option<bool>("--test", "--test");
+                var rootCommand = new RootCommand("BifyLang Compiler")
                 {
                     inputArgument,
                     outputOption,
-                    execOption
+                    execOption,
+                    testOption
                 };
                 rootCommand.SetAction(result =>
                 {
-                    FileInfo input= result.GetValue(inputArgument);
+                    bool isTest = result.GetValue(testOption);
+                    if (isTest)
+                    {
+                        BifyLang.Tests.Tests.RunTests();
+                        return;
+                    }
+
+                    FileInfo input = result.GetValue(inputArgument);
+                    if (input == null)
+                    {
+                        Console.WriteLine("No input file specified. Use --test to run tests or provide a file path.");
+                        return;
+                    }
+
                     FileInfo output = result.GetValue(outputOption);
                     bool exec = result.GetValue(execOption);
                     CompilerFlags compilerFlags = CompilerFlags.NONE;
@@ -54,8 +69,6 @@ namespace BoomifyCS
                     Console.WriteLine($"Compiling {outPath}");
                    
                     RunCompiler(input.FullName, outPath, compilerFlags);
-
-                    
                 });
                 return Task.FromResult(rootCommand.Parse(args).Invoke());
             }
@@ -88,8 +101,8 @@ namespace BoomifyCS
             Console.WriteLine($"AST parsing completed in {stopwatch.ElapsedMilliseconds} ms.");
 
             BifyDebug.Log(node.ToString());
-            AssemblyCompiler compiler = AssemblyCompiler.Instance;
-            compiler.Compile(node, filePath, outputFilePath, flags);
+            var compiler = new BifyCompiler();
+            compiler.Compile((AstModule)node, filePath,outputFilePath, flags);
             //Console.Write("\x1b[38;2;255;0;0mThis is bright red\x1b[0m\n");
             //Console.Write("\x1b[38;2;0;255;0mThis is bright green\x1b[0m\n");
             //Console.Write("\x1b[38;2;0;0;255mThis is bright blue\x1b[0m\n");

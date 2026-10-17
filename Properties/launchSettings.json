@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "BoomifyCS": {
+    "BifyLang": {
       "commandName": "Project",
       "hotReloadEnabled": false
     }

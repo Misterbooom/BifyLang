@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-namespace BoomifyCS.Exceptions
+namespace BifyLang.Exceptions
 {
     public class Traceback
     {
@@ -35,26 +35,30 @@ namespace BoomifyCS.Exceptions
             }
             return _stack.Pop();
         }
+        public void Clear() => _stack.Clear();
         public void TrackPop() => _track.Pop();
         public void SetCurrentLine(int currentLine) => Line = currentLine;
 
         public void ThrowException(BifyError error, int column = 0)
         {
+            if (Source != null && Source.Length > 0)
+            {
+                int lineIndex = Math.Clamp(Line - 1, 0, Source.Length - 1);
+                error.CurrentLine = lineIndex;
+                error.FileName = FilePath;
+                error.LineTokensString = Source[lineIndex];
+                error.Column = column;
+                error.CallStack = CallStack;
+            }
+
+            if (_track.Any(type => type == error.GetType()))
+            {
+                _stack.Push(error);
+                return;
+            }
 
             if (Source != null && Source.Length > Line - 1)
             {
-                error.CurrentLine = Math.Clamp(Line - 1, 0, Source.Length - 1);
-                error.FileName = FilePath;
-                error.LineTokensString = Source[Math.Clamp(Line - 1, 0, Source.Length - 1)];
-                error.Column = column;
-                error.CallStack = CallStack;
-                if (_track.Any(type => type == error.GetType()))
-                {
-                    _stack.Push(error);
-                    return;
-                }
-
-
                 error.PrintException();
                 throw new ApplicationException();
                 Environment.Exit(-1);

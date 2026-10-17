@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using BoomifyCS.Exceptions;
-using BoomifyCS.Lexer;
+using BifyLang.Exceptions;
+using BifyLang.Lexer;
 
-namespace BoomifyCS.Ast
+namespace BifyLang.Ast
 {
     internal class TokensFormatter
     {
@@ -11,22 +11,23 @@ namespace BoomifyCS.Ast
         {
             List<List<Token>> lines = new();
             List<Token> currentLine = new();
-            int curlyCount = 0;
-            bool isInsideConditionChain = false;
 
             for (int tokenIndex = 0; tokenIndex < tokens.Count; tokenIndex++)
             {
                 Token token = tokens[tokenIndex];
+
                 if (token.Type == TokenType.LCUR)
                 {
-                    List<Token> tokensInCur = GetTokensBetween(tokens,ref tokenIndex,TokenType.LCUR,TokenType.RCUR);
-                    Token nextToken = GetTokenOrNull(tokens, tokenIndex + 1);
-                    currentLine.Add(new Token(TokenType.LCUR,"{"));
+                    List<Token> tokensInCur = GetTokensBetween(tokens, ref tokenIndex, TokenType.LCUR, TokenType.RCUR);
+                    
+                    currentLine.Add(token);
                     currentLine.AddRange(tokensInCur);
-                    currentLine.Add(new Token(TokenType.RCUR, "}"));
+                    currentLine.Add(GetTokenOrNull(tokens, tokenIndex) ?? new Token(TokenType.RCUR, "}"));
+
+                    Token? nextToken = GetTokenOrNull(tokens, tokenIndex + 1);
                     if (nextToken != null && nextToken.Type != TokenType.ELSE)
                     {
-                        lines.Add(new List<Token>(currentLine));
+                        lines.Add(currentLine);
                         currentLine = new();
                     }
                 }
@@ -34,22 +35,19 @@ namespace BoomifyCS.Ast
                 {
                     if (currentLine.Count > 0)
                     {
-                        lines.Add(new List<Token>(currentLine));
+                        lines.Add(currentLine);
                         currentLine = new();
                     }
                 }
-              
                 else
                 {
                     currentLine.Add(token);
                 }
-                
-
             }
 
             if (currentLine.Count > 0)
             {
-                lines.Add(new List<Token>(currentLine));
+                lines.Add(currentLine);
             }
 
             return lines;
@@ -57,24 +55,24 @@ namespace BoomifyCS.Ast
 
         private static bool IsConditionChainToken(Token? token)
         {
-            return token != null &&
-                  (token.Type == TokenType.IF ||
-                   token.Type == TokenType.ELSE);
+            return token?.Type is TokenType.IF or TokenType.ELSE;
         }
 
         private static bool IsNewCondition(Token token, Token? prevToken)
         {
-            return (token.Type == TokenType.IF && (prevToken == null || prevToken.Type != TokenType.ELSE)) ||
-                   (token.Type == TokenType.ELSE && prevToken == null);
+            return token.Type switch
+            {
+                TokenType.IF => prevToken?.Type != TokenType.ELSE,
+                TokenType.ELSE => prevToken == null,
+                _ => false
+            };
         }
 
-        public static Token GetTokenOrNull(List<Token> tokens, int index) {
-            if (index + 1  > tokens.Count || index < 0)
-            {
-                return null;
-            }
-            return tokens[index];
+        public static Token GetTokenOrNull(List<Token> tokens, int index)
+        {
+            return (uint)index < (uint)tokens.Count ? tokens[index] : null!;
         }
+
         public static List<List<Token>> SplitTokensByType(List<Token> tokens, TokenType type)
         {
             List<List<Token>> tokenGroups = new();
@@ -87,7 +85,7 @@ namespace BoomifyCS.Ast
                     if (currentGroup.Count > 0)
                     {
                         tokenGroups.Add(currentGroup);
-                        currentGroup = new(); 
+                        currentGroup = new();
                     }
                 }
                 else
@@ -115,6 +113,10 @@ namespace BoomifyCS.Ast
 
                 if (token.Type == open)
                 {
+                    if (count > 0)
+                    {
+                        newTokens.Add(token);
+                    }
                     count++;
                 }
                 else if (token.Type == close)
@@ -124,9 +126,9 @@ namespace BoomifyCS.Ast
                     {
                         break;
                     }
+                    newTokens.Add(token);
                 }
-
-                if (count != 0)
+                else if (count > 0)
                 {
                     newTokens.Add(token);
                 }
@@ -141,28 +143,24 @@ namespace BoomifyCS.Ast
                     ErrorMessage.UnmatchedToken(open.ToString(), close.ToString()),
                     "",
                     GetKeyByValue(TokenConfig.SingleCharTokens, open).ToString()
- 
-
                 );
 
-                Traceback.Instance.ThrowException(error,lastOpenToken.Column - 1);
+                Traceback.Instance.ThrowException(error, lastOpenToken.Column - 1);
             }
-            return newTokens[1..];
+
+            return newTokens;
         }
+
         private static char GetKeyByValue(Dictionary<char, TokenType> dictionary, TokenType value)
         {
-            var keyValuePair = dictionary.FirstOrDefault(kv => kv.Value == value);
-
-            if (!EqualityComparer<KeyValuePair<char, TokenType>>.Default.Equals(keyValuePair, default))
+            foreach (var kvp in dictionary)
             {
-                return keyValuePair.Key;
+                if (kvp.Value == value)
+                {
+                    return kvp.Key;
+                }
             }
             return ' ';
         }
-
-
-
-
     }
-
 }

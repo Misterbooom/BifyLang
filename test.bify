@@ -1,7 +1,20 @@
-﻿
-float f(){
-    return 1;
+class Base{
+    public void bark(){
+        printf("Bark!\n");
+    }
 }
-void main(){
-    int[3] arr = [1,2,3];
+class Dummy:Base{
+    public int x = 42;
+    constructor(){
+        this.x = 1212;
+    }
+    public int getX() {
+        return this.x;
+    }
+}
+int main(){
+    Dummy d = new Dummy();
+    
+    d.bark();
+    return d.getX();
 }
