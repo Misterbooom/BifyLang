@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Expressions;
@@ -34,6 +35,8 @@ public class StatementDispatcher(CodeGenContext ctx)
             node = line.Child;
         }
 
+        Traceback.Instance.Line = node.LineNumber;
+
         switch (node)
         {
             case AstVarDecl varDecl:
@@ -59,7 +62,9 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new ControlFlowGen(_ctx).EmitForLoop(astFor);
                 break;
             case AstCall astCall:
-                new CallGen(_ctx).EmitCall(astCall);
+                var callRes = new CallGen(_ctx).EmitCall(astCall);
+                if (callRes.Type is ClassType && callRes.IsOwned)
+                    _ctx.HeapControl.BuildReleaseStrong(callRes.Value);
                 break;
             case AstBreak astBreak:
                 new ControlFlowGen(_ctx).EmitBreak(astBreak);

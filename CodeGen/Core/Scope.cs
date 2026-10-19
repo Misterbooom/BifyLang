@@ -12,13 +12,15 @@ namespace BifyLang.CodeGen.Core
         public LLVMValueRef Pointer { get; } 
         public BifyType Type { get; }         
         public bool IsConstant { get; }      
+        public bool IsWeak { get; }
 
-        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false)
+        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
         {
             Name = name;
             Pointer = pointer;
             Type = type;
             IsConstant = isConstant;
+            IsWeak =  isWeak;
         }
     }
 
@@ -33,14 +35,14 @@ namespace BifyLang.CodeGen.Core
             Parent = parent;
         }
 
-        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false)
+        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
         {
             if (_symbols.ContainsKey(name))
             {
                 return false; 
             }
 
-            _symbols[name] = new Symbol(name, pointer, type, isConstant);
+            _symbols[name] = new Symbol(name, pointer, type, isConstant, isWeak);
             return true;
         }
 
@@ -61,5 +63,23 @@ namespace BifyLang.CodeGen.Core
         }
 
         public bool IsDeclaredLocally(string name) => _symbols.ContainsKey(name);
+
+        public void ReleaseLocals(CodeGenContext ctx)
+        {
+            if (ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
+                return;
+
+            foreach (var sym in _symbols.Values)
+            {
+                if (sym.Name != "this" && sym.Type is ClassType)
+                {
+                    var val = ctx.Builder.BuildLoad2(sym.Type.Type, sym.Pointer, "cleanup_" + sym.Name);
+                    if (sym.IsWeak)
+                        ctx.HeapControl.BuildReleaseWeak(val);
+                    else
+                        ctx.HeapControl.BuildReleaseStrong(val);
+                }
+            }
+        }
     }
 }

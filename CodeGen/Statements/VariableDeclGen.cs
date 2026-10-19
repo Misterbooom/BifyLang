@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Expressions;
@@ -57,13 +58,59 @@ public class VariableDeclGen(CodeGenContext ctx)
             _ctx.Builder.PositionAtEnd(cachedBlock);
         }
 
-        if (initialValue != null)
+        if (!FlagChecker.CheckVariableFlags(
+                varDecl.Flag.Flags.Select(i => i.Token.Value),
+                out var error)
+           )
         {
-            _ctx.Builder.BuildStore(initialValue.Value.Value, alloca);
+            new BifySyntaxError(error).Throw();
+            return;
         }
 
+        if (varDecl.AssignmentNode.Right is AstNew && varDecl.Flag.HasFlag("weak"))
+        {
+            new BifyTypeError("Can't use weak flag with new statement").Throw();
+            return;
+        }
+
+        bool isWeak = varDecl.Flag != null && varDecl.Flag.HasFlag("weak");
         bool isConst = varDecl.Flag != null && varDecl.Flag.HasFlag("const");
-        _ctx.CurrentScope.Define(varName, alloca, varType, isConst);
+
+        if (initialValue != null)
+        {
+            var init = initialValue.Value;
+            if (varType is ClassType)
+            {
+                if (!isWeak && !init.IsWeak)
+                {
+                    if (!init.IsOwned)
+                        _ctx.HeapControl.BuildRetainStrong(init.Value);
+                }
+                else if (isWeak && !init.IsWeak)
+                {
+                    _ctx.HeapControl.BuildRetainWeak(init.Value);
+                    if (init.IsOwned)
+                        _ctx.HeapControl.BuildReleaseStrong(init.Value);
+                }
+                else if (isWeak && init.IsWeak)
+                {
+                    _ctx.HeapControl.BuildRetainWeak(init.Value);
+                }
+                else
+                {
+                    var upgraded = _ctx.HeapControl.BuildUpgradeWeak(init.Value);
+                    init = new TypedValue(upgraded, init.Type, false, true);
+                }
+            }
+
+            _ctx.Builder.BuildStore(init.Value, alloca);
+        }
+        else if (varType is ClassType)
+        {
+            _ctx.Builder.BuildStore(LLVMValueRef.CreateConstNull(varType.Type), alloca);
+        }
+
+        _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
     }
 
     private void PositionBeforeTerminator(LLVMBasicBlockRef block)

@@ -148,7 +148,7 @@ namespace BifyLang.CodeGen
 
         private void LinkLibraries(string objectFilePath, string outputFilePath)
         {
-            string stdcPath = "/home/artur/RiderProjects/BifyLang/CodeGen/stdc.c";
+            string stdcPath = "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
             
             var processInfo = new System.Diagnostics.ProcessStartInfo
             {

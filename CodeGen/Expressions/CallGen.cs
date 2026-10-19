@@ -81,7 +81,8 @@ public class CallGen(CodeGenContext ctx)
 
         var args = ResolveArgs(_ctx, astCall.ArgumentsNode, funcType, thisArg);
         var callReturn = _ctx.Builder.BuildCall2(funcType, callee, [.. args]);
-        return new TypedValue(callReturn, new BifyType(retName, funcType.ReturnType));
+        var resType = _ctx.TypeRegistry.GetBifyType(retName);
+        return new TypedValue(callReturn, resType, false, resType is ClassType);
     }
 
     private unsafe (LLVMValueRef Callee, LLVMTypeRef FuncType, string RetName) ResolveCallable(AstNode node)

@@ -36,6 +36,6 @@
     <None Include="bin\Debug\net8.0\libLLVM.dll" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CodeGen\stdc.c" />
+    <ClCompile Include="CodeGen\runtime.c" />
   </ItemGroup>
 </Project>

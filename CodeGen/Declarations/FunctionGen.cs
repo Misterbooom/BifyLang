@@ -146,10 +146,13 @@ public class FunctionGen(CodeGenContext ctx)
                 parameter.Name
             );
 
-            _ctx.Builder.BuildStore(
-                functionValue.GetParam(i),
-                alloca
-            );
+            var paramVal = functionValue.GetParam(i);
+            _ctx.Builder.BuildStore(paramVal, alloca);
+
+            if (parameter.Type is ClassType)
+            {
+                _ctx.HeapControl.BuildRetainStrong(paramVal);
+            }
 
             _ctx.CurrentScope.Define(
                 parameter.Name,

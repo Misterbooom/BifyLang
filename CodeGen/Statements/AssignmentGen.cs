@@ -15,7 +15,7 @@ public class AssignmentGen(CodeGenContext ctx)
 
     public void EmitAssign(AstAssignmentOperator assignmentOp)
     {
-        var (pointer, type, name, isConstant) = ResolveTarget(assignmentOp.IdentifierNode);
+        var (pointer, type, name, isConstant, isWeak) = ResolveTarget(assignmentOp.IdentifierNode);
         if (isConstant)
         {
             new BifyTypeError("Assigning to constant variable!").Throw();
@@ -38,6 +38,38 @@ public class AssignmentGen(CodeGenContext ctx)
             var currentVal = new TypedValue(_ctx.Builder.BuildLoad2(type.Type, pointer, name), type);
             value = BinaryOpGen.EmitBinary(_ctx, binOp.Value, currentVal, value);
         }
+        else if (value.Type is ClassType rhs && type is ClassType lhs)
+        {
+            var b = value;
+            var oldVal = _ctx.Builder.BuildLoad2(type.Type, pointer, "old_" + name);
+            bool aWeak = isWeak;
+            bool bWeak = value.IsWeak;
+
+            if (!aWeak && !bWeak)
+            {
+                if (!b.IsOwned)
+                    _ctx.HeapControl.BuildRetainStrong(b.Value);
+                _ctx.HeapControl.BuildReleaseStrong(oldVal);
+            }
+            else if (aWeak && !bWeak)
+            {
+                _ctx.HeapControl.BuildRetainWeak(b.Value);
+                if (b.IsOwned)
+                    _ctx.HeapControl.BuildReleaseStrong(b.Value);
+                _ctx.HeapControl.BuildReleaseWeak(oldVal);
+            }
+            else if (aWeak && bWeak)
+            {
+                _ctx.HeapControl.BuildRetainWeak(b.Value);
+                _ctx.HeapControl.BuildReleaseWeak(oldVal);
+            }
+            else
+            {
+                var upgraded = _ctx.HeapControl.BuildUpgradeWeak(b.Value);
+                _ctx.HeapControl.BuildReleaseStrong(oldVal);
+                value = new TypedValue(upgraded, b.Type, false, true);
+            }
+        }
 
         TypedValue casted = (binOp.HasValue && type.Name == "char" && value.Type.Name == "int")
             ? TypeCaster.ExplicitCast(_ctx, value, type)
@@ -46,12 +78,12 @@ public class AssignmentGen(CodeGenContext ctx)
         _ctx.Builder.BuildStore(casted.Value, pointer);
     }
 
-    private (LLVMValueRef Pointer, BifyType Type, string Name, bool IsConstant) ResolveTarget(AstNode node)
+    private (LLVMValueRef Pointer, BifyType Type, string Name, bool IsConstant, bool isWeak) ResolveTarget(AstNode node)
     {
         if (node is AstIdentifier id)
         {
             if (_ctx.CurrentScope.TryLookup(id.Name, out var symbol))
-                return (symbol.Pointer, symbol.Type, symbol.Name, symbol.IsConstant);
+                return (symbol.Pointer, symbol.Type, symbol.Name, symbol.IsConstant, symbol.IsWeak);
 
             if (_ctx.CurrentScope.TryLookup("this", out var thisSym) &&
                 thisSym.Type is ClassType ct &&
@@ -61,18 +93,18 @@ public class AssignmentGen(CodeGenContext ctx)
                 MemberAccessGen.CheckAccess(_ctx, ct, f);
                 var thisVal = _ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
                 var ptr = _ctx.Builder.BuildStructGEP2(ct.StructType, thisVal, (uint)f.Index, f.Name);
-                return (ptr, f.Type, f.Name, false);
+                return (ptr, f.Type, f.Name, false, f.IsWeak);
             }
 
-            return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<(LLVMValueRef, BifyType, string, bool)>();
+            return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
         }
 
         if (node is AstMemberAccess memberAccess)
         {
             var (ptr, field, _) = MemberAccessGen.ResolveMember(_ctx, memberAccess);
-            return (ptr, field.Type, field.Name, false);
+            return (ptr, field.Type, field.Name, false, field.IsWeak);
         }
 
-        return new BifyTypeError($"Cannot assign to {node.Token.Value}").Throw<(LLVMValueRef, BifyType, string, bool)>();
+        return new BifyTypeError($"Cannot assign to {node.Token.Value}").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
     }
 }

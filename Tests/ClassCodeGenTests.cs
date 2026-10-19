@@ -33,6 +33,10 @@ internal static class ClassCodeGenTests
         { "Class_Inheritance_ProtectedInaccessibleFromOutside", TestProtectedInaccessibleFromOutside },
         { "Class_Inheritance_InvalidBaseThrows", TestInvalidBaseThrows },
         { "Class_Inheritance_AddDerivedMethod", TestAddDerivedMethod },
+        { "Class_ARC_VariableCopyAndReassign", TestArcVariableCopyAndReassign },
+        { "Class_ARC_ScopeExitCleanup", TestArcScopeExitCleanup },
+        { "Class_ARC_FunctionReturn", TestArcFunctionReturn },
+        { "Class_ARC_WeakReference", TestArcWeakReference },
     };
 
     private static (LLVMModuleRef Module, CodeGenContext Context) CompileCode(string code)
@@ -429,6 +433,72 @@ internal static class ClassCodeGenTests
             Derived d = new Derived();
             int a = d.f();
             int b = d.g();
+        }
+        """;
+        return Verify(code);
+    }
+
+    private static bool TestArcVariableCopyAndReassign()
+    {
+        string code = """
+        class Node {
+            public int value = 42;
+        }
+        void test() {
+            Node a = new Node();
+            Node b = a;
+            Node c;
+            c = b;
+        }
+        """;
+        return Verify(code);
+    }
+
+    private static bool TestArcScopeExitCleanup()
+    {
+        string code = """
+        class Node {
+            public int value = 1;
+        }
+        void test() {
+            if (true) {
+                Node local = new Node();
+                int v = local.value;
+            }
+        }
+        """;
+        return Verify(code);
+    }
+
+    private static bool TestArcFunctionReturn()
+    {
+        string code = """
+        class Node {
+            public int value = 10;
+        }
+        Node createNode() {
+            Node n = new Node();
+            return n;
+        }
+        void test() {
+            Node res = createNode();
+            int v = res.value;
+        }
+        """;
+        return Verify(code);
+    }
+
+    private static bool TestArcWeakReference()
+    {
+        string code = """
+        class Node {
+            public int val = 5;
+        }
+        void test() {
+            Node strongRef = new Node();
+            weak Node weakRef = strongRef;
+            Node recovered = weakRef;
+            int v = recovered.val;
         }
         """;
         return Verify(code);

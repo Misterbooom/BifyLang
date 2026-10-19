@@ -29,7 +29,7 @@ public static class MemberAccessGen
 
         var fieldPtr = ctx.Builder.BuildStructGEP2(classType.StructType, target.Value, (uint)field.Index, field.Name);
         var loaded = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
-        return new TypedValue(loaded, field.Type);
+        return new TypedValue(loaded, field.Type, field.IsWeak);
     }
 
     public static (LLVMValueRef Pointer, ClassField Field, ClassType Class) ResolveMember(CodeGenContext ctx, AstMemberAccess memberAccess)

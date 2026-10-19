@@ -26,6 +26,13 @@ public class NewGen(CodeGenContext ctx)
         var vptrSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, instancePtr, 0, "vptr_slot");
         _ctx.Builder.BuildStore(classType.VTableGlobal, vptrSlot);
 
+        var strongCountSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, instancePtr, 1,"strong_count");
+        var weakCountSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, instancePtr, 2,"weak_count");
+        
+        _ctx.Builder.BuildStore(LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, 1), strongCountSlot);
+        _ctx.Builder.BuildStore(LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, 1), weakCountSlot);
+        
+
         foreach (var field in classType.Fields.Values.Where(f => !f.IsMethod).OrderBy(f => f.Index))
         {
             var fieldPtr = _ctx.Builder.BuildStructGEP2(classType.StructType, instancePtr, (uint)field.Index, field.Name);
@@ -52,6 +59,6 @@ public class NewGen(CodeGenContext ctx)
             new BifyTypeError($"Class '{classType.Name}' has no constructor matching arguments").Throw();
         }
 
-        return new TypedValue(instancePtr, classType);
+        return new TypedValue(instancePtr, classType, false, true);
     }
 }

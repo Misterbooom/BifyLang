@@ -4,7 +4,7 @@ class Base{
     }
 }
 class Dummy:Base{
-    public int x = 42;
+    public int x;
     constructor(){
         this.x = 1212;
     }
@@ -12,9 +12,8 @@ class Dummy:Base{
         return this.x;
     }
 }
-int main(){
-    Dummy d = new Dummy();
-    
-    d.bark();
-    return d.getX();
-}
+void main(){
+    Dummy a;
+    a = new Dummy();
+    printf("x: %d", a.getX());
+} я pidor ja idu do koncaaaaaaaaaa

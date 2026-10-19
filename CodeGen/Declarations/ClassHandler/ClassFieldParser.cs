@@ -19,7 +19,16 @@ public enum AccessLevel
     PROTECTED,
 }
 
-public struct ClassField(string name, BifyType type, AstNode? value, AccessLevel accessLevel, int index = -1, int vtableIndex = -1, string declaringClass = "")
+public struct ClassField(
+    string name,
+    BifyType type,
+    AstNode? value,
+    AccessLevel accessLevel,
+    int index = -1,
+    int vtableIndex = -1,
+    string declaringClass = "",
+    bool isConst = false,
+    bool isWeak = false)
 {
     public readonly BifyType Type = type;
     public LLVMValueRef Value = default;
@@ -30,11 +39,14 @@ public struct ClassField(string name, BifyType type, AstNode? value, AccessLevel
     public readonly string DeclaringClass = declaringClass;
     public AstNode? ValueNode = value;
     public bool IsMethod => Index < 0;
+    public bool IsConst = isConst;
+    public bool IsWeak = isWeak;
 }
 
 public class ClassFieldParser
 {
-    public static Dictionary<string, ClassField> ParseAttributes(AstClass astClass, CodeGenContext ctx, int startIndex, string className)
+    public static Dictionary<string, ClassField> ParseAttributes(AstClass astClass, CodeGenContext ctx, int startIndex,
+        string className)
     {
         Dictionary<string, ClassField> fields = [];
         AstBlock block = (AstBlock)astClass.BodyNode;
@@ -48,6 +60,7 @@ public class ClassFieldParser
                 {
                     new BifyNameError($"Duplicate member '{field.Name}' in class").Throw();
                 }
+
                 fields.Add(field.Name, field);
             }
         }
@@ -55,12 +68,14 @@ public class ClassFieldParser
         return fields;
     }
 
-    public static Dictionary<string, ClassField> ParseMethods(AstClass astClass, ClassType classType, CodeGenContext ctx)
+    public static Dictionary<string, ClassField> ParseMethods(AstClass astClass, ClassType classType,
+        CodeGenContext ctx)
     {
         Dictionary<string, ClassField> fields = [];
         AstBlock block = (AstBlock)astClass.BodyNode;
         var methodDecls = block.ChildNodes.OfType<AstFunctionDecl>().ToList();
-        var methodInfos = new List<(AstFunctionDecl Decl, LLVMValueRef FuncVal, List<ParameterInfo> Params, BifyType RetType)>();
+        var methodInfos =
+            new List<(AstFunctionDecl Decl, LLVMValueRef FuncVal, List<ParameterInfo> Params, BifyType RetType)>();
 
         foreach (var method in methodDecls)
         {
@@ -99,6 +114,7 @@ public class ClassFieldParser
                     classType.VTableMethodNames.Add(functionName);
                 }
             }
+
 
             var field = new ClassField(
                 functionName,
@@ -161,7 +177,13 @@ public class ClassFieldParser
         var value = varDecl.AssignmentNode.Right;
         var accessLevel = ParseAccessLevel(varDecl.Flag);
         var type = TypeResolver.Resolve(varDecl.Type, ctx);
-        return new ClassField(name, type, value, accessLevel, index, -1, className);
+        if (!FlagChecker.CheckAttributeFlags(varDecl.Flag.Flags.Select(i => i.Token.Value), out var error))
+        {
+            return new BifyTypeError(error).Throw<ClassField>();
+        }
+
+        return new ClassField(name, type, value, accessLevel, index, -1, className, varDecl.Flag.HasFlag("const"),
+            varDecl.Flag.HasFlag("weak"));
     }
 
     private static AccessLevel ParseAccessLevel(AstFlag astFlag, bool isConstructor = false)
@@ -181,7 +203,8 @@ public class ClassFieldParser
                     accessLevel = AccessLevel.PROTECTED;
                     break;
                 default:
-                    return new BifyArgumentError($"Invalid flag '{flag.Token.Value}' for class field.").Throw<AccessLevel>();
+                    return new BifyArgumentError($"Invalid flag '{flag.Token.Value}' for class field.")
+                        .Throw<AccessLevel>();
             }
         }
 
@@ -219,13 +242,19 @@ public class ClassFieldParser
         throw new ArgumentException("Expected an AstParam node");
     }
 
-    private static void AddFunctionParametersToScope(LLVMValueRef functionValue, List<ParameterInfo> parameters, CodeGenContext ctx)
+    private static void AddFunctionParametersToScope(LLVMValueRef functionValue, List<ParameterInfo> parameters,
+        CodeGenContext ctx)
     {
         for (uint i = 0; i < parameters.Count; i++)
         {
             var parameter = parameters[(int)i];
             var alloca = ctx.Builder.BuildAlloca(parameter.Type.Type, parameter.Name);
-            ctx.Builder.BuildStore(functionValue.GetParam(i), alloca);
+            var paramVal = functionValue.GetParam(i);
+            ctx.Builder.BuildStore(paramVal, alloca);
+            if (parameter.Name != "this" && parameter.Type is ClassType)
+            {
+                ctx.HeapControl.BuildRetainStrong(paramVal);
+            }
             ctx.CurrentScope.Define(parameter.Name, alloca, parameter.Type, parameter.IsConst);
         }
     }

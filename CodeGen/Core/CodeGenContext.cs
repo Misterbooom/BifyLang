@@ -18,6 +18,7 @@ public class CodeGenContext : IDisposable
     public TypeRegistry TypeRegistry { get; private set; }
     public LoopContext  LoopContext = new LoopContext(null, null, null);
     public BifyType FunctionReturnType;
+    public HeapControl HeapControl;
 
     public CodeGenContext()
     {
@@ -25,6 +26,8 @@ public class CodeGenContext : IDisposable
         Module = Context.CreateModuleWithName("main");
         Builder = Context.CreateBuilder();
         TypeRegistry = new TypeRegistry(this);
+        HeapControl = new HeapControl(this);
+        HeapControl.DefineRuntimeFunctions();
         BuiltinFunctions.DeclarePrintf(this);
     }
 
@@ -32,6 +35,7 @@ public class CodeGenContext : IDisposable
     {
         public void Dispose()
         {
+            ctx.CurrentScope.ReleaseLocals(ctx);
             ctx.CurrentScope = ctx.CurrentScope.Parent
                                ?? throw new InvalidOperationException("Cannot exit root scope");
         }
@@ -64,8 +68,8 @@ public class CodeGenContext : IDisposable
 
     public void Dispose()
     {
-        Module.Dispose();
         Builder.Dispose();
+        Module.Dispose();
         Context.Dispose();
     }
 }

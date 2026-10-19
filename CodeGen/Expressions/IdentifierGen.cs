@@ -30,7 +30,7 @@ public class IdentifierGen
                 var thisVal = ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
                 var fieldPtr = ctx.Builder.BuildStructGEP2(ct.StructType, thisVal, (uint)field.Index, field.Name);
                 var val = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
-                return new TypedValue(val, field.Type);
+                return new TypedValue(val, field.Type, field.IsWeak);
             }
 
             new BifyNameError($"Variable '{name}' is not defined").Throw();
@@ -41,6 +41,6 @@ public class IdentifierGen
         }
 
         var loadedValue = ctx.Builder.BuildLoad2(symbol.Type.Type, symbol.Pointer, name);
-        return new TypedValue(loadedValue, symbol.Type);
+        return new TypedValue(loadedValue, symbol.Type, symbol.IsWeak);
     }
 }

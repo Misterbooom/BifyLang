@@ -28,7 +28,9 @@ public class ClassGen(CodeGenContext ctx)
         }
 
         var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
-        List<LLVMTypeRef> elementTypes = [ptrType];
+        var strongCount = BifyType.CreateInt(_ctx).Type;
+        var weakCount = BifyType.CreateInt(_ctx).Type;
+        List<LLVMTypeRef> elementTypes = [ptrType, strongCount, weakCount];
 
         var classType = new ClassType(name, ptrType, default, parentType);
 
