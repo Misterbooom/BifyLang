@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using BifyLang.Ast;
@@ -16,6 +17,10 @@ public class StatementDispatcher(CodeGenContext ctx)
     {
         foreach (var node in blockNode.ChildNodes)
         {
+            if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
+            {
+                break;
+            }
             EmitStatement(node);
         }
     }
@@ -24,7 +29,12 @@ public class StatementDispatcher(CodeGenContext ctx)
     {
         foreach (var node in nodeList)
         {
+            if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
+            {
+                break;
+            }
             EmitStatement(node);
+            
         }
     }
 

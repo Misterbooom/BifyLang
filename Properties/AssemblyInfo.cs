@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -10,3 +10,4 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("bdd192c3-0465-476f-bb92-5cb4755e9ae1")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("BifyLang.Tests")]

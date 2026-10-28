@@ -39,6 +39,16 @@ namespace BifyLang.Exceptions
         public void TrackPop() => _track.Pop();
         public void SetCurrentLine(int currentLine) => Line = currentLine;
 
+        public void Reset()
+        {
+            Line = 0;
+            FilePath = "main";
+            Source = null;
+            CallStack = null;
+            _stack.Clear();
+            _track.Clear();
+        }
+
         public void ThrowException(BifyError error, int column = 0)
         {
             if (Source != null && Source.Length > 0)

@@ -35,27 +35,18 @@ namespace BifyLang
                 Argument<FileInfo?> inputArgument = new Argument<FileInfo?>("input") { Arity = ArgumentArity.ZeroOrOne };
                 Option<FileInfo> outputOption = new Option<FileInfo>("output", aliases: ["--output", "--o"]);
                 Option<bool> execOption = new Option<bool>("--exec", "--exec");
-                Option<bool> testOption = new Option<bool>("--test", "--test");
                 var rootCommand = new RootCommand("BifyLang Compiler")
                 {
                     inputArgument,
                     outputOption,
-                    execOption,
-                    testOption
+                    execOption
                 };
                 rootCommand.SetAction(result =>
                 {
-                    bool isTest = result.GetValue(testOption);
-                    if (isTest)
-                    {
-                        BifyLang.Tests.Tests.RunTests();
-                        return;
-                    }
-
                     FileInfo input = result.GetValue(inputArgument);
                     if (input == null)
                     {
-                        Console.WriteLine("No input file specified. Use --test to run tests or provide a file path.");
+                        Console.WriteLine("No input file specified. Provide a file path to compile.");
                         return;
                     }
 

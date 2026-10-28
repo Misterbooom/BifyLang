@@ -1,19 +1,18 @@
-class Base{
-    public void bark(){
-        printf("Bark!\n");
-    }
-}
-class Dummy:Base{
-    public int x;
+class Dummy{
     constructor(){
-        this.x = 1212;
+        
     }
-    public int getX() {
-        return this.x;
+    public int getX(){
+        return 1;
     }
 }
-void main(){
-    Dummy a;
-    a = new Dummy();
-    printf("x: %d", a.getX());
-} я pidor ja idu do koncaaaaaaaaaa
+void main() {
+    Dummy d = new Dummy();
+    if (d != null && d.getX() == 1){
+        printf("Success");
+    }
+    else{
+        printf("Failde but still");
+    }
+    
+}

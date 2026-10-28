@@ -2,6 +2,7 @@
 using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Emitters;
 using BifyLang.CodeGen.Expressions;
 using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
@@ -13,224 +14,194 @@ namespace BifyLang.CodeGen.Statements;
 public class ControlFlowGen(CodeGenContext ctx)
 {
     private readonly CodeGenContext _ctx = ctx;
+    private LLVMBuilderRef Builder => _ctx.Builder;
+    private LLVMValueRef CurrentFunction => _ctx.FunctionEntry.Parent;
+
+    private void EmitBlock(AstNode blockNode) =>
+        new StatementDispatcher(_ctx).EmitBlock((AstBlock)blockNode);
+
+    private void EmitStatement(AstNode stmtNode) =>
+        new StatementDispatcher(_ctx).EmitStatement(stmtNode);
+
+    private TypedValue EmitExpr(AstNode exprNode) =>
+        new ExpressionDispatcher(_ctx).EmitExpression(exprNode);
+
+    private void EmitCondBr(AstNode condition, LLVMBasicBlockRef trueBlock, LLVMBasicBlockRef falseBlock)
+    {
+        var condBool = BranchEmitter.EmitBoolCondition(_ctx, condition);
+        Builder.BuildCondBr(condBool, trueBlock, falseBlock);
+    }
 
     public void EmitIfStatement(AstIf astIf)
     {
-        var func = _ctx.FunctionEntry.Parent;
-        var mergeBlock = func.AppendBasicBlock("if.merge");
+        using var branchEmitter = new BranchEmitter(_ctx, astIf.ElseIfNodes.Count, astIf.ElseNode is not null);
 
-        void EmitBranchBody(AstNode body)
+        using (branchEmitter.EnterCondBranch(astIf.ConditionNode))
         {
-            using (_ctx.EnterScope())
-                new StatementDispatcher(_ctx).EmitBlock((AstBlock)body);
-            if (!IsBlockTerminated(_ctx.Builder.InsertBlock))
-                _ctx.Builder.BuildBr(mergeBlock);
+            EmitBlock(astIf.BlockNode);
         }
 
-        void EmitChain(AstNode cond, AstNode body, int elseIfIdx)
+        foreach (var block in branchEmitter.EmitChain(astIf.ElseIfNodes))
         {
-            var thenBlock = func.AppendBasicBlock("if.then");
-            var hasElseIf = elseIfIdx < astIf.ElseIfNodes.Count;
-            var hasElse = astIf.ElseNode != null;
-            var nextBlock = hasElseIf ? func.AppendBasicBlock($"if.cond.{elseIfIdx}") :
-                            hasElse ? func.AppendBasicBlock("if.else") : mergeBlock;
-
-            EmitBranch(cond, thenBlock, nextBlock);
-            _ctx.Builder.PositionAtEnd(thenBlock);
-            EmitBranchBody(body);
-
-            if (hasElseIf)
-            {
-                _ctx.Builder.PositionAtEnd(nextBlock);
-                var elseIf = astIf.ElseIfNodes[elseIfIdx];
-                EmitChain(elseIf.ConditionNode, elseIf.BlockNode, elseIfIdx + 1);
-            }
-            else if (hasElse)
-            {
-                _ctx.Builder.PositionAtEnd(nextBlock);
-                EmitBranchBody(astIf.ElseNode!.BlockNode);
-            }
+            EmitBlock(block);
         }
 
-        EmitChain(astIf.ConditionNode, astIf.BlockNode, 0);
-
-        if (HasPredecessor(mergeBlock))
-            _ctx.Builder.PositionAtEnd(mergeBlock);
-        else
-            mergeBlock.Delete();
+        if (astIf.ElseNode is not null)
+        {
+            using (branchEmitter.EnterBranch())
+            {
+                EmitBlock(astIf.ElseNode.BlockNode);
+            }
+        }
     }
 
     public void EmitWhileLoop(AstWhile astWhile)
     {
-        var func = _ctx.FunctionEntry.Parent;
-        var condBlock = func.AppendBasicBlock("while.cond");
-        var bodyBlock = func.AppendBasicBlock("while.body");
-        var endBlock = func.AppendBasicBlock("while.end");
+        var condBlock = CurrentFunction.AppendBasicBlock("while.cond");
+        var bodyBlock = CurrentFunction.AppendBasicBlock("while.body");
+        var endBlock = CurrentFunction.AppendBasicBlock("while.end");
 
-        _ctx.Builder.BuildBr(condBlock);
-        _ctx.Builder.PositionAtEnd(condBlock);
-        EmitBranch(astWhile.ConditionNode, bodyBlock, endBlock);
+        Builder.BuildBr(condBlock);
+        Builder.PositionAtEnd(condBlock);
+        EmitCondBr(astWhile.ConditionNode, bodyBlock, endBlock);
 
-        _ctx.Builder.PositionAtEnd(bodyBlock);
-        using (_ctx.EnterLoop(endBlock, condBlock))
-        using (_ctx.EnterScope())
-            new StatementDispatcher(_ctx).EmitBlock((AstBlock)astWhile.BlockNode);
-
-        if (!IsBlockTerminated(_ctx.Builder.InsertBlock))
-            _ctx.Builder.BuildBr(condBlock);
-
-        _ctx.Builder.PositionAtEnd(endBlock);
+        EmitLoopBody(bodyBlock, endBlock, condBlock, condBlock, astWhile.BlockNode);
+        Builder.PositionAtEnd(endBlock);
     }
 
     public void EmitForLoop(AstFor astFor)
     {
         using (_ctx.EnterScope())
         {
-            new StatementDispatcher(_ctx).EmitStatement(astFor.InitNode);
-            var func = _ctx.FunctionEntry.Parent;
-            var condBlock = func.AppendBasicBlock("for.cond");
-            var bodyBlock = func.AppendBasicBlock("for.body");
-            var incrementBlock = func.AppendBasicBlock("for.increment");
-            var endBlock = func.AppendBasicBlock("for.end");
+            EmitStatement(astFor.InitNode);
 
-            _ctx.Builder.BuildBr(condBlock);
-            _ctx.Builder.PositionAtEnd(condBlock);
-            EmitBranch(astFor.ConditionNode, bodyBlock, endBlock);
+            var condBlock = CurrentFunction.AppendBasicBlock("for.cond");
+            var bodyBlock = CurrentFunction.AppendBasicBlock("for.body");
+            var incBlock = CurrentFunction.AppendBasicBlock("for.inc");
+            var endBlock = CurrentFunction.AppendBasicBlock("for.end");
 
-            _ctx.Builder.PositionAtEnd(bodyBlock);
-            using (_ctx.EnterLoop(endBlock, incrementBlock))
-            using (_ctx.EnterScope())
-            {
-                new StatementDispatcher(_ctx).EmitBlock((AstBlock)astFor.BlockNode);
-            }
-            if (!IsBlockTerminated(_ctx.Builder.InsertBlock))
-                _ctx.Builder.BuildBr(incrementBlock);
+            Builder.BuildBr(condBlock);
+            Builder.PositionAtEnd(condBlock);
+            EmitCondBr(astFor.ConditionNode, bodyBlock, endBlock);
 
-            _ctx.Builder.PositionAtEnd(incrementBlock);
-            new StatementDispatcher(_ctx).EmitStatement(astFor.IncrementNode);
-            _ctx.Builder.BuildBr(condBlock);
+            EmitLoopBody(bodyBlock, endBlock, incBlock, incBlock, astFor.BlockNode);
 
-            _ctx.Builder.PositionAtEnd(endBlock);
+            Builder.PositionAtEnd(incBlock);
+            EmitStatement(astFor.IncrementNode);
+            Builder.BuildBr(condBlock);
+
+            Builder.PositionAtEnd(endBlock);
         }
     }
 
     public void EmitSwitch(AstSwitch astSwitch)
     {
-        var function = _ctx.FunctionEntry.Parent;
-        var defaultBlock = function.AppendBasicBlock("switch.default");
-        var endBlock = function.AppendBasicBlock("switch.end");
+        var defaultBlock = CurrentFunction.AppendBasicBlock("switch.default");
+        var endBlock = CurrentFunction.AppendBasicBlock("switch.end");
+        var exprVal = EmitExpr(astSwitch.ExpressionNode);
 
-        void EmitCaseBody(AstNode blockNode)
+        if (exprVal.Type.Type.Kind == LLVMTypeKind.LLVMIntegerTypeKind)
         {
-            using (_ctx.EnterLoop(endBlock, _ctx.LoopContext.ContinueBlock))
-            using (_ctx.EnterScope())
-                new StatementDispatcher(_ctx).EmitBlock((AstBlock)blockNode);
-
-            if (!IsBlockTerminated(_ctx.Builder.InsertBlock))
-                _ctx.Builder.BuildBr(endBlock);
-        }
-
-        var expressionValue = new ExpressionDispatcher(_ctx).EmitExpression(astSwitch.ExpressionNode);
-
-        if (expressionValue.Type.Type.Kind == LLVMTypeKind.LLVMIntegerTypeKind)
-        {
-            var switchInst = _ctx.Builder.BuildSwitch(
-                expressionValue.Value,
-                defaultBlock,
-                Convert.ToUInt32(astSwitch.Cases.Count)
-            );
-
-            for (int i = 0; i < astSwitch.Cases.Count; i++)
-            {
-                var caseBlock = function.AppendBasicBlock($"case.{i}");
-                var caseValue = new ExpressionDispatcher(_ctx).EmitExpression(astSwitch.Cases[i].ValueNode);
-                var caseVal = caseValue.Value;
-                if (caseVal.TypeOf != expressionValue.Type.Type)
-                {
-                    if (caseVal.IsAConstantInt.Handle != IntPtr.Zero)
-                        caseVal = LLVMValueRef.CreateConstInt(expressionValue.Type.Type, (ulong)caseVal.ConstIntSExt, false);
-                    else
-                        new BifyTypeError("Case value must be a constant integer matching switch type").Throw();
-                }
-
-                switchInst.AddCase(caseVal, caseBlock);
-                _ctx.Builder.PositionAtEnd(caseBlock);
-                EmitCaseBody(astSwitch.Cases[i].BlockNode);
-            }
+            EmitIntegerSwitch(astSwitch, exprVal, defaultBlock, endBlock);
         }
         else
         {
-            for (int i = 0; i < astSwitch.Cases.Count; i++)
-            {
-                var caseBlock = function.AppendBasicBlock($"case.{i}");
-                var nextBlock = i + 1 < astSwitch.Cases.Count
-                    ? function.AppendBasicBlock($"switch.next.{i}")
-                    : defaultBlock;
-
-                var caseValue = new ExpressionDispatcher(_ctx).EmitExpression(astSwitch.Cases[i].ValueNode);
-                var cmp = BinaryOpGen.EmitBinary(_ctx, TokenType.EQEQ, expressionValue, caseValue);
-                var condBool = TypeCaster.ImplicitCast(_ctx, cmp, BifyType.CreateBool(_ctx));
-                _ctx.Builder.BuildCondBr(condBool.Value, caseBlock, nextBlock);
-
-                _ctx.Builder.PositionAtEnd(caseBlock);
-                EmitCaseBody(astSwitch.Cases[i].BlockNode);
-
-                _ctx.Builder.PositionAtEnd(nextBlock);
-            }
-
-            if (astSwitch.Cases.Count == 0)
-                _ctx.Builder.BuildBr(defaultBlock);
+            EmitFallbackSwitch(astSwitch, astSwitch.ExpressionNode, defaultBlock, endBlock);
         }
 
-        _ctx.Builder.PositionAtEnd(defaultBlock);
-        if (astSwitch.DefaultNode != null)
-            EmitCaseBody(astSwitch.DefaultNode.BlockNode);
-        else if (!IsBlockTerminated(_ctx.Builder.InsertBlock))
-            _ctx.Builder.BuildBr(endBlock);
-
-        if (HasPredecessor(endBlock))
-            _ctx.Builder.PositionAtEnd(endBlock);
+        Builder.PositionAtEnd(defaultBlock);
+        if (astSwitch.DefaultNode is not null)
+            EmitLoopBody(defaultBlock, endBlock, _ctx.LoopContext.ContinueBlock, endBlock, astSwitch.DefaultNode.BlockNode, reposition: false);
         else
-            endBlock.Delete();
+            Builder.BranchIfUnterminated(endBlock);
+
+        Builder.FinalizeMergeBlock(endBlock, defaultBlock);
     }
 
-    private static bool IsBlockTerminated(LLVMBasicBlockRef bb) => bb.Terminator.Handle != IntPtr.Zero;
+    public void EmitBreak(AstBreak _) =>
+        EmitJump(_ctx.LoopContext.BreakBlock, "Break statement must be inside a loop or switch.");
 
-    private static unsafe bool HasPredecessor(LLVMBasicBlockRef block) =>
-        LLVM.GetFirstUse(LLVM.BasicBlockAsValue(block)) != null;
+    public void EmitContinue(AstContinue _) =>
+        EmitJump(_ctx.LoopContext.ContinueBlock, "Continue statement must be inside a loop.");
 
-    public void EmitBreak(AstBreak astBreak)
+
+    private void EmitLoopBody(
+        LLVMBasicBlockRef bodyBlock,
+        LLVMBasicBlockRef breakTarget,
+        LLVMBasicBlockRef continueTarget,
+        LLVMBasicBlockRef fallthroughTarget,
+        AstNode blockNode,
+        bool reposition = true)
     {
-        if (_ctx.LoopContext.BreakBlock.Handle == IntPtr.Zero)
+        if (reposition)
+            Builder.PositionAtEnd(bodyBlock);
+
+        using (_ctx.EnterLoop(breakTarget, continueTarget))
+        using (_ctx.EnterScope())
         {
-            new BifySyntaxError("Break statement must be inside a loop or switch.").Throw();
+            EmitBlock(blockNode);
+        }
+
+        Builder.BranchIfUnterminated(fallthroughTarget);
+    }
+
+    private void EmitIntegerSwitch(AstSwitch astSwitch, TypedValue exprVal, LLVMBasicBlockRef defaultBlock, LLVMBasicBlockRef endBlock)
+    {
+        var switchInst = Builder.BuildSwitch(exprVal.Value, defaultBlock, (uint)astSwitch.Cases.Count);
+
+        for (int i = 0; i < astSwitch.Cases.Count; i++)
+        {
+            var caseBlock = CurrentFunction.AppendBasicBlock($"case.{i}");
+            var caseVal = CoerceSwitchConstant(EmitExpr(astSwitch.Cases[i].ValueNode).Value, exprVal.Type.Type);
+
+            switchInst.AddCase(caseVal, caseBlock);
+            EmitLoopBody(caseBlock, endBlock, _ctx.LoopContext.ContinueBlock, endBlock, astSwitch.Cases[i].BlockNode);
+        }
+    }
+
+    private void EmitFallbackSwitch(AstSwitch astSwitch, AstNode exprNode, LLVMBasicBlockRef defaultBlock, LLVMBasicBlockRef endBlock)
+    {
+        if (astSwitch.Cases.Count == 0)
+        {
+            Builder.BuildBr(defaultBlock);
             return;
         }
 
-        if (IsBlockTerminated(_ctx.Builder.InsertBlock)) return;
-        _ctx.Builder.BuildBr(_ctx.LoopContext.BreakBlock);
-        var deadBlock = _ctx.FunctionEntry.Parent.AppendBasicBlock("dead");
-        _ctx.Builder.PositionAtEnd(deadBlock);
+        for (int i = 0; i < astSwitch.Cases.Count; i++)
+        {
+            var caseBlock = CurrentFunction.AppendBasicBlock($"case.{i}");
+            var nextBlock = i + 1 < astSwitch.Cases.Count
+                ? CurrentFunction.AppendBasicBlock($"switch.next.{i}")
+                : defaultBlock;
+
+            var cmp = BinaryOpGen.EmitBinaryOp(_ctx, new ExpressionDispatcher(_ctx), new AstBinaryOp(new Token(TokenType.EQEQ, "=="), astSwitch.Cases[i].ValueNode, exprNode));
+            var condBool = TypeCaster.ImplicitCast(_ctx, cmp, BifyType.CreateBool(_ctx));
+
+            Builder.BuildCondBr(condBool.Value, caseBlock, nextBlock);
+            EmitLoopBody(caseBlock, endBlock, _ctx.LoopContext.ContinueBlock, endBlock, astSwitch.Cases[i].BlockNode);
+            Builder.PositionAtEnd(nextBlock);
+        }
     }
 
-    public void EmitContinue(AstContinue astContinue)
+    private static LLVMValueRef CoerceSwitchConstant(LLVMValueRef caseVal, LLVMTypeRef expectedType)
     {
-        if (_ctx.LoopContext.ContinueBlock.Handle == IntPtr.Zero)
+        if (caseVal.TypeOf == expectedType)
+            return caseVal;
+
+        if (caseVal.IsAConstantInt.Handle == IntPtr.Zero)
+            new BifyTypeError("Case value must be a constant integer matching switch type").Throw();
+
+        return LLVMValueRef.CreateConstInt(expectedType, (ulong)caseVal.ConstIntSExt, false);
+    }
+
+    private void EmitJump(LLVMBasicBlockRef targetBlock, string errorMessage)
+    {
+        if (targetBlock.Handle == IntPtr.Zero)
         {
-            new BifySyntaxError("Continue statement must be inside a loop.").Throw();
+            new BifySyntaxError(errorMessage).Throw();
             return;
         }
 
-        if (IsBlockTerminated(_ctx.Builder.InsertBlock)) return;
-        _ctx.Builder.BuildBr(_ctx.LoopContext.ContinueBlock);
-        var deadBlock = _ctx.FunctionEntry.Parent.AppendBasicBlock("dead");
-        _ctx.Builder.PositionAtEnd(deadBlock);
-    }
-
-    private void EmitBranch(AstNode condition, LLVMBasicBlockRef trueBlock, LLVMBasicBlockRef falseBlock)
-    {
-        var val = new ExpressionDispatcher(_ctx).EmitExpression(condition);
-        var boolVal = TypeCaster.ImplicitCast(_ctx, val, BifyType.CreateBool(_ctx));
-        _ctx.Builder.BuildCondBr(boolVal.Value, trueBlock, falseBlock);
+        Builder.BranchIfUnterminated(targetBlock);
     }
 }

@@ -1,8 +1,10 @@
-﻿*.exe
+*.exe
 *.dll
 *.todo
 *.log
 *.tmp
-/.vs/
-/bin/
-/obj/
+.vs/
+[Bb]in/
+[Oo]bj/
+*.so
+*.user

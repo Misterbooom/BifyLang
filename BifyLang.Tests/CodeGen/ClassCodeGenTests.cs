@@ -1,100 +1,15 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using BifyLang.Ast;
-using BifyLang.CodeGen;
-using BifyLang.CodeGen.Core;
 using BifyLang.Exceptions;
-using BifyLang.Lexer;
-using LLVMSharp.Interop;
+using BifyLang.Tests.Infrastructure;
+using NUnit.Framework;
 
-namespace BifyLang.Tests;
+namespace BifyLang.Tests.CodeGen;
 
-internal static class ClassCodeGenTests
+[TestFixture]
+public class ClassCodeGenTests : BifyTestBase
 {
-    public static Dictionary<string, Func<bool>> GetTests() => new()
-    {
-        { "Class_EmptyClassAndInstantiation", TestEmptyClassAndInstantiation },
-        { "Class_AttributeDefaultValuesAndRead", TestAttributeDefaultValuesAndRead },
-        { "Class_ConstructorInitializesAttributes", TestConstructorInitializesAttributes },
-        { "Class_MethodCallAndReturn", TestMethodCallAndReturn },
-        { "Class_MethodAccessAndMutateThis", TestMethodAccessAndMutateThis },
-        { "Class_AttributeAssignmentFromOutside", TestAttributeAssignmentFromOutside },
-        { "Class_PrivateAttributeThrowsOutside", TestPrivateAttributeThrowsOutside },
-        { "Class_PrivateMethodThrowsOutside", TestPrivateMethodThrowsOutside },
-        { "Class_MethodCallingAnotherMethod", TestMethodCallingAnotherMethod },
-        { "Class_ImplicitThisInMethod", TestImplicitThisInMethod },
-        { "Class_Inheritance_InheritAttributes", TestInheritAttributes },
-        { "Class_Inheritance_InheritMethods", TestInheritMethods },
-        { "Class_Inheritance_VirtualOverride", TestVirtualOverride },
-        { "Class_Inheritance_PolymorphicDispatch", TestPolymorphicDispatch },
-        { "Class_Inheritance_MultiLevel", TestMultiLevelInheritance },
-        { "Class_Inheritance_ProtectedAccessInSubclass", TestProtectedAccessInSubclass },
-        { "Class_Inheritance_ProtectedInaccessibleFromOutside", TestProtectedInaccessibleFromOutside },
-        { "Class_Inheritance_InvalidBaseThrows", TestInvalidBaseThrows },
-        { "Class_Inheritance_AddDerivedMethod", TestAddDerivedMethod },
-        { "Class_ARC_VariableCopyAndReassign", TestArcVariableCopyAndReassign },
-        { "Class_ARC_ScopeExitCleanup", TestArcScopeExitCleanup },
-        { "Class_ARC_FunctionReturn", TestArcFunctionReturn },
-        { "Class_ARC_WeakReference", TestArcWeakReference },
-    };
-
-    private static (LLVMModuleRef Module, CodeGenContext Context) CompileCode(string code)
-    {
-        MyLexer lexer = new(code);
-        List<Token> tokens = lexer.Tokenize();
-        string[] lines = code.Split('\n');
-        AstTree tree = new(lines);
-        AstModule moduleAst = tree.ParseTokens(tokens);
-
-        CodeGenContext ctx = new();
-        LLVMModuleRef module = ctx.GenerateModule(moduleAst);
-        return (module, ctx);
-    }
-
-    private static bool Verify(string code)
-    {
-        var (module, ctx) = CompileCode(code);
-        using (ctx)
-        {
-            if (!BifyCompiler.VerifyModule(module, out string? error))
-            {
-                Console.WriteLine($"VerifyModule error: {error}");
-                Console.WriteLine($"Module IR:\n{module}");
-                return false;
-            }
-
-            var func = module.GetNamedFunction("test");
-            return func.Handle != IntPtr.Zero;
-        }
-    }
-
-    private static bool VerifyThrows(string code, Type expectedErrorType)
-    {
-        Traceback.Instance.Clear();
-        Traceback.Instance.Catch(expectedErrorType);
-        try
-        {
-            var (_, ctx) = CompileCode(code);
-            ctx.Dispose();
-            var err = Traceback.Instance.GetError();
-            return err != null && err.GetType() == expectedErrorType;
-        }
-        catch (ApplicationException)
-        {
-            return true;
-        }
-        catch (Exception)
-        {
-            return true;
-        }
-        finally
-        {
-            Traceback.Instance.TrackPop();
-        }
-    }
-
-    private static bool TestEmptyClassAndInstantiation()
+    [Test]
+    public void Class_EmptyClassAndInstantiation()
     {
         string code = """
         class Dummy {
@@ -103,10 +18,11 @@ internal static class ClassCodeGenTests
             Dummy d = new Dummy();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestAttributeDefaultValuesAndRead()
+    [Test]
+    public void Class_AttributeDefaultValuesAndRead()
     {
         string code = """
         class Point {
@@ -119,10 +35,11 @@ internal static class ClassCodeGenTests
             int b = p.y;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestConstructorInitializesAttributes()
+    [Test]
+    public void Class_ConstructorInitializesAttributes()
     {
         string code = """
         class Point {
@@ -137,10 +54,11 @@ internal static class ClassCodeGenTests
             Point p = new Point(5, 15);
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestMethodCallAndReturn()
+    [Test]
+    public void Class_MethodCallAndReturn()
     {
         string code = """
         class Calculator {
@@ -153,10 +71,11 @@ internal static class ClassCodeGenTests
             int res = c.add(3, 4);
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestMethodAccessAndMutateThis()
+    [Test]
+    public void Class_MethodAccessAndMutateThis()
     {
         string code = """
         class Counter {
@@ -174,10 +93,11 @@ internal static class ClassCodeGenTests
             int res = c.getCount();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestAttributeAssignmentFromOutside()
+    [Test]
+    public void Class_AttributeAssignmentFromOutside()
     {
         string code = """
         class Box {
@@ -189,10 +109,11 @@ internal static class ClassCodeGenTests
             b.val += 8;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestPrivateAttributeThrowsOutside()
+    [Test]
+    public void Class_PrivateAttributeThrowsOutside()
     {
         string code = """
         class Secret {
@@ -203,10 +124,11 @@ internal static class ClassCodeGenTests
             int x = s.val;
         }
         """;
-        return VerifyThrows(code, typeof(BifyAttributeError));
+        BifyAssert.CompileError<BifyAttributeError>(code);
     }
 
-    private static bool TestPrivateMethodThrowsOutside()
+    [Test]
+    public void Class_PrivateMethodThrowsOutside()
     {
         string code = """
         class Secret {
@@ -219,10 +141,11 @@ internal static class ClassCodeGenTests
             int x = s.get();
         }
         """;
-        return VerifyThrows(code, typeof(BifyAttributeError));
+        BifyAssert.CompileError<BifyAttributeError>(code);
     }
 
-    private static bool TestMethodCallingAnotherMethod()
+    [Test]
+    public void Class_MethodCallingAnotherMethod()
     {
         string code = """
         class MathHelper {
@@ -238,10 +161,11 @@ internal static class ClassCodeGenTests
             int res = m.sumOfSquares(3, 4);
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestImplicitThisInMethod()
+    [Test]
+    public void Class_ImplicitThisInMethod()
     {
         string code = """
         class Storage {
@@ -258,10 +182,11 @@ internal static class ClassCodeGenTests
             int res = s.getValue();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestInheritAttributes()
+    [Test]
+    public void Class_Inheritance_InheritAttributes()
     {
         string code = """
         class Animal {
@@ -276,10 +201,11 @@ internal static class ClassCodeGenTests
             int b = d.barkCount;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestInheritMethods()
+    [Test]
+    public void Class_Inheritance_InheritMethods()
     {
         string code = """
         class Animal {
@@ -294,10 +220,11 @@ internal static class ClassCodeGenTests
             int l = d.getLegs();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestVirtualOverride()
+    [Test]
+    public void Class_Inheritance_VirtualOverride()
     {
         string code = """
         class Base {
@@ -315,10 +242,11 @@ internal static class ClassCodeGenTests
             int v = d.value();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestPolymorphicDispatch()
+    [Test]
+    public void Class_Inheritance_PolymorphicDispatch()
     {
         string code = """
         class Base {
@@ -336,10 +264,11 @@ internal static class ClassCodeGenTests
             int v = b.value();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestMultiLevelInheritance()
+    [Test]
+    public void Class_Inheritance_MultiLevel()
     {
         string code = """
         class A {
@@ -364,10 +293,11 @@ internal static class ClassCodeGenTests
             int y = b.g();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestProtectedAccessInSubclass()
+    [Test]
+    public void Class_Inheritance_ProtectedAccessInSubclass()
     {
         string code = """
         class Parent {
@@ -386,10 +316,11 @@ internal static class ClassCodeGenTests
             int s = c.testSecret();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestProtectedInaccessibleFromOutside()
+    [Test]
+    public void Class_Inheritance_ProtectedInaccessibleFromOutside()
     {
         string code = """
         class Parent {
@@ -402,10 +333,11 @@ internal static class ClassCodeGenTests
             int x = c.secret;
         }
         """;
-        return VerifyThrows(code, typeof(BifyAttributeError));
+        BifyAssert.CompileError<BifyAttributeError>(code);
     }
 
-    private static bool TestInvalidBaseThrows()
+    [Test]
+    public void Class_Inheritance_InvalidBaseThrows()
     {
         string code = """
         class Child : NonExistent {
@@ -413,10 +345,11 @@ internal static class ClassCodeGenTests
         void test() {
         }
         """;
-        return VerifyThrows(code, typeof(BifyTypeError));
+        BifyAssert.CompileError<BifyTypeError>(code);
     }
 
-    private static bool TestAddDerivedMethod()
+    [Test]
+    public void Class_Inheritance_AddDerivedMethod()
     {
         string code = """
         class Base {
@@ -435,10 +368,11 @@ internal static class ClassCodeGenTests
             int b = d.g();
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestArcVariableCopyAndReassign()
+    [Test]
+    public void Class_ARC_VariableCopyAndReassign()
     {
         string code = """
         class Node {
@@ -451,10 +385,11 @@ internal static class ClassCodeGenTests
             c = b;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestArcScopeExitCleanup()
+    [Test]
+    public void Class_ARC_ScopeExitCleanup()
     {
         string code = """
         class Node {
@@ -467,10 +402,11 @@ internal static class ClassCodeGenTests
             }
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestArcFunctionReturn()
+    [Test]
+    public void Class_ARC_FunctionReturn()
     {
         string code = """
         class Node {
@@ -485,10 +421,11 @@ internal static class ClassCodeGenTests
             int v = res.value;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 
-    private static bool TestArcWeakReference()
+    [Test]
+    public void Class_ARC_WeakReference()
     {
         string code = """
         class Node {
@@ -501,6 +438,6 @@ internal static class ClassCodeGenTests
             int v = recovered.val;
         }
         """;
-        return Verify(code);
+        AssertValidFunction(code);
     }
 }

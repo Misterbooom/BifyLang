@@ -34,6 +34,7 @@ public class IdentifierGen
             }
 
             new BifyNameError($"Variable '{name}' is not defined").Throw();
+            return new TypedValue(default, BifyType.CreateInt(ctx));
         }
         if (symbol.Type.Type.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
         {

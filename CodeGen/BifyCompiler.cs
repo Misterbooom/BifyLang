@@ -87,7 +87,9 @@ namespace BifyLang.CodeGen
             }
         }
 
-        private void GenerateObjectFile(string filePath, string outputFilePath, LLVMModuleRef module)
+        public static string RuntimeSourcePath { get; set; } = "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
+
+        public void GenerateObjectFile(string filePath, string outputFilePath, LLVMModuleRef module)
         {
             unsafe
             {
@@ -106,7 +108,7 @@ namespace BifyLang.CodeGen
         }
 
         // TODO: Add windows support
-        private void GenerateExecutable(string filePath, string outputFilePath, CompilerFlags flags, LLVMModuleRef module)
+        public void GenerateExecutable(string filePath, string outputFilePath, CompilerFlags flags, LLVMModuleRef module)
         {
             string tempObjFile = Path.GetTempFileName() + ".o";
             BifyDebug.Log("Generating object file:"  + tempObjFile);
@@ -146,9 +148,14 @@ namespace BifyLang.CodeGen
             }
         }
 
-        private void LinkLibraries(string objectFilePath, string outputFilePath)
+        public void LinkLibraries(string objectFilePath, string outputFilePath)
         {
-            string stdcPath = "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
+            string stdcPath = RuntimeSourcePath;
+            if (!File.Exists(stdcPath))
+            {
+                var candidate = Path.Combine(AppContext.BaseDirectory, "CodeGen", "runtime.c");
+                if (File.Exists(candidate)) stdcPath = candidate;
+            }
             
             var processInfo = new System.Diagnostics.ProcessStartInfo
             {

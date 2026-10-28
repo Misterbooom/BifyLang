@@ -77,9 +77,14 @@ public class CallGen(CodeGenContext ctx)
         else
         {
             (callee, funcType, retName) = ResolveCallable(astCall.CallableName);
+            if (callee.Handle == IntPtr.Zero || funcType.Handle == IntPtr.Zero)
+                return default;
         }
 
         var args = ResolveArgs(_ctx, astCall.ArgumentsNode, funcType, thisArg);
+        if (!funcType.IsFunctionVarArg && args.Count != funcType.GetParamTypes().Length)
+            return default;
+
         var callReturn = _ctx.Builder.BuildCall2(funcType, callee, [.. args]);
         var resType = _ctx.TypeRegistry.GetBifyType(retName);
         return new TypedValue(callReturn, resType, false, resType is ClassType);
@@ -100,6 +105,7 @@ public class CallGen(CodeGenContext ctx)
             }
 
             new BifyNameError($"Function '{id.Name}' is not defined").Throw();
+            return (default, default, "unknown");
         }
 
         var callable = new ExpressionDispatcher(_ctx).EmitExpression(node);

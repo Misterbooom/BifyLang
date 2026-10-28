@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
-using NUnit.Framework;
 using Spectre.Console;
 
 namespace BifyLang.Exceptions
@@ -54,7 +53,7 @@ namespace BifyLang.Exceptions
             if (!condition)
             {
                 LogInternal("ASSERT", message, callerName, callerFilePath, callerLineNumber, "magenta");
-                throw new AssertionException(message);
+                throw new InvalidOperationException(message);
             }
         }
 
