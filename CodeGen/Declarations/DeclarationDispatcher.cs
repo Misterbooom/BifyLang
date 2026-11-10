@@ -1,6 +1,5 @@
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Declarations.ClassHandler;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Declarations;
@@ -13,10 +12,10 @@ public class DeclarationDispatcher(CodeGenContext ctx)
     {
         foreach (var node in module.ChildNodes)
         {
-            
-            EmitDeclaration(node);            
+            EmitDeclaration(node);
         }
     }
+
     public void EmitDeclaration(AstNode node)
     {
         Traceback.Instance.Line = node.LineNumber;
@@ -25,8 +24,8 @@ public class DeclarationDispatcher(CodeGenContext ctx)
             case AstFunctionDecl functionDecl:
                 new FunctionGen(_ctx).EmitFunction(functionDecl);
                 break;
-            case AstClass astClass :
-                new ClassGen(_ctx).EmitClass(astClass);
+            case AstClass:
+                // Layout is built in ClassLayoutBuilder; method body emission in next phase
                 break;
             default:
                 new BifySyntaxError("Only function and class declarations are allowed at the top level").Throw();

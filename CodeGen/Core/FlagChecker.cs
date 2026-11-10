@@ -11,6 +11,15 @@ public static class FlagChecker
         "private"
     ];
 
+    private static readonly HashSet<string> AllowedMethodFlags =
+    [
+        "public",
+        "private",
+        "protected",
+        "virtual",
+        "override"
+    ];
+
     private static readonly HashSet<string> AllowedAttributeFlags =
     [
         "public",
@@ -47,6 +56,23 @@ public static class FlagChecker
             "function",
             out error
         );
+    }
+
+    public static bool CheckMethodFlags(
+        IEnumerable<string> flags,
+        out string? error)
+    {
+        if (!Check(flags, AllowedMethodFlags, "method", out error))
+            return false;
+
+        var flagList = flags.ToList();
+        if (flagList.Contains("virtual") && flagList.Contains("override"))
+        {
+            error = "Method cannot be both 'virtual' and 'override'.";
+            return false;
+        }
+
+        return true;
     }
 
     public static bool CheckAttributeFlags(

@@ -1,18 +1,20 @@
-class Dummy{
+class Base{
+    constructor(){
+    }
+    public virtual int getX(){
+        return 0;
+    }
+}
+class Dummy:Base{
     constructor(){
         
     }
-    public int getX(){
+    public override int getX(){
         return 1;
     }
 }
+
+
 void main() {
-    Dummy d = new Dummy();
-    if (d != null && d.getX() == 1){
-        printf("Success");
-    }
-    else{
-        printf("Failde but still");
-    }
     
 }

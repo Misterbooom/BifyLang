@@ -1,20 +1,42 @@
+#nullable enable
 using System.Collections.Generic;
-using BifyLang.CodeGen.Declarations.ClassHandler;
+using BifyLang.CodeGen.Types;
 
 namespace BifyLang.CodeGen.Core;
+
 public sealed class VTableSlot
 {
     public required string MethodName { get; init; }
-    public required ClassField Method { get; set; }
+    public required ClassMethod Method { get; set; }
     public int Index { get; init; }
 }
+
 public class VTable
 {
     private readonly List<VTableSlot> _slots = new();
 
     public IReadOnlyList<VTableSlot> Slots => _slots;
 
-    public int AddMethod(ClassField method)
+    public bool TryFind(string methodName, out VTableSlot? slot)
+    {
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (_slots[i].MethodName == methodName)
+            {
+                slot = _slots[i];
+                return true;
+            }
+        }
+        slot = null;
+        return false;
+    }
+
+    public void Replace(int index, ClassMethod method)
+    {
+        _slots[index].Method = method;
+    }
+
+    public int AddMethod(ClassMethod method)
     {
         var existing = _slots.FindIndex(x => x.MethodName == method.Name);
 
@@ -34,5 +56,20 @@ public class VTable
         });
 
         return slot;
+    }
+
+    public VTable Clone()
+    {
+        var copy = new VTable();
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            copy._slots.Add(new VTableSlot
+            {
+                MethodName = _slots[i].MethodName,
+                Method = _slots[i].Method,
+                Index = _slots[i].Index
+            });
+        }
+        return copy;
     }
 }

@@ -10,11 +10,7 @@ using BifyLang.Lexer;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Declarations;
-public record ParameterInfo(
-    string Name,
-    BifyType Type,
-    bool IsConst
-);
+
 public class FunctionGen(CodeGenContext ctx)
 {
     private readonly CodeGenContext _ctx = ctx;
@@ -48,7 +44,7 @@ public class FunctionGen(CodeGenContext ctx)
         }
 
         _parameters.Clear();
-        ResolveParameters(functionDecl.ArgumentsNode);
+        _parameters.AddRange(ParamResolver.Resolve(functionDecl.ArgumentsNode, _ctx));
 
         var functionType = LLVMTypeRef.CreateFunction(
             returnType.Type,
@@ -87,51 +83,6 @@ public class FunctionGen(CodeGenContext ctx)
         }
     }
 
-    private void ResolveParameters(AstNode node)
-    {
-        if (node == null)
-            return;
-
-        if (node is AstParam astParam)
-        {
-            string name = astParam.Name.Token.Value;
-
-            if (_parameters.Any(parameter => parameter.Name == name))
-            {
-                new BifyNameError(
-                    $"Duplicated parameter: '{name}'"
-                ).Throw();
-            }
-
-            bool isConst = astParam.Flag is AstFlag flag && flag.HasFlag("const");
-
-            BifyType type = TypeResolver.Resolve(
-                astParam.Type,
-                _ctx
-            );
-
-            _parameters.Add(
-                new ParameterInfo(
-                    name,
-                    type,
-                    isConst
-                )
-            );
-
-            return;
-        }
-
-        if (node.Token.Type == TokenType.COMMA)
-        {
-            ResolveParameters(node.Right);
-            ResolveParameters(node.Left);
-            return;
-        }
-
-        throw new ArgumentException(
-            "Expected an AstParam node"
-        );
-    }
 
     private void AddFunctionParametersToScope(
         LLVMValueRef functionValue

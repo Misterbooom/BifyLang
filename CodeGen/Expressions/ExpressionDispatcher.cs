@@ -7,7 +7,7 @@ namespace BifyLang.CodeGen.Expressions;
 
 public class ExpressionDispatcher(CodeGenContext ctx)
 {
-    private CodeGenContext _ctx = ctx;
+    private readonly CodeGenContext _ctx = ctx;
 
     public TypedValue EmitExpression(AstNode node)
     {
@@ -23,9 +23,7 @@ public class ExpressionDispatcher(CodeGenContext ctx)
             AstCast cast => CastGen.EmitCast(_ctx, this, cast),
             AstUnaryOperator unaryOperator => new UnaryOperatorGen(_ctx).EmitUnaryOperator(unaryOperator),
             AstCall astCall => new CallGen(_ctx).EmitCall(astCall),
-            AstNew astNew => new NewGen(_ctx).EmitNew(astNew),
-            AstMemberAccess memberAccess => MemberAccessGen.EmitMemberAccess(_ctx, memberAccess),
-            _ => new BifySyntaxError($"'{node.Token.Value }' is not an expression").Throw<TypedValue>(),
+            _ => new BifySyntaxError($"'{node.Token.Value}' is not an expression").Throw<TypedValue>(),
         };
     }
 }

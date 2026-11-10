@@ -62,14 +62,13 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new UnaryOperatorGen(_ctx).EmitUnaryOperator(astUnaryOperator, true);
                 break;
             case AstIf astIf:
-                new ControlFlowGen(_ctx).EmitIfStatement(astIf);
+                new IfGen(_ctx).EmitIfStatement(astIf);
                 break;
             case AstWhile astWhile:
-                
-                new ControlFlowGen(_ctx).EmitWhileLoop(astWhile);
+                new WhileGen(_ctx).EmitWhileLoop(astWhile);
                 break;
             case AstFor astFor:
-                new ControlFlowGen(_ctx).EmitForLoop(astFor);
+                new ForGen(_ctx).EmitForLoop(astFor);
                 break;
             case AstCall astCall:
                 var callRes = new CallGen(_ctx).EmitCall(astCall);
@@ -77,13 +76,13 @@ public class StatementDispatcher(CodeGenContext ctx)
                     _ctx.HeapControl.BuildReleaseStrong(callRes.Value);
                 break;
             case AstBreak astBreak:
-                new ControlFlowGen(_ctx).EmitBreak(astBreak);
+                new JumpGen(_ctx).EmitBreak(astBreak);
                 break;
             case AstContinue astContinue:
-                new ControlFlowGen(_ctx).EmitContinue(astContinue);
+                new JumpGen(_ctx).EmitContinue(astContinue);
                 break;
-            case AstSwitch astSwitch :
-                new ControlFlowGen(_ctx).EmitSwitch(astSwitch);
+            case AstSwitch astSwitch:
+                new SwitchGen(_ctx).EmitSwitch(astSwitch);
                 break;
             default:
                 new BifySyntaxError($"Invalid statement.").Throw();

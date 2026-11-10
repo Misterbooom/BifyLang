@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Types;
@@ -23,14 +24,9 @@ public class IdentifierGen
         {
             if (ctx.CurrentScope.TryLookup("this", out var thisSym) &&
                 thisSym.Type is ClassType ct &&
-                ct.Fields.TryGetValue(name, out var field) &&
-                !field.IsMethod)
+                ct.Fields.TryGetValue(name, out var field))
             {
-                MemberAccessGen.CheckAccess(ctx, ct, field);
-                var thisVal = ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
-                var fieldPtr = ctx.Builder.BuildStructGEP2(ct.StructType, thisVal, (uint)field.Index, field.Name);
-                var val = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
-                return new TypedValue(val, field.Type, field.IsWeak);
+                throw new NotImplementedException();
             }
 
             new BifyNameError($"Variable '{name}' is not defined").Throw();

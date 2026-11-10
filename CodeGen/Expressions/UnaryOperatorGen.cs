@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Types;
@@ -50,27 +51,10 @@ public class UnaryOperatorGen(CodeGenContext ctx)
                 name = symbol.Name;
                 isConst = symbol.IsConstant;
             }
-            else if (_ctx.CurrentScope.TryLookup("this", out var thisSym) &&
-                     thisSym.Type is ClassType ct &&
-                     ct.Fields.TryGetValue(id.Name, out var f) &&
-                     !f.IsMethod)
-            {
-                var thisVal = _ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
-                pointer = _ctx.Builder.BuildStructGEP2(ct.StructType, thisVal, (uint)f.Index, f.Name);
-                type = f.Type;
-                name = f.Name;
-            }
             else
             {
                 return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<TypedValue>();
             }
-        }
-        else if (op.Operand is AstMemberAccess memberAccess)
-        {
-            var (ptr, field, _) = MemberAccessGen.ResolveMember(_ctx, memberAccess);
-            pointer = ptr;
-            type = field.Type;
-            name = field.Name;
         }
         else
         {

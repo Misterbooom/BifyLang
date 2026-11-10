@@ -144,4 +144,6 @@
     {
     }
     public class BifyNullError(string message, string tokens = "", string invalidTokens = "", int currentLine = 0) : BifyError(message, tokens, invalidTokens, currentLine) { }
+    public class BifyCircularInheritanceError(string message, string tokens = "", string invalidTokens = "", int currentLine = 0) : BifyError(message, tokens, invalidTokens, currentLine) { }
+    
 }

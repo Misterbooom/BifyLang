@@ -85,24 +85,7 @@ public class AssignmentGen(CodeGenContext ctx)
             if (_ctx.CurrentScope.TryLookup(id.Name, out var symbol))
                 return (symbol.Pointer, symbol.Type, symbol.Name, symbol.IsConstant, symbol.IsWeak);
 
-            if (_ctx.CurrentScope.TryLookup("this", out var thisSym) &&
-                thisSym.Type is ClassType ct &&
-                ct.Fields.TryGetValue(id.Name, out var f) &&
-                !f.IsMethod)
-            {
-                MemberAccessGen.CheckAccess(_ctx, ct, f);
-                var thisVal = _ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
-                var ptr = _ctx.Builder.BuildStructGEP2(ct.StructType, thisVal, (uint)f.Index, f.Name);
-                return (ptr, f.Type, f.Name, false, f.IsWeak);
-            }
-
             return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
-        }
-
-        if (node is AstMemberAccess memberAccess)
-        {
-            var (ptr, field, _) = MemberAccessGen.ResolveMember(_ctx, memberAccess);
-            return (ptr, field.Type, field.Name, false, field.IsWeak);
         }
 
         return new BifyTypeError($"Cannot assign to {node.Token.Value}").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();

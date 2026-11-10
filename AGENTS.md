@@ -35,3 +35,15 @@ Never guess or improvise struct layouts or GEP indices. Follow the strict BifyLa
 ## 4. C# & LLVMSHARP CONVENTIONS
 - Use primary constructors for CodeGen handlers: `public class FooGen(CodeGenContext ctx)`.
 - Throw language-level errors via `new BifyTypeError("...").Throw()` or `return new BifyTypeError("...").Throw<T>()`. Never use C# `throw new` on `BifyError` derivatives (they do not inherit from `System.Exception`).
+
+## 5. COMMIT MESSAGE CONVENTIONS
+Follow the repository's established commit style:
+- Use a bulleted list where each line begins with a dash `-` followed immediately by a capitalized action verb in past tense (e.g. `-Added ...`, `-Refactored ...`, `-Fixed ...`, `-Moved ...`, `-Implemented ...`).
+- Separate distinct changes into individual `-` bullet lines.
+- Be concise and focus directly on the subsystem or capability affected.
+- Example:
+  ```
+  -Refactored ControlFlowGen class into separate statements and emitters
+  -Implemented two-pass ClassLayoutBuilder for class struct layout and VTable inheritance
+  -Added tests for class layout and method override validation
+  ```
