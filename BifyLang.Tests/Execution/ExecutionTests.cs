@@ -123,13 +123,13 @@ public class ExecutionTests : BifyTestBase
     {
         AssertExecution("""
         class Animal {
-            public int speak() {
+            public virtual int speak() {
                 return 1;
             }
         }
 
         class Dog : Animal {
-            public int speak() {
+            public override int speak() {
                 return 2;
             }
         }
@@ -141,5 +141,29 @@ public class ExecutionTests : BifyTestBase
             return 0;
         }
         """, "2");
+    }
+
+    [Test]
+    public void E2E_WeakReferenceUpgradeAndAccess()
+    {
+        AssertExecution("""
+        class Node {
+            public int value;
+            public constructor(int v) {
+                this.value = v;
+            }
+            public int getValue() {
+                return this.value;
+            }
+        }
+
+        int main() {
+            Node strong = new Node(99);
+            weak Node w = strong;
+            Node recovered = w;
+            printf("%d %d\n", recovered.value, w.getValue());
+            return 0;
+        }
+        """, "99 99");
     }
 }

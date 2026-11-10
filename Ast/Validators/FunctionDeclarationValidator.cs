@@ -7,10 +7,15 @@ namespace BifyLang.Ast.Validators
     {
         public static void Validate(Token nameToken, AstNode parametersNode, AstNode blockNode, AstNode typeNode)
         {
-            if (nameToken == null || (nameToken.Type != TokenType.IDENTIFIER && nameToken.Type != TokenType.CONSTRUCTOR))
+            if (nameToken == null || (nameToken.Type != TokenType.IDENTIFIER && nameToken.Type != TokenType.CONSTRUCTOR && nameToken.Type != TokenType.DESTRUCTOR))
             {
                 BifyError bifyError = new BifySyntaxError(ErrorMessage.ExpectedFunctionName(), "", nameToken == null ? typeNode.Token.Value : nameToken.Value);
                 Traceback.Instance.ThrowException(bifyError, nameToken == null ? typeNode.Token.Column : nameToken.Column);
+            }
+
+            if (nameToken?.Type == TokenType.DESTRUCTOR && parametersNode != null)
+            {
+                new BifySyntaxError("Destructor cannot have parameters.").Throw();
             }
 
             if (typeNode is not AstIdentifier && typeNode.Token.Type != TokenType.POINTER && typeNode is not AstIndexOperator)

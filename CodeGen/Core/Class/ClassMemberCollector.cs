@@ -26,7 +26,7 @@ public static class ClassMemberCollector
         bool isConst = varDecl.Flag?.HasFlag("const") ?? false;
         bool isWeak = varDecl.Flag?.HasFlag("weak") ?? false;
 
-        return new ClassField(name, type, value, accessLevel, index, isConst, isWeak);
+        return new ClassField(name, type, value, accessLevel, index, isConst, isWeak, className);
     }
 
     public static ClassMethod CollectMethod(AstFunctionDecl funcDecl, CodeGenContext ctx, string className)
@@ -52,6 +52,14 @@ public static class ClassMemberCollector
 
             returnType = BifyType.CreateVoid(ctx);
         }
+        else if (name == "destructor")
+        {
+            if (parameters.Count > 0)
+                new BifyTypeError("Destructor cannot have parameters.").Throw();
+
+            isVirtual = true;
+            returnType = BifyType.CreateVoid(ctx);
+        }
         else
         {
             returnType = TypeResolver.Resolve(funcDecl.TypeNode, ctx);
@@ -62,8 +70,9 @@ public static class ClassMemberCollector
 
         var funcType = LLVMTypeRef.CreateFunction(returnType.Type, paramTypes.ToArray(), false);
         var signature = new BifyType(returnType.Name, funcType);
-
-        return new ClassMethod(name, signature, accessLevel, -1, className, funcDecl.BlockNode, isVirtual, isOverride, parameters);
+        var functionValue = ctx.Module.AddFunction(className + "_" + name, funcType);
+        
+        return new ClassMethod(name, signature, functionValue, accessLevel, -1, className, funcDecl.BlockNode, isVirtual, isOverride, parameters);
     }
 
     public static AccessLevel ParseAccessLevel(AstFlag? flag)

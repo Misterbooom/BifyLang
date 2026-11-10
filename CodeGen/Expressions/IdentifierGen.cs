@@ -22,11 +22,10 @@ public class IdentifierGen
 
         if (!ctx.CurrentScope.TryLookup(name, out var symbol))
         {
-            if (ctx.CurrentScope.TryLookup("this", out var thisSym) &&
-                thisSym.Type is ClassType ct &&
-                ct.Fields.TryGetValue(name, out var field))
+            if (MemberResolver.TryResolveThisField(ctx, name, out var fieldPtr, out var field))
             {
-                throw new NotImplementedException();
+                var loaded = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
+                return new TypedValue(loaded, field.Type, field.IsWeak);
             }
 
             new BifyNameError($"Variable '{name}' is not defined").Throw();

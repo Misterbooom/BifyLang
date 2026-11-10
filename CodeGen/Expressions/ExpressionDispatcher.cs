@@ -11,7 +11,7 @@ public class ExpressionDispatcher(CodeGenContext ctx)
 
     public TypedValue EmitExpression(AstNode node)
     {
-        return node switch
+        TypedValue value = node switch
         {
             AstInteger integer => LiteralGen.EmitNumber(_ctx, integer),
             AstFloat floatNode => LiteralGen.EmitFloat(_ctx, floatNode),
@@ -23,7 +23,15 @@ public class ExpressionDispatcher(CodeGenContext ctx)
             AstCast cast => CastGen.EmitCast(_ctx, this, cast),
             AstUnaryOperator unaryOperator => new UnaryOperatorGen(_ctx).EmitUnaryOperator(unaryOperator),
             AstCall astCall => new CallGen(_ctx).EmitCall(astCall),
+            AstNew astNew => new NewGen(_ctx).EmitNew(astNew),
+            AstMemberAccess astMemberAccess => new MemberAccessGen(_ctx).EmitMemberAccess(astMemberAccess),
+            
             _ => new BifySyntaxError($"'{node.Token.Value}' is not an expression").Throw<TypedValue>(),
         };
+        if (value.Type is ClassType && node is AstCall or AstNew)
+        {
+            _ctx.HeapControl.TempRefs.Add(value);
+        }
+        return value;
     }
 }

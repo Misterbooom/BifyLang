@@ -4,23 +4,6 @@ using BifyLang.Lexer;
 
 namespace BifyLang.Ast
 {
-    internal enum DeclarationKind
-    {
-        Variable,
-        Function
-    }
-
-    internal sealed class DeclarationHeader
-    {
-        public required DeclarationKind Kind { get; init; }
-        public required AstFlag FlagNode { get; init; }
-        public required AstNode TypeNode { get; init; }
-        public required AstIdentifier NameNode { get; init; }
-
-        public required int EndIndex { get; init; }
-    }
-
-  
     internal static class DeclarationParser
     {
         private readonly struct TypeSuffix(Token token, int openIndex, int closeIndex)
@@ -44,7 +27,7 @@ namespace BifyLang.Ast
                 words.Add(tokens[i++]);
             }
 
-            if (i < tokens.Count && tokens[i].Type == TokenType.CONSTRUCTOR)
+            if (i < tokens.Count && tokens[i].Type is TokenType.CONSTRUCTOR or TokenType.DESTRUCTOR)
             {
                 Token ctorToken = tokens[i++];
                 if (i < tokens.Count && tokens[i].Type == TokenType.LPAREN)

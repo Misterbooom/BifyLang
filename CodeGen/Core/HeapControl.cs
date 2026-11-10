@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using BifyLang.CodeGen.Types;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core;
@@ -15,14 +17,43 @@ public class HeapControl(CodeGenContext codeGenContext)
     private (LLVMTypeRef funcType, LLVMValueRef funcValue) _gcUpgradeWeak;
 
     private LLVMTypeRef VoidPtrType => LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
+    public List<TypedValue> TempRefs { get; private set; } = [];
 
     public void DefineRuntimeFunctions()
     {
+        DefineGcAlloc();
         DefineGcRetainStrong();
         DefineGcRetainWeak();
         DefineGcReleaseStrong();
         DefineGcReleaseWeak();
         DefineGcUpgradeWeak();
+    }
+
+    private void DefineGcAlloc()
+    {
+        LLVMTypeRef[] paramTypes = [_ctx.Context.Int64Type, VoidPtrType];
+        var funcType = LLVMTypeRef.CreateFunction(VoidPtrType, paramTypes);
+        var funcVal = _ctx.Module.AddFunction("gc_alloc", funcType);
+        _gcAlloc = (funcType, funcVal);
+    }
+
+    public void ReleaseTemps()
+    {
+        if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
+        {
+            _ctx.Builder.PositionBefore(_ctx.Builder.InsertBlock.Terminator);
+        }
+
+        foreach (var item in TempRefs)
+        {
+            BuildReleaseStrong(item.Value);
+        }
+
+        if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
+        {
+            _ctx.Builder.PositionAtEnd(_ctx.Builder.InsertBlock);
+        }
+        TempRefs.Clear();
     }
 
 
@@ -95,5 +126,53 @@ public class HeapControl(CodeGenContext codeGenContext)
     {
         LLVMValueRef[] args = [weakPtr];
         return _ctx.Builder.BuildCall2(_gcUpgradeWeak.funcType, _gcUpgradeWeak.funcValue, args, "upgraded_ptr");
+    }
+
+    public LLVMValueRef BuildAlloc(LLVMValueRef sizeVal, LLVMValueRef vtablePtr)
+    {
+        LLVMValueRef[] args = [sizeVal, vtablePtr];
+        return _ctx.Builder.BuildCall2(_gcAlloc.funcType, _gcAlloc.funcValue, args, "inst_ptr");
+    }
+
+    public void BuildArcStoreInit(LLVMValueRef targetPtr, TypedValue value, bool isTargetWeak)
+    {
+        var (storeVal, _) = PrepareArcValue(value, isTargetWeak);
+        _ctx.Builder.BuildStore(storeVal, targetPtr);
+    }
+
+    public void BuildArcAssign(LLVMValueRef targetPtr, TypedValue value, bool isTargetWeak)
+    {
+        var (storeVal, _) = PrepareArcValue(value, isTargetWeak);
+        var oldVal = _ctx.Builder.BuildLoad2(VoidPtrType, targetPtr, "old_val");
+        if (isTargetWeak)
+            BuildReleaseWeak(oldVal);
+        else
+            BuildReleaseStrong(oldVal);
+
+        _ctx.Builder.BuildStore(storeVal, targetPtr);
+    }
+
+    private (LLVMValueRef StoreValue, bool WasTemp) PrepareArcValue(TypedValue value, bool isTargetWeak)
+    {
+        bool isTemp = TempRefs.RemoveAll(x => x.Value.Handle == value.Value.Handle) > 0;
+        if (!isTargetWeak)
+        {
+            if (value.IsWeak)
+            {
+                var upgraded = BuildUpgradeWeak(value.Value);
+                return (upgraded, isTemp);
+            }
+
+            if (!isTemp)
+            {
+                BuildRetainStrong(value.Value);
+            }
+
+            return (value.Value, isTemp);
+        }
+
+        BuildRetainWeak(value.Value);
+
+        return (value.Value, isTemp);
     }
 }

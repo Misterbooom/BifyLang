@@ -37,7 +37,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
             if (_ctx.TypeRegistry.TryGetType(parentName, out var pType) && pType is ClassType cp)
                 parent = cp;
             else
-                new BifyNameError($"Class '{info.Name}' inherits from unknown class '{parentName}'.").Throw();
+                new BifyTypeError($"Class '{info.Name}' inherits from unknown class '{parentName}'.").Throw();
         }
 
         var classType = new ClassType(info.Name, pointerType, structType, parent);
@@ -67,7 +67,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
         foreach (var kvp in parent.Methods)
         {
-            if (kvp.Key != "constructor")
+            if (kvp.Key != "constructor" && kvp.Key != DestructorSynthesizer.DestructorName)
                 classType.Methods.Add(kvp.Key, kvp.Value);
         }
     }
@@ -84,7 +84,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
             if (classType.Fields.ContainsKey(name))
                 new BifyNameError($"Duplicate field '{name}' in class '{info.Name}'.").Throw();
 
-            if (classType.Methods.ContainsKey(name))
+            if (classType.Methods.ContainsKey(name) || name == DestructorSynthesizer.DestructorName)
                 new BifyNameError($"Field '{name}' in class '{info.Name}' conflicts with existing method.").Throw();
 
             var field = ClassMemberCollector.CollectField(varDecl, _ctx, info.Name, nextIndex++);
@@ -95,10 +95,15 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
     private void ProcessMethods(ClassInfo info, ClassType classType)
     {
         var block = (AstBlock)info.classNode.BodyNode;
+        var funcDecls = block.ChildNodes.OfType<AstFunctionDecl>().ToList();
 
-        foreach (var funcDecl in block.ChildNodes.OfType<AstFunctionDecl>())
+        ProcessDestructor(info, classType, funcDecls);
+
+        foreach (var funcDecl in funcDecls)
         {
             string name = funcDecl.FunctionNameNode.Name;
+            if (name == DestructorSynthesizer.DestructorName)
+                continue;
 
             if (classType.Fields.ContainsKey(name))
                 new BifyNameError($"Method '{name}' in class '{info.Name}' conflicts with existing field.").Throw();
@@ -112,6 +117,22 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
             classType.Methods[name] = method;
         }
+    }
+
+    private void ProcessDestructor(ClassInfo info, ClassType classType, List<AstFunctionDecl> funcDecls)
+    {
+        var dtors = funcDecls.Where(f => f.FunctionNameNode.Name == DestructorSynthesizer.DestructorName).ToList();
+        if (dtors.Count > 1)
+        {
+            new BifyNameError($"Class '{info.Name}' cannot have multiple destructors.").Throw();
+        }
+
+        var method = dtors.Count == 1
+            ? ClassMemberCollector.CollectMethod(dtors[0], _ctx, info.Name)
+            : DestructorSynthesizer.CreateDefault(_ctx, info.Name);
+
+        method.VTableIndex = VTableBuilder.ApplyDestructor(classType.VTable, method);
+        classType.Methods[DestructorSynthesizer.DestructorName] = method;
     }
 
     private void FinalizeStructBody(ClassType classType)

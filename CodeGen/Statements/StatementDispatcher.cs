@@ -70,10 +70,8 @@ public class StatementDispatcher(CodeGenContext ctx)
             case AstFor astFor:
                 new ForGen(_ctx).EmitForLoop(astFor);
                 break;
-            case AstCall astCall:
-                var callRes = new CallGen(_ctx).EmitCall(astCall);
-                if (callRes.Type is ClassType && callRes.IsOwned)
-                    _ctx.HeapControl.BuildReleaseStrong(callRes.Value);
+            case AstCall or AstNew:
+                new ExpressionDispatcher(_ctx).EmitExpression(node);
                 break;
             case AstBreak astBreak:
                 new JumpGen(_ctx).EmitBreak(astBreak);
@@ -88,5 +86,6 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new BifySyntaxError($"Invalid statement.").Throw();
                 break;
         }
+        _ctx.HeapControl.ReleaseTemps();
     }
 }

@@ -19,13 +19,15 @@ public struct ClassField(
     AccessLevel accessLevel,
     int index = -1,
     bool isConst = false,
-    bool isWeak = false)
+    bool isWeak = false,
+    string declaringClass = "")
 {
     public readonly string Name = name;
     public readonly BifyType Type = type;
     public LLVMValueRef Value = default;
     public readonly int Index = index;
     public readonly AccessLevel AccessLevel = accessLevel;
+    public readonly string DeclaringClass = declaringClass;
     public AstNode? ValueNode = value;
     public bool IsConst = isConst;
     public bool IsWeak = isWeak;
@@ -34,6 +36,7 @@ public struct ClassField(
 public struct ClassMethod(
     string name,
     BifyType signature,
+    LLVMValueRef functionValue,
     AccessLevel accessLevel,
     int vtableIndex = -1,
     string declaringClass = "",
@@ -44,7 +47,7 @@ public struct ClassMethod(
 {
     public readonly string Name = name;
     public readonly BifyType Signature = signature;
-    public LLVMValueRef FunctionValue = default;
+    public LLVMValueRef FunctionValue = functionValue;
     public int VTableIndex = vtableIndex;
     public readonly AccessLevel AccessLevel = accessLevel;
     public readonly string DeclaringClass = declaringClass;

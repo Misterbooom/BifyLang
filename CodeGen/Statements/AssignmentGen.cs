@@ -13,7 +13,7 @@ public class AssignmentGen(CodeGenContext ctx)
 {
     private readonly CodeGenContext _ctx = ctx;
 
-    public void EmitAssign(AstAssignmentOperator assignmentOp)
+public void EmitAssign(AstAssignmentOperator assignmentOp)
     {
         var (pointer, type, name, isConstant, isWeak) = ResolveTarget(assignmentOp.IdentifierNode);
         if (isConstant)
@@ -37,45 +37,29 @@ public class AssignmentGen(CodeGenContext ctx)
         {
             var currentVal = new TypedValue(_ctx.Builder.BuildLoad2(type.Type, pointer, name), type);
             value = BinaryOpGen.EmitBinary(_ctx, binOp.Value, currentVal, value);
-        }
-        else if (value.Type is ClassType rhs && type is ClassType lhs)
-        {
-            var b = value;
-            var oldVal = _ctx.Builder.BuildLoad2(type.Type, pointer, "old_" + name);
-            bool aWeak = isWeak;
-            bool bWeak = value.IsWeak;
-
-            if (!aWeak && !bWeak)
+            
+            if (value.Type is ClassType && type is ClassType)
             {
-                if (!b.IsOwned)
-                    _ctx.HeapControl.BuildRetainStrong(b.Value);
-                _ctx.HeapControl.BuildReleaseStrong(oldVal);
-            }
-            else if (aWeak && !bWeak)
-            {
-                _ctx.HeapControl.BuildRetainWeak(b.Value);
-                if (b.IsOwned)
-                    _ctx.HeapControl.BuildReleaseStrong(b.Value);
-                _ctx.HeapControl.BuildReleaseWeak(oldVal);
-            }
-            else if (aWeak && bWeak)
-            {
-                _ctx.HeapControl.BuildRetainWeak(b.Value);
-                _ctx.HeapControl.BuildReleaseWeak(oldVal);
+                _ctx.HeapControl.BuildArcAssign(pointer, value, isWeak);
             }
             else
             {
-                var upgraded = _ctx.HeapControl.BuildUpgradeWeak(b.Value);
-                _ctx.HeapControl.BuildReleaseStrong(oldVal);
-                value = new TypedValue(upgraded, b.Type, false, true);
+                TypedValue casted = (type.Name == "char" && value.Type.Name == "int")
+                    ? TypeCaster.ExplicitCast(_ctx, value, type)
+                    : TypeCaster.ImplicitCast(_ctx, value, type);
+                _ctx.Builder.BuildStore(casted.Value, pointer);
             }
         }
-
-        TypedValue casted = (binOp.HasValue && type.Name == "char" && value.Type.Name == "int")
-            ? TypeCaster.ExplicitCast(_ctx, value, type)
-            : TypeCaster.ImplicitCast(_ctx, value, type);
-
-        _ctx.Builder.BuildStore(casted.Value, pointer);
+        else if (value.Type is ClassType && type is ClassType)
+        {
+            TypedValue casted = TypeCaster.ImplicitCast(_ctx, value, type);
+            _ctx.HeapControl.BuildArcAssign(pointer, casted, isWeak);
+        }
+        else
+        {
+            TypedValue casted = TypeCaster.ImplicitCast(_ctx, value, type);
+            _ctx.Builder.BuildStore(casted.Value, pointer);
+        }
     }
 
     private (LLVMValueRef Pointer, BifyType Type, string Name, bool IsConstant, bool isWeak) ResolveTarget(AstNode node)
@@ -85,9 +69,20 @@ public class AssignmentGen(CodeGenContext ctx)
             if (_ctx.CurrentScope.TryLookup(id.Name, out var symbol))
                 return (symbol.Pointer, symbol.Type, symbol.Name, symbol.IsConstant, symbol.IsWeak);
 
+            if (MemberResolver.TryResolveThisField(_ctx, id.Name, out var ptr, out var f))
+                return (ptr, f.Type, f.Name, f.IsConst, f.IsWeak);
+
             return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
+        }
+
+        if (node is AstMemberAccess memberAccess)
+        {
+            var (ptr, field, _) = new MemberAccessGen(_ctx).ResolveMember(memberAccess);
+            return (ptr, field.Type, field.Name, field.IsConst, field.IsWeak);
         }
 
         return new BifyTypeError($"Cannot assign to {node.Token.Value}").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
     }
+
+
 }

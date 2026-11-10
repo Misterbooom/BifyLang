@@ -19,18 +19,15 @@ public class ReturnGen(CodeGenContext ctx)
             returnValue = TypeCaster.ImplicitCast(_ctx, expr.EmitExpression(astReturn.ArgumentsNode), _ctx.FunctionReturnType);
             if (returnValue.Value.Type is ClassType)
             {
-                if (!returnValue.Value.IsOwned)
+                bool wasTemp = _ctx.HeapControl.TempRefs.RemoveAll(x => x.Value.Handle == returnValue.Value.Value.Handle) > 0;
+                if (!wasTemp)
+                {
                     _ctx.HeapControl.BuildRetainStrong(returnValue.Value.Value);
+                }
             }
         }
 
-        var cur = _ctx.CurrentScope;
-        while (cur != null)
-        {
-            cur.ReleaseLocals(_ctx);
-            cur = cur.Parent;
-        }
-
+        _ctx.ReleaseScopesUpTo(null);
         if (!returnValue.HasValue)
             _ctx.Builder.BuildRetVoid();
         else

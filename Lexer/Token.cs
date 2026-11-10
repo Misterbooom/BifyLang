@@ -6,6 +6,7 @@ namespace BifyLang.Lexer
     {
         NEW,
         CONSTRUCTOR,
+        DESTRUCTOR,
         CLASS,
         CONST,
         CALL,

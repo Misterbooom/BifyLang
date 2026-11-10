@@ -32,6 +32,7 @@ namespace BifyLang.Lexer
             { "new", TokenType.NEW},
             {"const",TokenType.CONST },
             {"constructor",TokenType.CONSTRUCTOR },
+            {"destructor",TokenType.DESTRUCTOR },
             {"class",TokenType.CLASS},
             {"switch", TokenType.SWITCH},
             {"case", TokenType.CASE},

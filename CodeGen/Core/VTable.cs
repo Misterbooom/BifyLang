@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using BifyLang.CodeGen.Types;
+using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core;
 
@@ -14,6 +15,8 @@ public sealed class VTableSlot
 public class VTable
 {
     private readonly List<VTableSlot> _slots = new();
+    public LLVMValueRef GlobalValue { get; private set; }
+    public LLVMTypeRef GlobalType { get; private set; }
 
     public IReadOnlyList<VTableSlot> Slots => _slots;
 
@@ -72,4 +75,12 @@ public class VTable
         }
         return copy;
     }
+
+    public void SetGlobal(LLVMValueRef valueRef, LLVMTypeRef typeRef)
+    {
+        GlobalValue = valueRef;
+        GlobalType = typeRef;
+    }
+
+  
 }

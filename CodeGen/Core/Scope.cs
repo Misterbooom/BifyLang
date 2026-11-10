@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using LLVMSharp.Interop;
 using BifyLang.CodeGen.Types;
+using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Core
 {
@@ -68,11 +70,13 @@ namespace BifyLang.CodeGen.Core
         {
             if (ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
                 return;
-
-            foreach (var sym in _symbols.Values)
+            
+            
+            foreach (var sym in _symbols.Values.Reverse())
             {
                 if (sym.Name != "this" && sym.Type is ClassType)
                 {
+                    
                     var val = ctx.Builder.BuildLoad2(sym.Type.Type, sym.Pointer, "cleanup_" + sym.Name);
                     if (sym.IsWeak)
                         ctx.HeapControl.BuildReleaseWeak(val);

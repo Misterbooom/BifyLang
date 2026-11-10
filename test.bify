@@ -6,15 +6,24 @@ class Base{
     }
 }
 class Dummy:Base{
+    public int a = 5;
+    public Base gcTest = new Base();
     constructor(){
         
     }
     public override int getX(){
-        return 1;
+        return a;
+    }
+    public Base getBase(){
+        return new Base();
     }
 }
 
 
 void main() {
-    
+    Dummy d = new Dummy();
+    weak Dummy a = d;
+    a.a = 4;
+    Base base = a.getBase();
+    printf("%d", d.getX());
 }

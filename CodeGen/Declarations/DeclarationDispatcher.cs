@@ -24,8 +24,8 @@ public class DeclarationDispatcher(CodeGenContext ctx)
             case AstFunctionDecl functionDecl:
                 new FunctionGen(_ctx).EmitFunction(functionDecl);
                 break;
-            case AstClass:
-                // Layout is built in ClassLayoutBuilder; method body emission in next phase
+            case AstClass astClass:
+                new ClassGen(_ctx).EmitClass(astClass);
                 break;
             default:
                 new BifySyntaxError("Only function and class declarations are allowed at the top level").Throw();

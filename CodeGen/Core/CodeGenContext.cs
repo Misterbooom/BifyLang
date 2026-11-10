@@ -72,11 +72,30 @@ public class CodeGenContext : IDisposable
         return new LoopExitHandle(this);
     }
 
+    
+    public LLVMValueRef BuildEntryAlloca(LLVMTypeRef type, string name)
+    {
+        if (FunctionEntry.Handle == IntPtr.Zero)
+            throw new InvalidOperationException("BuildEntryAlloca called outside of a function body.");
+
+        var cachedBlock = Builder.InsertBlock;
+        var terminator = FunctionEntry.Terminator;
+        if (terminator.Handle != IntPtr.Zero)
+            Builder.PositionBefore(terminator);
+        else
+            Builder.PositionAtEnd(FunctionEntry);
+
+        var alloca = Builder.BuildAlloca(type, name);
+
+        if (cachedBlock.Handle != IntPtr.Zero)
+            Builder.PositionAtEnd(cachedBlock);
+        return alloca;
+    }
+
     public LLVMModuleRef GenerateModule(AstModule module)
     {
         ClassDependencyResolver resolver = new ClassDependencyResolver();
         ClassesInfo = resolver.Resolve(module);
-        BifyDebug.Log($"ClassesInfo : {resolver.ToString()}");
         new ClassLayoutBuilder(this).BuildClassesLayout(ClassesInfo);
         DeclarationDispatcher declarationDispatcher = new DeclarationDispatcher(this);
         

@@ -65,7 +65,7 @@ public class ClassDependencyResolver
 
             if (!_classes.ContainsKey(parentName) && parentName != string.Empty)
             {
-                new BifyNameError(
+                new BifyTypeError(
                     $"Class '{className}' inherits from unknown class '{parentName}'."
                 ).Throw();
                 return;

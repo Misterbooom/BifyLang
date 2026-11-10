@@ -16,17 +16,62 @@ public class CallGen(CodeGenContext ctx)
 
     public TypedValue EmitCall(AstCall astCall)
     {
-        var (callee, funcType, retName) = ResolveCallable(astCall.CallableName);
+        LLVMValueRef callee;
+        LLVMTypeRef funcType;
+        string retName;
+        LLVMValueRef? thisArg = null;
+
+        if (astCall.CallableName is AstMemberAccess memberAccess)
+        {
+            var target = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
+            if (target.Type is not ClassType classType)
+                return new BifyTypeError($"Cannot call member on non-class type '{target.Type.Name}'").Throw<TypedValue>();
+
+            if (memberAccess.Right is not AstIdentifier id || !classType.Methods.TryGetValue(id.Name, out var method))
+                return new BifyAttributeError($"Type '{target.Type.Name}' has no method '{memberAccess.Right?.Token.Value}'").Throw<TypedValue>();
+
+            MemberResolver.CheckAccess(_ctx, classType, method);
+            if (target.IsWeak)
+            {
+                var upgraded = _ctx.HeapControl.BuildUpgradeWeak(target.Value);
+                target = new TypedValue(upgraded, target.Type, false);
+                _ctx.HeapControl.TempRefs.Add(target);
+            }
+            funcType = method.Signature.Type;
+            retName = method.Signature.Name;
+            thisArg = target.Value;
+
+            if (method.VTableIndex >= 0)
+            {
+                var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
+                var vptrSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, target.Value, 0, "vptr_slot");
+                var vtable = _ctx.Builder.BuildLoad2(ptrType, vptrSlot, "vtable");
+                var slotPtr = _ctx.Builder.BuildGEP2(ptrType, vtable, new[] { LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, (ulong)method.VTableIndex, false) }, "slot_ptr");
+                callee = _ctx.Builder.BuildLoad2(ptrType, slotPtr, $"{method.Name}_fn");
+            }
+            else
+            {
+                string symbol = $"{method.DeclaringClass}_{method.Name}";
+                callee = _ctx.Module.GetNamedFunction(symbol);
+                if (callee.Handle == IntPtr.Zero)
+                    callee = _ctx.Module.AddFunction(symbol, method.Signature.Type);
+            }
+        }
+        else
+        {
+            (callee, funcType, retName) = ResolveCallable(astCall.CallableName);
+        }
+
         if (callee.Handle == IntPtr.Zero || funcType.Handle == IntPtr.Zero)
             return default;
 
-        var args = ResolveArgs(_ctx, astCall.ArgumentsNode, funcType);
+        var args = ResolveArgs(_ctx, astCall.ArgumentsNode, funcType, thisArg);
         if (!funcType.IsFunctionVarArg && args.Count != funcType.GetParamTypes().Length)
             return default;
 
         var callReturn = _ctx.Builder.BuildCall2(funcType, callee, [.. args]);
         var resType = _ctx.TypeRegistry.GetBifyType(retName);
-        return new TypedValue(callReturn, resType, false, resType is ClassType);
+        return new TypedValue(callReturn, resType, false);
     }
 
     private unsafe (LLVMValueRef Callee, LLVMTypeRef FuncType, string RetName) ResolveCallable(AstNode node)
@@ -51,23 +96,28 @@ public class CallGen(CodeGenContext ctx)
         return (callable.Value, callable.Type.Type, callable.Type.Name);
     }
 
-    public static List<LLVMValueRef> ResolveArgs(CodeGenContext ctx, AstNode? node, LLVMTypeRef funcType)
+    public static List<LLVMValueRef> ResolveArgs(CodeGenContext ctx, AstNode? node, LLVMTypeRef funcType, LLVMValueRef? thisArg = null)
     {
         var nodes = new List<AstNode>();
         FlattenComma(node, nodes);
 
         var paramTypes = funcType.GetParamTypes();
-        int expectedCount = paramTypes.Length;
+        int offset = thisArg.HasValue ? 1 : 0;
+        int expectedCount = paramTypes.Length - offset;
 
         if (!funcType.IsFunctionVarArg && nodes.Count != expectedCount)
             new BifyTypeError($"Function expects {expectedCount} arguments, but got {nodes.Count}").Throw();
 
-        var args = new List<LLVMValueRef>(nodes.Count);
+        var args = new List<LLVMValueRef>(nodes.Count + offset);
+        if (thisArg.HasValue)
+            args.Add(thisArg.Value);
+
         for (int i = 0; i < nodes.Count; i++)
         {
             var val = new ExpressionDispatcher(ctx).EmitExpression(nodes[i]);
-            if (i < paramTypes.Length && val.Value.TypeOf != paramTypes[i])
-                val = TypeCaster.ImplicitCast(ctx, val, ToBifyType(paramTypes[i]));
+            int paramIndex = i + offset;
+            if (paramIndex < paramTypes.Length && val.Value.TypeOf != paramTypes[paramIndex])
+                val = TypeCaster.ImplicitCast(ctx, val, ToBifyType(paramTypes[paramIndex]));
             args.Add(val.Value);
         }
         return args;
@@ -92,7 +142,7 @@ public class CallGen(CodeGenContext ctx)
         return new BifyType(name, type);
     }
 
-    private static void FlattenComma(AstNode? node, List<AstNode> list)
+    public static void FlattenComma(AstNode? node, List<AstNode> list)
     {
         if (node == null) return;
         if (node is AstBinaryOp bin && bin.Token.Type == TokenType.COMMA)

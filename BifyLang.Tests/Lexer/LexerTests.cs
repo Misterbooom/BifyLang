@@ -12,7 +12,7 @@ public class LexerTests : BifyTestBase
     [Test]
     public void Lexer_TokenizesKeywordsCorrectly()
     {
-        string code = "class new if else while for switch case default return const constructor break continue";
+        string code = "class new if else while for switch case default return const constructor destructor break continue";
         var tokens = Bify.Lex(code);
 
         Assert.That(tokens.Any(t => t.Type == TokenType.CLASS), Is.True);
@@ -27,6 +27,7 @@ public class LexerTests : BifyTestBase
         Assert.That(tokens.Any(t => t.Type == TokenType.RETURN), Is.True);
         Assert.That(tokens.Any(t => t.Type == TokenType.CONST), Is.True);
         Assert.That(tokens.Any(t => t.Type == TokenType.CONSTRUCTOR), Is.True);
+        Assert.That(tokens.Any(t => t.Type == TokenType.DESTRUCTOR), Is.True);
         Assert.That(tokens.Any(t => t.Type == TokenType.BREAK), Is.True);
         Assert.That(tokens.Any(t => t.Type == TokenType.CONTINUE), Is.True);
     }

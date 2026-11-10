@@ -228,12 +228,12 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Base {
-            public int value() {
+            public virtual int value() {
                 return 1;
             }
         }
         class Derived : Base {
-            public int value() {
+            public override int value() {
                 return 2;
             }
         }
@@ -250,12 +250,12 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Base {
-            public int value() {
+            public virtual int value() {
                 return 1;
             }
         }
         class Derived : Base {
-            public int value() {
+            public override int value() {
                 return 2;
             }
         }
@@ -272,7 +272,7 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class A {
-            public int f() {
+            public virtual int f() {
                 return 10;
             }
         }
@@ -282,7 +282,7 @@ public class ClassCodeGenTests : BifyTestBase
             }
         }
         class C : B {
-            public int f() {
+            public override int f() {
                 return 30;
             }
         }

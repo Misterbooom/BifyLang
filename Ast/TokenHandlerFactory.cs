@@ -26,7 +26,7 @@ internal static class TokenHandlerFactory
         {
             _ when TokenConfig.BinaryOperators.ContainsValue(token.Type) => new BinaryOperatorHandler(builder),
             _ when TokenConfig.AssignmentOperators.ContainsValue(token.Type) => new AssignmentOperatorHandler(builder),
-            TokenType.IDENTIFIER or TokenType.CONSTRUCTOR  => new IdentifierHandler(builder),
+            TokenType.IDENTIFIER or TokenType.CONSTRUCTOR or TokenType.DESTRUCTOR => new IdentifierHandler(builder),
             TokenType.WHILE => new WhileHandler(builder),
             TokenType.FOR => new ForHandler(builder),
             TokenType.BREAK or TokenType.CONTINUE => new BreakContinueHandler(builder),

@@ -16,14 +16,14 @@ public static class BuiltinFunctions
         ctx.CurrentScope.Define("printf", val, new BifyType("function", fnType));
     }
     
-    public static void DeclareMalloc(CodeGenContext ctx)
-    {
-        var fnType = LLVMTypeRef.CreateFunction(
-            BifyType.CreatePointer(BifyType.CreateVoid(ctx).Type, ctx).Type, 
-            [ctx.Context.Int64Type], 
-            IsVarArg: false
-        );
-        var fn = ctx.Module.AddFunction("malloc", fnType);
-        ctx.CurrentScope.Define("malloc", fn, new BifyType("function", fnType));
-    }
+    // public static void DeclareMalloc(CodeGenContext ctx)
+    // {
+    //     var fnType = LLVMTypeRef.CreateFunction(
+    //         BifyType.CreatePointer(BifyType.CreateVoid(ctx).Type, ctx).Type, 
+    //         [ctx.Context.Int64Type], 
+    //         IsVarArg: false
+    //     );
+    //     var fn = ctx.Module.AddFunction("malloc", fnType);
+    //     ctx.CurrentScope.Define("malloc", fn, new BifyType("function", fnType));
+    // }
 }

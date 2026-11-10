@@ -1,6 +1,15 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
+%Dummy = type { ptr, i32, i32, i32, ptr }
+%Base = type { ptr, i32, i32 }
+
+@Base.vtable = internal constant [2 x ptr] [ptr @Base_destructor, ptr @Base_getX]
+@Dummy.vtable = internal constant [2 x ptr] [ptr @Dummy_destructor, ptr @Dummy_getX]
+@.str = private constant [3 x i8] c"%d\00"
+
+declare ptr @gc_alloc(i64, ptr)
+
 declare void @gc_retainStrong(ptr)
 
 declare void @gc_retainWeak(ptr)
@@ -13,7 +22,105 @@ declare ptr @gc_upgradeWeak(ptr)
 
 declare i32 @printf(ptr, ...)
 
+define void @Base_destructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  ret void
+}
+
+define void @Base_constructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  ret void
+}
+
+define i32 @Base_getX(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  ret i32 0
+}
+
+define void @Dummy_destructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  %gcTest = getelementptr inbounds nuw %Dummy, ptr %0, i32 0, i32 4
+  %gcTest1 = load ptr, ptr %gcTest, align 8
+  call void @gc_releaseStrong(ptr %gcTest1)
+  call void @Base_destructor(ptr %0)
+  ret void
+}
+
+define void @Dummy_constructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  ret void
+}
+
+define i32 @Dummy_getX(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  %this1 = load ptr, ptr %this, align 8
+  %a = getelementptr inbounds nuw %Dummy, ptr %this1, i32 0, i32 3
+  %a2 = load i32, ptr %a, align 4
+  ret i32 %a2
+}
+
+define ptr @Dummy_getBase(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  %inst_ptr = call ptr @gc_alloc(i64 ptrtoint (ptr getelementptr (%Base, ptr null, i32 1) to i64), ptr @Base.vtable)
+  call void @Base_constructor(ptr %inst_ptr)
+  ret ptr %inst_ptr
+}
+
 define void @main() {
 entry:
+  %inst_ptr = call ptr @gc_alloc(i64 ptrtoint (ptr getelementptr (%Dummy, ptr null, i32 1) to i64), ptr @Dummy.vtable)
+  %a_slot = getelementptr inbounds nuw %Dummy, ptr %inst_ptr, i32 0, i32 3
+  store i32 5, ptr %a_slot, align 4
+  %gcTest_slot = getelementptr inbounds nuw %Dummy, ptr %inst_ptr, i32 0, i32 4
+  %inst_ptr1 = call ptr @gc_alloc(i64 ptrtoint (ptr getelementptr (%Base, ptr null, i32 1) to i64), ptr @Base.vtable)
+  call void @Base_constructor(ptr %inst_ptr1)
+  store ptr %inst_ptr1, ptr %gcTest_slot, align 8
+  call void @gc_retainStrong(ptr %inst_ptr1)
+  call void @Dummy_constructor(ptr %inst_ptr)
+  %d = alloca ptr, align 8
+  store ptr %inst_ptr, ptr %d, align 8
+  call void @gc_releaseStrong(ptr %inst_ptr1)
+  %d2 = load ptr, ptr %d, align 8
+  %a = alloca ptr, align 8
+  call void @gc_retainWeak(ptr %d2)
+  store ptr %d2, ptr %a, align 8
+  %a3 = load ptr, ptr %a, align 8
+  %upgraded_ptr = call ptr @gc_upgradeWeak(ptr %a3)
+  %a4 = getelementptr inbounds nuw %Dummy, ptr %upgraded_ptr, i32 0, i32 3
+  store i32 4, ptr %a4, align 4
+  call void @gc_releaseStrong(ptr %upgraded_ptr)
+  %a5 = load ptr, ptr %a, align 8
+  %upgraded_ptr6 = call ptr @gc_upgradeWeak(ptr %a5)
+  %0 = call ptr @Dummy_getBase(ptr %upgraded_ptr6)
+  %base = alloca ptr, align 8
+  store ptr %0, ptr %base, align 8
+  call void @gc_releaseStrong(ptr %upgraded_ptr6)
+  %d7 = load ptr, ptr %d, align 8
+  %vptr_slot = getelementptr inbounds nuw %Dummy, ptr %d7, i32 0, i32 0
+  %vtable = load ptr, ptr %vptr_slot, align 8
+  %slot_ptr = getelementptr ptr, ptr %vtable, i32 1
+  %getX_fn = load ptr, ptr %slot_ptr, align 8
+  %1 = call i32 %getX_fn(ptr %d7)
+  %2 = call i32 (ptr, ...) @printf(ptr @.str, i32 %1)
+  %cleanup_base = load ptr, ptr %base, align 8
+  call void @gc_releaseStrong(ptr %cleanup_base)
+  %cleanup_a = load ptr, ptr %a, align 8
+  call void @gc_releaseWeak(ptr %cleanup_a)
+  %cleanup_d = load ptr, ptr %d, align 8
+  call void @gc_releaseStrong(ptr %cleanup_d)
   ret void
 }
