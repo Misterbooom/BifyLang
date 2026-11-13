@@ -17,50 +17,102 @@ public class CallGen(CodeGenContext ctx)
 
     public TypedValue EmitCall(AstCall astCall)
     {
+        if (astCall.CallableName is AstMemberAccess)
+        {
+            return HandleMethodCall(astCall);
+        }
+
         var target = new ExpressionDispatcher(_ctx).EmitExpression(astCall.CallableName);
-        if (!target.IsCallable)
+        if (target.Type is not CallableType callableType)
         {
             return new BifyTypeError("Can't call  " + astCall.CallableName.Token.Value).Throw<TypedValue>();
         }
 
-        CallableType? callableType = target.Type as CallableType;
-        if (callableType == null)
-        {
-            throw new Exception($"Type {target.Type} is not a callable type");
-        }
-        CheckForMethod(out var thisArg, callableType);
 
-        
-        var args = ResolveArgs(_ctx, astCall, callableType, thisArg);
+        var args = ResolveArgs(_ctx, astCall, callableType);
         BifyDebug.Log(target.ToString());
-        
+
         var callReturn = _ctx.Builder.BuildCall2(callableType.Type, target.Value, args.Select(i => i.Value).ToArray());
         return new TypedValue(callReturn, callableType.ReturnType);
     }
 
+    public TypedValue HandleMethodCall(AstCall astCall)
+    {
+        var targetNode = astCall.CallableName;
+        if (targetNode is AstMemberAccess memberAccess)
+        {
+            var left = new ExpressionDispatcher(ctx).EmitExpression(memberAccess.Left);
+            if (targetNode.Right is not AstIdentifier id)
+                return new BifyAttributeError($"Invalid member identifier.").Throw<TypedValue>();
+
+            if (left.Type is not ClassType classType)
+                return new BifyTypeError($"Cannot call member on non-class type '{left.Type.Name}'")
+                    .Throw<TypedValue>();
+            
+            if (!classType.Methods.TryGetValue(id.Name, out var method))
+                return new BifyAttributeError($"Method '{id.Name}' does not exist").Throw<TypedValue>();
+            
+            MemberResolver.CheckAccess(_ctx, method.DeclaringClass, method.AccessLevel, method.Name);
+            var thisReference = UpgradeWeakReference(left);
+            LLVMValueRef callee;
+            if (method.VTableIndex >= 0)
+            {
+                var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
+                var vptrSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, thisReference.Value, 0, "vptr_slot");
+                var vtable = _ctx.Builder.BuildLoad2(ptrType, vptrSlot, "vtable");
+                var slotPtr = _ctx.Builder.BuildGEP2(ptrType, vtable,
+                    new[] { LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, (ulong)method.VTableIndex, false) },
+                    "slot_ptr");
+                callee = _ctx.Builder.BuildLoad2(ptrType, slotPtr, $"{method.Name}_fn");
+            }
+            else
+            {
+                callee = _ctx.Module.GetNamedFunction(method.Signature.FullName);
+                if (callee.Handle == IntPtr.Zero)
+                    throw new Exception($"Method {method.Signature.FullName} not found");
+            }
+
+            var args = ResolveArgs(_ctx, astCall, method.Signature);
+
+            var callReturn =
+                _ctx.Builder.BuildCall2(method.Signature.Type, callee,
+                    [thisReference.Value, .. args.Select(i => i.Value)]);
+            return new TypedValue(callReturn, method.Signature.ReturnType);
+        }
+        else
+        {
+            throw new Exception("Target node is not member accesss");
+        }
+    }
+
+    public TypedValue UpgradeWeakReference(TypedValue reference)
+    {
+        if (reference.IsWeak)
+        {
+            var upgraded = _ctx.HeapControl.BuildUpgradeWeak(reference.Value);
+            reference = new TypedValue(upgraded, reference.Type, false);
+            _ctx.HeapControl.TrackTemp(reference);
+        }
+
+        return reference;
+    }
 
     public static TypedValue[] ResolveArgs(
         CodeGenContext ctx,
         AstCall astCall,
-        CallableType callableType,
-        TypedValue? thisArg)
+        CallableType callableType
+    )
     {
         List<AstNode> flatArgs = [];
         ParamResolver.FlattenComma(astCall.ArgumentsNode, flatArgs);
 
-        int offset = thisArg.HasValue ? 1 : 0;
-        ValidateArgCount(callableType, flatArgs.Count, offset);
+        ValidateArgCount(callableType, flatArgs.Count, 0);
 
-        var args = new TypedValue[flatArgs.Count + offset];
-        if (thisArg.HasValue)
-        {
-            args[0] = thisArg.Value;
-        }
-
+        var args = new TypedValue[flatArgs.Count];
         var dispatcher = new ExpressionDispatcher(ctx);
         for (int i = 0; i < flatArgs.Count; i++)
         {
-            args[i + offset] = ResolveSingleArg(ctx, dispatcher, flatArgs[i], callableType, i + offset);
+            args[i] = ResolveSingleArg(ctx, dispatcher, flatArgs[i], callableType, i);
         }
 
         return args;
@@ -101,22 +153,7 @@ public class CallGen(CodeGenContext ctx)
                 $"Argument '{param.Name}' expects type '{param.Type}', but got '{val.Type}'"
             ).Throw();
         }
+
         return TypeCaster.ImplicitCast(ctx, val, param.Type);
     }
-
-    void CheckForMethod(out TypedValue? thisArg, CallableType callableType)
-    {
-        thisArg = null;
-
-        if (!callableType.IsMethod)
-        {
-            return;
-        }
-
-        if (_ctx.CurrentScope.TryLookup("this", out var thisSym))
-        {
-            thisArg = new TypedValue(thisSym.Pointer,thisSym.Type, isCallable:true);
-        }
-    }
-
 }

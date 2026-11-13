@@ -21,15 +21,21 @@ public class ForGen(CodeGenContext ctx)
             var incBlock = currentFunction.AppendBasicBlock("for.inc");
             var endBlock = currentFunction.AppendBasicBlock("for.end");
 
-            _ctx.Builder.BuildBr(condBlock);
+            _ctx.Builder.BranchIfUnterminated(condBlock);
             _ctx.Builder.PositionAtEnd(condBlock);
-            LoopEmitter.EmitCondBr(_ctx, astFor.ConditionNode, bodyBlock, endBlock);
+            
+                LoopEmitter.EmitCondBr(_ctx, astFor.ConditionNode, bodyBlock, endBlock);
+             
+            
+            
 
             LoopEmitter.EmitLoopBody(_ctx, bodyBlock, endBlock, incBlock, incBlock, astFor.BlockNode);
 
             _ctx.Builder.PositionAtEnd(incBlock);
-            new StatementDispatcher(_ctx).EmitStatement(astFor.IncrementNode);
-            _ctx.Builder.BuildBr(condBlock);
+            using (_ctx.HeapControl.BeginTempScope())
+                new StatementDispatcher(_ctx).EmitStatement(astFor.IncrementNode);
+            
+            _ctx.Builder.BranchIfUnterminated(condBlock);
 
             _ctx.Builder.PositionAtEnd(endBlock);
         }

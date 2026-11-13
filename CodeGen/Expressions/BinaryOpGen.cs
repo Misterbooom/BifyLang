@@ -17,14 +17,20 @@ public class BinaryOpGen
         if (op is TokenType.AND or TokenType.OR)
             return EmitLogical(ctx, dispatcher, binaryOp, op);
 
-        TypedValue left = dispatcher.EmitExpression(binaryOp.Left);
-        TypedValue right = dispatcher.EmitExpression(binaryOp.Right);
-        return EmitBinary(ctx, op, left, right);
+        using (ctx.HeapControl.BeginTempScope())
+        {
+            TypedValue left = dispatcher.EmitExpression(binaryOp.Left);
+            TypedValue right = dispatcher.EmitExpression(binaryOp.Right);
+            return EmitBinary(ctx, op, left, right);
+        }
+        
     }
 
     private static TypedValue EmitLogical(CodeGenContext ctx, ExpressionDispatcher dispatcher, AstBinaryOp binaryOp, TokenType op)
     {
-        TypedValue left = dispatcher.EmitExpression(binaryOp.Left);
+        TypedValue left;;
+        using (ctx.HeapControl.BeginTempScope())
+         left = dispatcher.EmitExpression(binaryOp.Left);
         if (left.Type.Name != "bool")
             return new BifyTypeError($"Operator '{op}' is not supported for '{left.Type.Name}'").Throw<TypedValue>();
 
@@ -40,7 +46,9 @@ public class BinaryOpGen
             ctx.Builder.BuildCondBr(left.Value, mergeBlock, rhsBlock);
 
         ctx.Builder.PositionAtEnd(rhsBlock);
-        TypedValue right = dispatcher.EmitExpression(binaryOp.Right);
+        TypedValue right;
+        using (ctx.HeapControl.BeginTempScope())
+            right = dispatcher.EmitExpression(binaryOp.Right);
         if (right.Type.Name != "bool")
             return new BifyTypeError($"Operator '{op}' is not supported between 'bool' and '{right.Type.Name}'").Throw<TypedValue>();
 
@@ -57,39 +65,33 @@ public class BinaryOpGen
         return new TypedValue(phi, boolType);
     }
 
+
     public static TypedValue EmitBinary(CodeGenContext ctx, TokenType op, TypedValue left, TypedValue right)
     {
         if (left.Type.Name == "int" && right.Type.Name == "int")
-        {
             return EmitIntBinary(ctx, op, left.Value, right.Value);
-        }
 
         if (left.Type.Name is "float" or "double" || right.Type.Name is "float" or "double")
         {
             var targetType = (left.Type.Name == "double" || right.Type.Name == "double")
                 ? BifyType.CreateDouble(ctx)
                 : BifyType.CreateFloat(ctx);
-
             var leftVal = TypeCaster.ImplicitCast(ctx, left, targetType).Value;
             var rightVal = TypeCaster.ImplicitCast(ctx, right, targetType).Value;
-
             return EmitFloatBinary(ctx, op, leftVal, rightVal, targetType);
         }
 
         if (left.Type.Name == "bool" && right.Type.Name == "bool")
-        {
             return EmitBoolBinary(ctx, op, left.Value, right.Value);
-        }
+
+        if (left.Type.Name == "string" && right.Type.Name == "string")
+            return new StringCompareGen(ctx).Emit(op, left.Value, right.Value);
 
         if (left.Type.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind &&
             right.Type.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind)
-        {
             return EmitPointerComparison(ctx, op, left.Value, right.Value);
-        }
 
-        new BifyTypeError($"Operator '{op}' is not supported between '{left.Type.Name}' and '{right.Type.Name}'")
-            .Throw();
-        return default;
+        return new BifyTypeError($"Operator '{op}' is not supported between '{left.Type.Name}' and '{right.Type.Name}'").Throw<TypedValue>();
     }
 
     private static TypedValue EmitIntBinary(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right)

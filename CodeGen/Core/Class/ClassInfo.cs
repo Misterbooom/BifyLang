@@ -5,6 +5,6 @@ namespace BifyLang.CodeGen.Core;
 public record ClassInfo
 (
     string Name,
-    AstClass classNode,
-    string moduleName
+    AstClass ClassNode,
+    string ModuleName
 );

@@ -86,6 +86,18 @@ public class FunctionPathCheckerTests : BifyTestBase
     }
 
     [Test]
+    public void PathCheck_InfiniteForIfElseReturns()
+    {
+        AssertSuccess("int loopForever() { for (int i = 0; true; i = i + 1) { if (i > 5) { return 1; } else { return 2; } } }");
+    }
+
+    [Test]
+    public void PathCheck_InfiniteForTrueConditionReturns()
+    {
+        AssertSuccess("int loopForever() { for (int i = 0; true; i = i + 1) { return 1; } }");
+    }
+
+    [Test]
     public void PathCheck_ConstructorVoidAllowed()
     {
         AssertSuccess("class TestClass { int x; constructor(int val) { this.x = val; return; } }");
@@ -100,8 +112,10 @@ public class FunctionPathCheckerTests : BifyTestBase
     [TestCase("int missing() { int a = 5; }", "Not all execution paths return a value for int", TestName = "PathCheck_MissingReturnNonVoid")]
     [TestCase("int check(int a) { if (a > 0) { return a; } }", "Not all execution paths return a value for int", TestName = "PathCheck_IfWithoutElseFails")]
     [TestCase("int check(int a) { if (a > 0) { int x = 1; } else { return 2; } }", "Not all execution paths return a value for int", TestName = "PathCheck_IfElseBranchMissingReturn")]
-    [TestCase("int getValue() { return; }", "Expected int but got void", TestName = "PathCheck_EmptyReturnInNonVoid")]
+    [TestCase("int getValue() { return; }", "Expected 'int' but got 'void'", TestName = "PathCheck_EmptyReturnInNonVoid")]
     [TestCase("int loop() { while (true) { break; } }", "Not all execution paths return a value for int", TestName = "PathCheck_WhileTrueWithBreakDoesNotGuaranteeReturn")]
+    [TestCase("int loop() { for (int i = 0; true; i = i + 1) { break; } }", "Not all execution paths return a value for int", TestName = "PathCheck_ForInfiniteWithBreakDoesNotGuaranteeReturn")]
+    [TestCase("int loop() { for (int i = 0; i < 10; i = i + 1) { return 1; } }", "Not all execution paths return a value for int", TestName = "PathCheck_FiniteForDoesNotGuaranteeReturn")]
     [TestCase("int getVal(int x) { switch (x) { case 1: return 10; } }", "Not all execution paths return a value for int", TestName = "PathCheck_SwitchMissingDefaultFails")]
     public void PathCheck_FailureCases(string code, string expectedSubstring)
     {

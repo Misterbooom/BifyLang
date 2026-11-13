@@ -16,11 +16,8 @@ public enum CompilerFlags
     EXECUTE = 1 << 0
 }
 
-internal class BifyCompiler
+public class BifyCompiler
 {
-    public static string RuntimeSourcePath { get; set; } =
-        "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
-
     static BifyCompiler()
     {
         LLVM.InitializeAllTargetInfos();
@@ -54,7 +51,8 @@ internal class BifyCompiler
         var module = ctx.GenerateModule(moduleNode);
 
         LLVMValueRef userMain = FindUserMain(module);
-        EmitEntryPointWrapper(ctx, module, userMain);
+        if (userMain.Name != "main")
+            EmitEntryPointWrapper(ctx, module, userMain);
 
         if (!VerifyModule(module, out var error))
         {
@@ -89,7 +87,7 @@ internal class BifyCompiler
             BifyDebug.Log(fn.Name);
             var parts = fn.Name.Split('.');
 
-            if (parts.Length == 2 && parts[1] == "main")
+            if (fn.Name == "main" || (parts.Length == 2 && parts[1] == "main"))
             {
                 if (userMain.Handle != IntPtr.Zero)
                 {
@@ -176,12 +174,12 @@ internal class BifyCompiler
 
     public void LinkLibraries(string objectFilePath, string outputFilePath)
     {
-        string stdcPath = ResolveRuntimePath();
+        string runtimeObjPath = ResolveRuntimePath();
 
         var processInfo = new ProcessStartInfo
         {
             FileName = "clang",
-            Arguments = $"\"{objectFilePath}\" \"{stdcPath}\" -o \"{outputFilePath}\"",
+            Arguments = $"\"{objectFilePath}\" \"{runtimeObjPath}\" -o \"{outputFilePath}\"",
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
@@ -195,7 +193,7 @@ internal class BifyCompiler
 
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"Clang compilation and linking failed:\n{error}");
+            throw new InvalidOperationException($"Clang linking failed:\n{error}");
         }
 
         Console.WriteLine("Successfully compiled.");
@@ -225,18 +223,30 @@ internal class BifyCompiler
 
     private static string ResolveRuntimePath()
     {
-        if (File.Exists(RuntimeSourcePath))
+        string? envPath = Environment.GetEnvironmentVariable("BIFY_RUNTIME_PATH");
+        if (!string.IsNullOrWhiteSpace(envPath) && File.Exists(envPath))
         {
-            return RuntimeSourcePath;
+            return envPath;
         }
 
-        string candidate = Path.Combine(AppContext.BaseDirectory, "CodeGen", "runtime.c");
-        if (File.Exists(candidate))
+        string defaultPath = Path.Combine(AppContext.BaseDirectory, "runtime.o");
+        if (File.Exists(defaultPath))
         {
-            return candidate;
+            return defaultPath;
         }
 
-        throw new FileNotFoundException($"Could not find runtime.c at '{RuntimeSourcePath}' or '{candidate}'.");
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            string candidate = Path.Combine(dir.FullName, "runtime.o");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+            dir = dir.Parent;
+        }
+
+        throw new FileNotFoundException($"Could not find compiled runtime at '{defaultPath}'.");
     }
 
     private static unsafe LLVMTargetMachineRef CreateTargetMachine()

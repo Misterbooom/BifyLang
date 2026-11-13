@@ -107,7 +107,7 @@ public partial class ArcAndCodeGenTests
             "store i32 4",
             "@gc_releaseStrong(",
             "= call ptr @gc_upgradeWeak(",
-            "call ptr @Dummy_getBase(",
+            "call ptr @main.Dummy_getBase(",
             "@gc_releaseStrong("
         );
     }
@@ -117,7 +117,7 @@ public partial class ArcAndCodeGenTests
     {
         string code = CommonClasses + "void main() {}";
         var ir = CompileToIr(code);
-        var fn = ExtractFunctionIr(ir, "Dummy_getBase");
+        var fn = ExtractFunctionIr(ir, "main.Dummy_getBase");
 
         Assert.That(Count(fn, "@gc_alloc("), Is.EqualTo(1));
         Assert.That(Count(fn, "@gc_retainStrong("), Is.EqualTo(0));
@@ -130,7 +130,7 @@ public partial class ArcAndCodeGenTests
     {
         string code = CommonClasses + "void main() {}";
         var ir = CompileToIr(code);
-        var fn = ExtractFunctionIr(ir, "Dummy_getLocal");
+        var fn = ExtractFunctionIr(ir, "main.Dummy_getLocal");
 
         Assert.That(Count(fn, "@gc_retainStrong("), Is.EqualTo(1));
         Assert.That(Count(fn, "@gc_releaseStrong("), Is.EqualTo(1));
@@ -186,9 +186,12 @@ public partial class ArcAndCodeGenTests
         """;
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main");
+        var ctor = ExtractFunctionIr(ir, "main.Holder_constructor");
 
-        // The new Base() is stored into Holder.b without extra retainStrong/releaseStrong in main.
+        // The new Base() is initialized inside Holder.constructor without extra retainStrong/releaseStrong.
         Assert.That(Count(fn, "@gc_retainStrong("), Is.EqualTo(0));
-        Assert.That(Count(fn, "@gc_alloc("), Is.EqualTo(2)); // 1 for Holder, 1 for Base
+        Assert.That(Count(fn, "@gc_alloc("), Is.EqualTo(1));
+        Assert.That(Count(ctor, "@gc_retainStrong("), Is.EqualTo(0));
+        Assert.That(Count(ctor, "@gc_alloc("), Is.EqualTo(1));
     }
 }

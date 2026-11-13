@@ -17,7 +17,7 @@ namespace BifyLang.Ast.Validators
                 Traceback.Instance.ThrowException(error, identifierNode?.Token.Column ?? assignmentToken.Column);
             }
 
-            if (typeNode != null && (typeNode is AstIdentifier or AstIndexOperator ||
+            if (typeNode != null && (typeNode is AstIdentifier or AstIndexOperator or AstMemberAccess ||
                                      typeNode.Token.Type == TokenType.POINTER)) return;
             BifyTypeError bifyTypeError = new(ErrorMessage.InvalidVariableType(typeNode?.Token.Value),
                 "", typeNode?.Token.Value);

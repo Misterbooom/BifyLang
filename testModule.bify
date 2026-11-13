@@ -1,7 +1,9 @@
-class foo{
+class Printer{
     constructor(){
+        
     }
-}
-int add(int x, int y){
-    return x + y;
+      void print(int a){
+            printf("test%d", a);
+        
+    }
 }

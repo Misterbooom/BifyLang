@@ -7,7 +7,25 @@ namespace BifyLang.CodeGen.Core;
 
 public class HeapControl(CodeGenContext codeGenContext)
 {
+    public readonly struct TempScope : IDisposable
+    {
+        private readonly HeapControl _heap;
+        private readonly List<TypedValue> _frame;
+
+        internal TempScope(HeapControl heap, List<TypedValue> frame)
+        {
+            _heap = heap;
+            _frame = frame;
+        }
+
+        public void Dispose()
+        {
+            _heap.EndTempScope(_frame);
+        }
+    }
+
     private readonly CodeGenContext _ctx = codeGenContext;
+    private readonly Stack<List<TypedValue>> _tempScopes = new();
 
     private (LLVMTypeRef funcType, LLVMValueRef funcValue) _gcAlloc;
     private (LLVMTypeRef funcType, LLVMValueRef funcValue) _gcRetainStrong;
@@ -17,7 +35,62 @@ public class HeapControl(CodeGenContext codeGenContext)
     private (LLVMTypeRef funcType, LLVMValueRef funcValue) _gcUpgradeWeak;
 
     private LLVMTypeRef VoidPtrType => LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
-    public List<TypedValue> TempRefs { get; private set; } = [];
+
+    public TempScope BeginTempScope()
+    {
+        var frame = new List<TypedValue>();
+        _tempScopes.Push(frame);
+        return new TempScope(this, frame);
+    }
+
+    public void TrackTemp(TypedValue value)
+    {
+        if (_tempScopes.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Attempted to track a temporary ARC reference outside of active TempScope."
+            );
+        }
+        _tempScopes.Peek().Add(value);
+    }
+
+    public bool ConsumeTemp(LLVMValueRef value)
+    {
+        if (_tempScopes.Count == 0)
+            return false;
+
+        return _tempScopes.Peek().RemoveAll(x => x.Value.Handle == value.Handle) > 0;
+    }
+
+    private void EndTempScope(List<TypedValue> expectedFrame)
+    {
+        if (_tempScopes.Count == 0 || !ReferenceEquals(_tempScopes.Peek(), expectedFrame))
+        {
+            throw new InvalidOperationException("TempScope stack corruption: scopes disposed out of order.");
+        }
+
+        var frame = _tempScopes.Pop();
+        if (frame.Count == 0)
+            return;
+
+        var currentBlock = _ctx.Builder.InsertBlock;
+        bool hasTerminator = currentBlock.Handle != IntPtr.Zero && currentBlock.Terminator.Handle != IntPtr.Zero;
+
+        if (hasTerminator)
+        {
+            _ctx.Builder.PositionBefore(currentBlock.Terminator);
+        }
+
+        foreach (var item in frame)
+        {
+            BuildReleaseStrong(item.Value);
+        }
+
+        if (hasTerminator)
+        {
+            _ctx.Builder.PositionAtEnd(currentBlock);
+        }
+    }
 
     public void DefineRuntimeFunctions()
     {
@@ -36,26 +109,6 @@ public class HeapControl(CodeGenContext codeGenContext)
         var funcVal = _ctx.Module.AddFunction("gc_alloc", funcType);
         _gcAlloc = (funcType, funcVal);
     }
-
-    public void ReleaseTemps()
-    {
-        if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
-        {
-            _ctx.Builder.PositionBefore(_ctx.Builder.InsertBlock.Terminator);
-        }
-
-        foreach (var item in TempRefs)
-        {
-            BuildReleaseStrong(item.Value);
-        }
-
-        if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
-        {
-            _ctx.Builder.PositionAtEnd(_ctx.Builder.InsertBlock);
-        }
-        TempRefs.Clear();
-    }
-
 
     private void DefineGcRetainStrong()
     {
@@ -96,7 +149,6 @@ public class HeapControl(CodeGenContext codeGenContext)
         var funcVal = _ctx.Module.AddFunction("gc_upgradeWeak", funcType);
         _gcUpgradeWeak = (funcType, funcVal);
     }
-
 
     public void BuildRetainStrong(LLVMValueRef objPtr)
     {
@@ -154,7 +206,11 @@ public class HeapControl(CodeGenContext codeGenContext)
 
     private (LLVMValueRef StoreValue, bool WasTemp) PrepareArcValue(TypedValue value, bool isTargetWeak)
     {
-        bool isTemp = TempRefs.RemoveAll(x => x.Value.Handle == value.Value.Handle) > 0;
+        if (value.Type.Name == "null")
+        {
+            return (value.Value, false);
+        }
+        bool isTemp = ConsumeTemp(value.Value);
         if (!isTargetWeak)
         {
             if (value.IsWeak)
@@ -170,9 +226,12 @@ public class HeapControl(CodeGenContext codeGenContext)
 
             return (value.Value, isTemp);
         }
+        if (isTemp)
+        {
+            TrackTemp(value);
+        }
 
         BuildRetainWeak(value.Value);
-
         return (value.Value, isTemp);
     }
 }

@@ -22,7 +22,7 @@ public class NewAndClassBuilderTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var dummyType = (ClassType)m.Context.TypeRegistry.GetBifyType("Dummy");
+        var dummyType = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Dummy");
         Assert.That(dummyType.VTableGlobal.Handle, Is.Not.EqualTo(System.IntPtr.Zero));
     }
 

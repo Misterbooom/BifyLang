@@ -48,4 +48,18 @@ public class VariableDeclCodeGenTests : BifyTestBase
     {
         AssertCompileError<BifyCastError>("void test() { float x = (float)\"cannot cast string to float\"; }");
     }
+
+    [Test]
+    public void VarDecl_NullFlagNode_DoesNotThrow()
+    {
+        using var tc = new ExpressionTestContext();
+        tc.Ctx.FunctionEntry = tc.Function.FirstBasicBlock;
+        var varId = new Ast.AstIdentifier(new global::BifyLang.Lexer.Token(global::BifyLang.Lexer.TokenType.IDENTIFIER, "x"), "x");
+        var val = new Ast.AstInteger(new global::BifyLang.Lexer.Token(global::BifyLang.Lexer.TokenType.NUMBER, "7"), 7);
+        var assign = new Ast.AstAssignment(new global::BifyLang.Lexer.Token(global::BifyLang.Lexer.TokenType.EQ, "="), varId, val);
+        var typeId = new Ast.AstIdentifier(new global::BifyLang.Lexer.Token(global::BifyLang.Lexer.TokenType.IDENTIFIER, "int"), "int");
+        var decl = new Ast.AstVarDecl(varId.Token, assign, typeId, flagNode: null);
+
+        Assert.DoesNotThrow(() => new BifyLang.CodeGen.Statements.VariableDeclGen(tc.Ctx).EmitVariable(decl));
+    }
 }

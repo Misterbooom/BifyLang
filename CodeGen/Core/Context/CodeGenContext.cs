@@ -137,7 +137,9 @@ public class CodeGenContext : IDisposable
         var rootInfo = new ModuleInfo(rootModule.Name, rootModule.ModulePath, rootModule, rootContext);
         var pool = new ModulePoolCollector(this).Collect(rootModule);
         ModuleInfo[] allModuleInfos = [.. pool, rootInfo];
-        var allClasses = new ClassDependencyResolver().Resolve(allModuleInfos.Select(m => m.ModuleNode));
+        var dependency = new ClassDependencyResolver();
+        var allClasses = dependency.Resolve(allModuleInfos.Select(m => m.ModuleNode));
+        BifyDebug.Log(dependency.ToString());
         new ModuleLayoutBuilder(this).Build(allModuleInfos, allClasses);
         return Module;
     }

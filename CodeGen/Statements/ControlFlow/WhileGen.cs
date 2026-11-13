@@ -18,7 +18,8 @@ public class WhileGen(CodeGenContext ctx)
 
         _ctx.Builder.BuildBr(condBlock);
         _ctx.Builder.PositionAtEnd(condBlock);
-        LoopEmitter.EmitCondBr(_ctx, astWhile.ConditionNode, bodyBlock, endBlock);
+      
+            LoopEmitter.EmitCondBr(_ctx, astWhile.ConditionNode, bodyBlock, endBlock);
 
         LoopEmitter.EmitLoopBody(_ctx, bodyBlock, endBlock, condBlock, condBlock, astWhile.BlockNode);
         _ctx.Builder.PositionAtEnd(endBlock);

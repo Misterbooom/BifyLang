@@ -27,8 +27,8 @@ public class ClassLayoutTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var baseType = (ClassType)m.Context.TypeRegistry.GetBifyType("Base");
-        var derivedType = (ClassType)m.Context.TypeRegistry.GetBifyType("Derived");
+        var baseType = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Base");
+        var derivedType = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Derived");
 
         Assert.That(baseType.Fields["x"].Index, Is.EqualTo(3));
         Assert.That(baseType.Fields["y"].Index, Is.EqualTo(4));
@@ -63,8 +63,8 @@ public class ClassLayoutTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var animal = (ClassType)m.Context.TypeRegistry.GetBifyType("Animal");
-        var dog = (ClassType)m.Context.TypeRegistry.GetBifyType("Dog");
+        var animal = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Animal");
+        var dog = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Dog");
 
         Assert.That(animal.VTable.Slots.Count, Is.EqualTo(2));
         Assert.That(animal.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
@@ -102,8 +102,8 @@ public class ClassLayoutTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var nodeA = (ClassType)m.Context.TypeRegistry.GetBifyType("NodeA");
-        var nodeB = (ClassType)m.Context.TypeRegistry.GetBifyType("NodeB");
+        var nodeA = (ClassType)m.Context.TypeRegistry.GetBifyType("main.NodeA");
+        var nodeB = (ClassType)m.Context.TypeRegistry.GetBifyType("main.NodeB");
 
         Assert.That(nodeA.Fields["next"].Type, Is.SameAs(nodeB));
         Assert.That(nodeB.Fields["prev"].Type, Is.SameAs(nodeA));

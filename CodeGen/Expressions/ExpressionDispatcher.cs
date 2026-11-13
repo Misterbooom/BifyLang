@@ -30,7 +30,7 @@ public class ExpressionDispatcher(CodeGenContext ctx)
         };
         if (value.Type is ClassType && node is AstCall or AstNew)
         {
-            _ctx.HeapControl.TempRefs.Add(value);
+            _ctx.HeapControl.TrackTemp(value);
         }
         return value;
     }

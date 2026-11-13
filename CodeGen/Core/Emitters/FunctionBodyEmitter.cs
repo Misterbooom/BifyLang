@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Statements;
 using BifyLang.CodeGen.Types;
@@ -19,10 +20,15 @@ public class FunctionBodyEmitter(CodeGenContext ctx)
         IReadOnlyList<ParameterInfo> parameters,
         AstNode? body,
         bool isMethod = false,
+        bool isConstructor = false,
         bool isDestructor = false,
         ClassType? declaringClass = null)
     {
+        LLVMBasicBlockRef? dtorCleanup = null;
+        
         var entry = function.AppendBasicBlock("entry");
+        if (isDestructor)
+            dtorCleanup = function.AppendBasicBlock("dtorCleanup");
         _ctx.Builder.PositionAtEnd(entry);
         _ctx.FunctionEntry = entry;
         _ctx.FunctionReturnType = returnType;
@@ -30,19 +36,35 @@ public class FunctionBodyEmitter(CodeGenContext ctx)
         using (_ctx.EnterScope())
         {
             BindParameters(function, parameters, isMethod);
-
+            _ctx.CurrentScope.IsDestructor = isDestructor;
+            if (isConstructor)
+            {
+                if (!_ctx.CurrentScope.TryLookup("this", out var thisSym))
+                    throw new InvalidOperationException("ThisSym fucked up.");
+                //load cause thisSym.Pointer is alloc
+                var loaded = _ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this_loaded");
+                ClassBuilder.InitFields(_ctx, declaringClass,loaded);
+            }
             if (body is AstBlock block)
             {
                 new StatementDispatcher(_ctx).EmitBlock(block);
             }
+            
+            
 
-            if (isDestructor && declaringClass != null)
-            {
-                EmitDestructorFieldCleanups(function, declaringClass);
-            }
+            
         }
 
-        if (returnType.Type.Kind == LLVMTypeKind.LLVMVoidTypeKind &&
+       
+        if (isDestructor && _ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
+        {
+            _ctx.Builder.BuildBr(dtorCleanup.Value);
+        }
+        if (isDestructor && declaringClass != null)
+        {
+            EmitDestructorFieldCleanups(function, declaringClass);
+        }
+        else if (returnType.Type.Kind == LLVMTypeKind.LLVMVoidTypeKind &&
             _ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
         {
             _ctx.Builder.BuildRetVoid();
@@ -51,9 +73,9 @@ public class FunctionBodyEmitter(CodeGenContext ctx)
 
     private void EmitDestructorFieldCleanups(LLVMValueRef function, ClassType declaringClass)
     {
-        if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
-            return;
-
+   
+        var dtorCleanup = function.GetBasicBlock("dtorCleanup");
+        _ctx.Builder.PositionAtEnd(dtorCleanup);
         var thisVal = function.GetParam(0);
         foreach (var field in declaringClass.Fields.Values)
         {
@@ -69,14 +91,16 @@ public class FunctionBodyEmitter(CodeGenContext ctx)
         }
 
         EmitParentDestructorCall(declaringClass, thisVal);
+        _ctx.Builder.BuildRetVoid();
     }
+    
 
     private void EmitParentDestructorCall(ClassType declaringClass, LLVMValueRef thisVal)
     {
         if (declaringClass.Parent == null)
             return;
 
-        var parentDtor = _ctx.Module.GetNamedFunction($"{declaringClass.Parent.Name}_destructor");
+        var parentDtor = _ctx.Module.GetNamedFunction(NameMangler.GenerateMethodName(declaringClass.Parent.ModuleName, declaringClass.Parent.Name, "destructor"));
         if (parentDtor.Handle == IntPtr.Zero)
             return;
 

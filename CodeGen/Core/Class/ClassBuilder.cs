@@ -23,31 +23,31 @@ public class ClassBuilder(CodeGenContext ctx)
         var rawPtr = _ctx.HeapControl.BuildAlloc(sizeVal, vptrCast);
         var instancePtr = _ctx.Builder.BuildBitCast(rawPtr, classType.Type, $"{classType.Name}_inst");
 
-        InitFields(classType, instancePtr);
-
         return instancePtr;
     }
 
-    public void InitFields(ClassType classType, LLVMValueRef instancePtr)
+    public static void InitFields(CodeGenContext ctx, ClassType classType, LLVMValueRef instancePtr)
     {
         foreach (var field in classType.Fields.Values.OrderBy(f => f.Index))
         {
-            var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, classType, instancePtr, field);
+            var fieldPtr = MemberResolver.ResolveFieldPtr(ctx, classType, instancePtr, field);
 
             if (field.ValueNode != null)
             {
-                var initVal = new ExpressionDispatcher(_ctx).EmitExpression(field.ValueNode);
-                initVal = TypeCaster.ImplicitCast(_ctx, initVal, field.Type);
-                if (field.Type is ClassType)
-                    _ctx.HeapControl.BuildArcStoreInit(fieldPtr, initVal, field.IsWeak);
-                else
-                    _ctx.Builder.BuildStore(initVal.Value, fieldPtr);
-
-                _ctx.HeapControl.ReleaseTemps();
+                using (ctx.HeapControl.BeginTempScope())
+                {
+                    
+                    var initVal = new ExpressionDispatcher(ctx).EmitExpression(field.ValueNode);
+                    initVal = TypeCaster.ImplicitCast(ctx, initVal, field.Type);
+                    if (field.Type is ClassType)
+                        ctx.HeapControl.BuildArcStoreInit(fieldPtr, initVal, field.IsWeak);
+                    else
+                        ctx.Builder.BuildStore(initVal.Value, fieldPtr);
+                }
             }
             else
             {
-                _ctx.Builder.BuildStore(LLVMValueRef.CreateConstNull(field.Type.Type), fieldPtr);
+                ctx.Builder.BuildStore(LLVMValueRef.CreateConstNull(field.Type.Type), fieldPtr);
             }
         }
     }

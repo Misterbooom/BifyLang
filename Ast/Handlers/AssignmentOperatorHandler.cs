@@ -25,7 +25,7 @@ namespace BifyLang.Ast.Handlers
             var node = Builder.Nodes[0];
             if (node is AstIdentifier || node is AstIndexOperator || node is AstMemberAccess)
             {
-                var identifierNode = node; // Assign the node to a variable named identifierNode
+                var identifierNode = node;
                 Builder.NextToken();
                 var valueTokens = Builder.Tokens[Builder.TokenIndex..];
                 var valueNode = Builder.ParseTokens(valueTokens);

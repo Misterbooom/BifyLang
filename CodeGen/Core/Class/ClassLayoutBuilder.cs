@@ -17,14 +17,20 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
     public void BuildClassesLayout(ClassInfo[] classes)
     {
         List<ClassType> classTypes = [];
+        
         foreach (var info in classes)
         {
-            classTypes.Add(DeclareOpaque(info));
+            var ownerCtx = _ctx.ModulesMap[info.ModuleName].ModuleContext;
+            using (_ctx.EnterModule(ownerCtx))
+                classTypes.Add(DeclareOpaque(info));
+                
         }
 
         for(int i =0; i < classes.Length; i++)
         {
-            BuildBody(classTypes[i], classes[i]);
+            var ownerCtx = _ctx.ModulesMap[classes[i].ModuleName].ModuleContext;
+            using (_ctx.EnterModule(ownerCtx))
+               BuildBody(classTypes[i], classes[i]);
         }
     }
 
@@ -34,7 +40,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
         var pointerType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
 
         ClassType? parent = null;
-        string parentName = info.classNode.ParentNode?.Token.Value ?? "";
+        string parentName = ClassDependencyResolver.ResolveParentName(info.ClassNode.ParentNode, info.ModuleName);
         if (!string.IsNullOrEmpty(parentName))
         {
             if (_ctx.TypeRegistry.TryGetType(parentName, out var pType) && pType is ClassType cp)
@@ -43,8 +49,8 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
                 new BifyTypeError($"Class '{info.Name}' inherits from unknown class '{parentName}'.").Throw();
         }
 
-        string mangledName = NameMangler.GenerateClassName(info.moduleName, info.Name);
-        var classType = new ClassType(info.Name, mangledName, pointerType, structType, parent);
+        string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType,info.ModuleName, parent);
         _ctx.TypeRegistry.Register(mangledName, classType);
         _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
         return classType;
@@ -86,7 +92,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
     private void ProcessFields(ClassInfo info, ClassType classType)
     {
-        var block = (AstBlock)info.classNode.BodyNode;
+        var block = (AstBlock)info.ClassNode.BodyNode;
         int nextIndex = 3 + classType.Fields.Count;
 
         foreach (var varDecl in block.ChildNodes.OfType<AstVarDecl>())
@@ -106,7 +112,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
     private void ProcessMethods(ClassInfo info, ClassType classType)
     {
-        var block = (AstBlock)info.classNode.BodyNode;
+        var block = (AstBlock)info.ClassNode.BodyNode;
         var funcDecls = block.ChildNodes.OfType<AstFunctionDecl>().ToList();
 
         ProcessDestructor(info, classType, funcDecls);

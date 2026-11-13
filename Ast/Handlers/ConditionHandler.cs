@@ -1,4 +1,4 @@
-﻿using BifyLang.Ast.Validators;
+using BifyLang.Ast.Validators;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
@@ -31,7 +31,7 @@ namespace BifyLang.Ast.Handlers
             
             if (token?.Type == TokenType.ELSE && Builder.GetNextToken()?.Type == TokenType.IF)
             {
-                Builder.TokenIndex++; // skip if token
+                Builder.TokenIndex++;
                 AstNode conditionNode = Builder.ParseTokens(Builder.GetConditionTokens());
                 AstNode blockNode = Builder.HandleBody("Else-If");
                 if (conditionNode == null)

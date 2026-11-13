@@ -64,7 +64,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
                     SwitchValidator.ThrowExpectedColonAfterCase(caseToken);
                     return;
                 }
-                i++; // skip COLON
+                i++;
 
                 AstNode? valueNode = valueTokens.Count > 0 ? Builder.ParseTokens(valueTokens) : null;
                 if (valueNode == null)
@@ -77,7 +77,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
                 if (i < bodyTokens.Count && bodyTokens[i].Type == TokenType.LCUR)
                 {
                     caseBodyTokens = TokensFormatter.GetTokensBetween(bodyTokens, ref i, TokenType.LCUR, TokenType.RCUR);
-                    i++; // skip RCUR
+                    i++;
                 }
                 else
                 {
@@ -109,7 +109,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
                     SwitchValidator.ThrowExpectedColonAfterDefault(defaultToken);
                     return;
                 }
-                i++; // skip COLON
+                i++;
 
                 if (defaultNode != null)
                 {
@@ -121,7 +121,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
                 if (i < bodyTokens.Count && bodyTokens[i].Type == TokenType.LCUR)
                 {
                     defaultBodyTokens = TokensFormatter.GetTokensBetween(bodyTokens, ref i, TokenType.LCUR, TokenType.RCUR);
-                    i++; // skip RCUR
+                    i++;
                 }
                 else
                 {

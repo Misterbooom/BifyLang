@@ -32,7 +32,7 @@ public class FunctionGen(CodeGenContext ctx)
         var functionType = LLVMTypeRef.CreateFunction(returnType.Type, paramTypes, false);
         var functionValue = _ctx.Module.AddFunction(mangledName, functionType);
 
-        _ctx.CurrentScope.Define(functionName, functionValue, new CallableType(functionName, mangledName, [..parameters], returnType, functionType), isCallable:true);
+        _ctx.CurrentScope.Define(functionName, functionValue, new CallableType(functionName, mangledName, [..parameters], returnType, functionType));
 
         return functionValue;
     }
@@ -41,17 +41,19 @@ public class FunctionGen(CodeGenContext ctx)
     public void EmitFunctionBody(AstFunctionDecl functionDecl)
     {
         string functionName = functionDecl.FunctionNameNode.Name;
+        var mangledName = NameMangler.GenerateFunctionName(_ctx.ModuleContext.Name, functionName);
+        
         var returnType = TypeResolver.Resolve(functionDecl.TypeNode, _ctx);
 
         var pathChecker = new FunctionPathChecker(functionDecl, _ctx);
         if (!pathChecker.AllPathsReturn && returnType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
         {
-            new BifyTypeError($"Not all execution paths return a value in function {functionName}").Throw();
+            new BifyTypeError($"Not all execution paths return a value in function {mangledName}").Throw();
         }
 
         var parameters = ParamResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
 
-        var functionValue = _ctx.Module.GetNamedFunction(functionName);
+        var functionValue = _ctx.Module.GetNamedFunction(mangledName);
         if (functionValue.Handle == 0)
         {
             functionValue = DeclareFunction(functionDecl);

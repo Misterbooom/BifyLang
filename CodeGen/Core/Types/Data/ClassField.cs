@@ -46,7 +46,7 @@ public struct ClassMethod(
     List<ParameterInfo>? parameters = null)
 {
     public readonly string Name = name;
-    public readonly BifyType Signature = signature;
+    public readonly CallableType Signature = signature;
     public LLVMValueRef FunctionValue = functionValue;
     public int VTableIndex = vtableIndex;
     public readonly AccessLevel AccessLevel = accessLevel;

@@ -45,7 +45,7 @@ public class FunctionCodeGenTests : BifyTestBase
     [Test]
     public void CodeGen_VoidFunctionWithPointersAndArrays()
     {
-        using var m = Bify.Compile("void processData(int* ptr, float[] list, CustomType* obj) {}");
+        using var m = Bify.Compile("class CustomType {} void processData(int* ptr, float[] list, CustomType* obj) {}");
         m.AssertValid();
 
         var func = m.Function("processData");

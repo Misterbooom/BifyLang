@@ -17,54 +17,61 @@ public class VariableDeclGen(CodeGenContext ctx)
     public void EmitVariable(AstVarDecl varDecl)
     {
         string varName = varDecl.AssignmentNode.Left.Token.Value;
-        var (varType, initialValue) = ResolveVariableType(varDecl);
-
-        var alloca = _ctx.BuildEntryAlloca(varType.Type, varName);
-
-        if (!FlagChecker.CheckVariableFlags(varDecl.Flag.Flags.Select(i => i.Token.Value), out var error))
+        using (_ctx.HeapControl.BeginTempScope())
         {
-            new BifySyntaxError(error).Throw();
-            return;
-        }
+            var (varType, initialValue) = ResolveVariableType(varDecl);
 
-        if (varDecl.AssignmentNode.Right is AstNew && varDecl.Flag.HasFlag("weak"))
-        {
-            new BifyTypeError("Can't use weak flag with new statement").Throw();
-            return;
-        }
+            var alloca = _ctx.BuildEntryAlloca(varType.Type, varName);
 
-        bool isWeak = varDecl.Flag != null && varDecl.Flag.HasFlag("weak");
-        bool isConst = varDecl.Flag != null && varDecl.Flag.HasFlag("const");
+            if (!FlagChecker.CheckVariableFlags(varDecl.Flag?.Flags?.Select(i => i.Token.Value) ?? [], out var error))
+            {
+                new BifySyntaxError(error).Throw();
+                return;
+            }
 
-        StoreInitialValue(alloca, varType, initialValue, isWeak);
+            if (varDecl.AssignmentNode.Right is AstNew && varDecl.Flag?.HasFlag("weak") == true)
+            {
+                new BifyTypeError("Can't use weak flag with new statement").Throw();
+                return;
+            }
+
+            bool isWeak = varDecl.Flag?.HasFlag("weak") == true;
+            bool isConst = varDecl.Flag?.HasFlag("const") == true;
+
+            StoreInitialValue(alloca, varType, initialValue, isWeak);
         
-        _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
-        BifyDebug.Log(_ctx.CurrentScope.ToString());
+            _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
+            BifyDebug.Log(_ctx.CurrentScope.ToString());
+        }
+        
     }
 
     private (BifyType VarType, TypedValue? InitialValue) ResolveVariableType(AstVarDecl varDecl)
     {
-        var expressionDispatcher = new ExpressionDispatcher(_ctx);
-        if (varDecl.Type is AstIdentifier id && id.Name == "var")
-        {
-            if (varDecl.AssignmentNode.Right == null)
-                new BifyTypeError("Implicitly-typed variables ('var') must be initialized.").Throw();
+  
+            var expressionDispatcher = new ExpressionDispatcher(_ctx);
+            if (varDecl.Type is AstIdentifier id && id.Name == "var")
+            {
+                if (varDecl.AssignmentNode.Right == null)
+                    new BifyTypeError("Implicitly-typed variables ('var') must be initialized.").Throw();
+            
+                var init = expressionDispatcher.EmitExpression(varDecl.AssignmentNode.Right);
+                if (init.Type.Name == "void")
+                    new BifyTypeError("Cannot declare a variable of type 'void'.").Throw();
 
-            var init = expressionDispatcher.EmitExpression(varDecl.AssignmentNode.Right);
-            if (init.Type.Name == "void")
-                new BifyTypeError("Cannot declare a variable of type 'void'.").Throw();
+                return (init.Type, init);
+            }
 
-            return (init.Type, init);
-        }
-
-        var varType = TypeResolver.Resolve(varDecl.Type, _ctx);
-        TypedValue? initialValue = null;
-        if (varDecl.AssignmentNode.Right != null)
-        {
-            var raw = expressionDispatcher.EmitExpression(varDecl.AssignmentNode.Right);
-            initialValue = TypeCaster.ImplicitCast(_ctx, raw, varType);
-        }
-        return (varType, initialValue);
+            var varType = TypeResolver.Resolve(varDecl.Type, _ctx);
+            TypedValue? initialValue = null;
+            if (varDecl.AssignmentNode.Right != null)
+            {
+            
+                var raw = expressionDispatcher.EmitExpression(varDecl.AssignmentNode.Right);
+                initialValue = TypeCaster.ImplicitCast(_ctx, raw, varType);
+            }
+            return (varType, initialValue);
+        
     }
 
     private void StoreInitialValue(LLVMValueRef alloca, BifyType varType, TypedValue? initialValue, bool isWeak)

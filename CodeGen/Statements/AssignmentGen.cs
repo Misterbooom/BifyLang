@@ -38,7 +38,7 @@ public void EmitAssign(AstAssignmentOperator assignmentOp)
             var currentVal = new TypedValue(_ctx.Builder.BuildLoad2(type.Type, pointer, name), type);
             value = BinaryOpGen.EmitBinary(_ctx, binOp.Value, currentVal, value);
             
-            if (value.Type is ClassType && type is ClassType)
+            if (value.Type is ClassType || value.Type.Name == "null" && type is ClassType)
             {
                 _ctx.HeapControl.BuildArcAssign(pointer, value, isWeak);
             }
@@ -50,7 +50,7 @@ public void EmitAssign(AstAssignmentOperator assignmentOp)
                 _ctx.Builder.BuildStore(casted.Value, pointer);
             }
         }
-        else if (value.Type is ClassType && type is ClassType)
+        else if (value.Type is ClassType || value.Type.Name == "null" && type is ClassType)
         {
             TypedValue casted = TypeCaster.ImplicitCast(_ctx, value, type);
             _ctx.HeapControl.BuildArcAssign(pointer, casted, isWeak);

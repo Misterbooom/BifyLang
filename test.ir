@@ -1,7 +1,10 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-@.str = private constant [5 x i8] c"test\00"
+%Printer = type { ptr, i32, i32, i32 }
+
+@.str = private constant [7 x i8] c"test%d\00"
+@test.Printer.vtable = internal constant [1 x ptr] [ptr @test.Printer_destructor]
 
 declare ptr @gc_alloc(i64, ptr)
 
@@ -17,9 +20,48 @@ declare ptr @gc_upgradeWeak(ptr)
 
 declare i32 @printf(ptr, ...)
 
+define void @test.Printer_destructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  br label %dtorCleanup
+
+dtorCleanup:                                      ; preds = %entry
+  ret void
+}
+
+define void @test.Printer_constructor(ptr %0) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  %this_loaded = load ptr, ptr %this, align 8
+  %property = getelementptr inbounds nuw %Printer, ptr %this_loaded, i32 0, i32 3
+  store i32 0, ptr %property, align 4
+  ret void
+}
+
+define void @test.Printer_print(ptr %0, i32 %1) {
+entry:
+  %this = alloca ptr, align 8
+  store ptr %0, ptr %this, align 8
+  %a = alloca i32, align 4
+  store i32 %1, ptr %a, align 4
+  %a1 = load i32, ptr %a, align 4
+  %2 = call i32 (ptr, ...) @printf(ptr @.str, i32 %a1)
+  ret void
+}
+
 define void @test.main() {
 entry:
-  %0 = call i32 (ptr, ...) @printf(ptr @.str)
+  %inst_ptr = call ptr @gc_alloc(i64 ptrtoint (ptr getelementptr (%Printer, ptr null, i32 1) to i64), ptr @test.Printer.vtable)
+  call void @test.Printer_constructor(ptr %inst_ptr)
+  %f = alloca ptr, align 8
+  store ptr %inst_ptr, ptr %f, align 8
+  %old_val = load ptr, ptr %f, align 8
+  call void @gc_releaseStrong(ptr %old_val)
+  store ptr null, ptr %f, align 8
+  %cleanup_f = load ptr, ptr %f, align 8
+  call void @gc_releaseStrong(ptr %cleanup_f)
   ret void
 }
 

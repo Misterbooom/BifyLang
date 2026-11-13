@@ -62,6 +62,8 @@ public sealed class CompiledModule : IDisposable
     public LLVMValueRef Function(string name)
     {
         var fn = Module.GetNamedFunction(name);
+        if (fn.Handle == IntPtr.Zero && !name.Contains('.'))
+            fn = Module.GetNamedFunction(BifyLang.CodeGen.Core.NameMangler.GenerateFunctionName("main", name));
         Assert.That(fn.Handle, Is.Not.EqualTo(IntPtr.Zero), $"Expected function '{name}' to exist in compiled module.\nIR:\n{IR}");
         return fn;
     }

@@ -46,10 +46,10 @@ public static class IdentifierGen
         if (symbol.Type.Type.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
         {
             BifyDebug.Log("Loading function: " + symbol.Name);
-            return new TypedValue(symbol.Pointer, symbol.Type, isCallable:true);
+            return new TypedValue(symbol.Pointer, symbol.Type);
         }
 
         var loaded = ctx.Builder.BuildLoad2(symbol.Type.Type, symbol.Pointer, symbol.Name);
-        return new TypedValue(loaded, symbol.Type, symbol.IsWeak, symbol.IsCallable);
+        return new TypedValue(loaded, symbol.Type, symbol.IsWeak);
     }
 }

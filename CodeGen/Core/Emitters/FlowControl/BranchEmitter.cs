@@ -104,8 +104,11 @@ public sealed class BranchEmitter : IDisposable
 
     public static LLVMValueRef EmitBoolCondition(CodeGenContext ctx, AstNode conditionNode)
     {
-        var rawVal = new ExpressionDispatcher(ctx).EmitExpression(conditionNode);
-        return TypeCaster.ImplicitCast(ctx, rawVal, BifyType.CreateBool(ctx)).Value;
+        using (ctx.HeapControl.BeginTempScope())
+        {
+            var rawVal = new ExpressionDispatcher(ctx).EmitExpression(conditionNode);
+            return TypeCaster.ImplicitCast(ctx, rawVal, BifyType.CreateBool(ctx)).Value;
+        }
     }
 
     private LLVMBasicBlockRef GetNextFalseTarget() =>

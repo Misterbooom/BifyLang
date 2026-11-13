@@ -15,7 +15,7 @@ public class IfGen(CodeGenContext ctx)
     public void EmitIfStatement(AstIf astIf)
     {
         using var branchEmitter = new BranchEmitter(_ctx, astIf.ElseIfNodes.Count, astIf.ElseNode is not null);
-
+        
         using (branchEmitter.EnterCondBranch(astIf.ConditionNode))
         {
             EmitBlock(astIf.BlockNode);

@@ -5,7 +5,7 @@ using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Types;
 
-public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LLVMTypeRef structType, ClassType? parent = null) : BifyType(name, pointerType)
+public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LLVMTypeRef structType, string moduleName, ClassType? parent = null) : BifyType(name, pointerType)
 {
     public LLVMTypeRef StructType { get; set; } = structType;
     public readonly ClassType? Parent = parent;
@@ -14,12 +14,13 @@ public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LL
     public Dictionary<string, ClassField> Fields = new();
     public Dictionary<string, ClassMethod> Methods = new();
     public readonly string FullName = fullName;
+    public readonly string ModuleName =  moduleName;
     public bool IsSubclassOf(ClassType other)
     {
         var cur = this;
         while (cur != null)
         {
-            if (cur.Name == other.Name) return true;
+            if (cur.FullName == other.FullName) return true;
             cur = cur.Parent;
         }
         return false;

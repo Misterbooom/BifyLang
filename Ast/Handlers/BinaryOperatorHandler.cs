@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
@@ -171,7 +171,7 @@ namespace BifyLang.Ast.Handlers
             List<Token> innerTokens = Builder.GetConditionTokens();
             AstNode node = Builder.ParseTokens(innerTokens);
             Builder.TokenIndex++;
-            if (node?.Token.Type == TokenType.POINTER || node is AstIdentifier)
+            if (node?.Token.Type == TokenType.POINTER || node is AstIdentifier || IsQualifiedTypeNode(node))
             {
                 AstNode valueNode = ParsePrimary();
                 AstCast castNode = new(node.Token, node, valueNode);
@@ -179,5 +179,9 @@ namespace BifyLang.Ast.Handlers
             }
             return node;
         }
+
+        private static bool IsQualifiedTypeNode(AstNode node) =>
+            node is AstMemberAccess { Right: AstIdentifier } ma &&
+            (ma.Left is AstIdentifier || IsQualifiedTypeNode(ma.Left));
     }
 }

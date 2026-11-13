@@ -2,6 +2,7 @@
 using BifyLang.Ast;
 using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
+using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core;
 
@@ -16,7 +17,7 @@ public class FunctionPathChecker
         if (node == null) return;
 
         AllPathsReturn = Check(node);
-        if (_functionType.Name != "void" && !AllPathsReturn)
+        if (_functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind && !AllPathsReturn)
         {
             Traceback.Instance.ThrowException(new BifyTypeError($"Not all execution paths return a value for {_functionType.Name}"));
         }
@@ -40,6 +41,7 @@ public class FunctionPathChecker
             AstBlock astBlock => CheckBlock(astBlock),
             AstIf astIf => CheckIf(astIf),
             AstWhile astWhile => CheckWhile(astWhile),
+            AstFor astFor => CheckFor(astFor),
             AstSwitch astSwitch => CheckSwitch(astSwitch),
             AstLine astLine => Check(astLine.Child),
             _ => false
@@ -48,9 +50,9 @@ public class FunctionPathChecker
 
     private bool CheckReturn(AstReturn astReturn)
     {
-        if (astReturn.ArgumentsNode == null && _functionType.Name != "void")
+        if (astReturn.ArgumentsNode == null && _functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
         {
-            Traceback.Instance.ThrowException(new BifyTypeError($"Expected {_functionType.Name} but got void"));
+            Traceback.Instance.ThrowException(new BifyTypeError($"Expected '{_functionType.Name}' but got 'void'"));
         }
         return true;
     }
@@ -85,14 +87,28 @@ public class FunctionPathChecker
 
     private bool CheckWhile(AstWhile astWhile)
     {
-        bool isInfinite = astWhile.ConditionNode is AstIdentifier { Name: "true" or "1" } ||
-                          astWhile.ConditionNode is AstBoolean { Value: true } ||
-                          astWhile.ConditionNode is AstInteger { Value: not 0 };
-
-        if (isInfinite && !HasBreak(astWhile.BlockNode))
+        if (IsInfiniteCondition(astWhile.ConditionNode, allowNull: false) && !HasBreak(astWhile.BlockNode))
             return Check(astWhile.BlockNode);
 
         return false;
+    }
+
+    private bool CheckFor(AstFor astFor)
+    {
+        if (IsInfiniteCondition(astFor.ConditionNode, allowNull: true) && !HasBreak(astFor.BlockNode))
+            return Check(astFor.BlockNode);
+
+        return false;
+    }
+
+    private static bool IsInfiniteCondition(AstNode? conditionNode, bool allowNull)
+    {
+        if (conditionNode == null)
+            return allowNull;
+
+        return conditionNode is AstIdentifier { Name: "true" or "1" } ||
+               conditionNode is AstBoolean { Value: true } ||
+               conditionNode is AstInteger { Value: not 0 };
     }
 
     private bool CheckSwitch(AstSwitch astSwitch)

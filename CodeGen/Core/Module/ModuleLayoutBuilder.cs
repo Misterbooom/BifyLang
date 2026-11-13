@@ -11,6 +11,12 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
 
     public void Build(ModuleInfo[] modules, ClassInfo[] classes)
     {
+        foreach (var m in modules)
+        {
+            var modType = new ModuleType(m.Name, m.ModuleContext);
+            _ctx.ModulesMap[m.Name] = modType;
+            _ctx.TypeRegistry.Register(m.Name, modType);
+        }
         new ClassLayoutBuilder(_ctx).BuildClassesLayout(classes);
 
         foreach (var moduleInfo in modules)
@@ -18,9 +24,7 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
             using (_ctx.EnterModule(moduleInfo.ModuleContext))
             {
                 BifyDebug.Log("Module: " + moduleInfo.Name);
-                _ctx.ModulesMap[moduleInfo.Name] = new ModuleType(moduleInfo.Name, moduleInfo.ModuleContext);
                 DeclareFunctions(moduleInfo.ModuleNode, moduleInfo.ModuleContext);
-                _ctx.TypeRegistry.Register(moduleInfo.Name, new ModuleType(moduleInfo.Name, moduleInfo.ModuleContext));
             }
         }
 

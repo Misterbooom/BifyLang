@@ -3,6 +3,7 @@ using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Expressions;
 using BifyLang.CodeGen.Types;
+using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Statements;
 
@@ -13,21 +14,42 @@ public class ReturnGen(CodeGenContext ctx)
     public void EmitReturn(AstReturn astReturn)
     {
         TypedValue? returnValue = null;
+        
         if (astReturn.ArgumentsNode != null)
         {
             var expr = new ExpressionDispatcher(_ctx);
-            returnValue = TypeCaster.ImplicitCast(_ctx, expr.EmitExpression(astReturn.ArgumentsNode), _ctx.FunctionReturnType);
-            if (returnValue.Value.Type is ClassType)
+            using (_ctx.HeapControl.BeginTempScope())
             {
-                bool wasTemp = _ctx.HeapControl.TempRefs.RemoveAll(x => x.Value.Handle == returnValue.Value.Value.Handle) > 0;
-                if (!wasTemp)
+                returnValue = TypeCaster.ImplicitCast(_ctx, expr.EmitExpression(astReturn.ArgumentsNode),
+                    _ctx.FunctionReturnType);
+                if (returnValue.Value.Type is ClassType)
                 {
-                    _ctx.HeapControl.BuildRetainStrong(returnValue.Value.Value);
+                    bool wasTemp = _ctx.HeapControl.ConsumeTemp(returnValue.Value.Value);
+                    if (returnValue.Value.IsWeak)
+                    {
+                        returnValue = new TypedValue(_ctx.HeapControl.BuildUpgradeWeak(returnValue.Value.Value),
+                            returnValue.Value.Type);
+                    }
+                    else
+                    {
+                        if (!wasTemp)
+                        {
+                            _ctx.HeapControl.BuildRetainStrong(returnValue.Value.Value);
+                        }
+                    }
                 }
             }
         }
 
         _ctx.ReleaseScopesUpTo(null);
+        if (_ctx.CurrentScope.IsDestructor)
+        {
+            BifyDebug.Log("Going to dtor cleanup");
+            var cleanup = _ctx.FunctionEntry.Parent.GetBasicBlock("dtorCleanup");
+            _ctx.Builder.BuildBr(cleanup);
+            
+            return;
+        }
         if (!returnValue.HasValue)
             _ctx.Builder.BuildRetVoid();
         else

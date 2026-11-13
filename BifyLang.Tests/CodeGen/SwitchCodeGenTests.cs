@@ -84,4 +84,42 @@ public class SwitchCodeGenTests : BifyTestBase
         m.AssertValid();
         Assert.That(m.IR, Does.Not.Contain("switch float"));
     }
+
+    [Test]
+    public void Switch_Fallback_EvaluatesSubjectOnce()
+    {
+        const string code = """
+            float getNum() { return 1.0; }
+            int test() {
+                switch (getNum()) {
+                    case 1.0: { return 1; }
+                    case 2.0: { return 2; }
+                    case 3.0: { return 3; }
+                    default: { return 0; }
+                }
+            }
+            """;
+        using var m = Bify.Compile(code);
+        m.AssertValid();
+
+        int callCount = (m.IR.Split("call float @main.getNum(").Length - 1);
+        Assert.That(callCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Switch_String_UsesStrcmpInsteadOfPointerEquality()
+    {
+        const string code = """
+            int pick(string s) {
+                switch (s) {
+                    case "alpha": { return 1; }
+                    case "beta": { return 2; }
+                    default: { return 0; }
+                }
+            }
+            """;
+        using var m = Bify.Compile(code);
+        m.AssertValid();
+        Assert.That(m.IR, Does.Contain("call i32 @strcmp("));
+    }
 }

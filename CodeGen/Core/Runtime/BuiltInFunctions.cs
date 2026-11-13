@@ -31,7 +31,18 @@ public static class BuiltinFunctions
                 returnType: intType,
                 functionType: fnType);
 
-            ctx.CurrentScope.Define("printf", func, callableType, isCallable: true);
+            ctx.CurrentScope.Define("printf", func, callableType);
         }
+    }
+
+    public static (LLVMValueRef Func, LLVMTypeRef Type) GetOrDeclareStrcmp(CodeGenContext ctx)
+    {
+        var charPtrType = BifyType.CreatePointer(BifyType.CreateChar(ctx).Type, ctx).Type;
+        var fnType = LLVMTypeRef.CreateFunction(BifyType.CreateInt(ctx).Type, [charPtrType, charPtrType], IsVarArg: false);
+        var func = ctx.Module.GetNamedFunction("strcmp");
+        if (func.Handle == IntPtr.Zero)
+            func = ctx.Module.AddFunction("strcmp", fnType);
+
+        return (func, fnType);
     }
 }

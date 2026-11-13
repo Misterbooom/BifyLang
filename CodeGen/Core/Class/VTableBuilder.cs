@@ -86,7 +86,7 @@ public static class VTableBuilder
         var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
         int count = vTable.Slots.Count;
         var vtableArrayType = LLVMTypeRef.CreateArray(ptrType, (uint)count);
-        var vtableGlobal = _ctx.Module.AddGlobal(vtableArrayType, $"{className}.vtable");
+        var vtableGlobal = _ctx.Module.AddGlobal(vtableArrayType, NameMangler.GenerateVtable(_ctx.ModuleContext.Name, className));
         vtableGlobal.IsGlobalConstant = true;
         vtableGlobal.Linkage = LLVMLinkage.LLVMInternalLinkage;
         if (count > 0)
@@ -98,7 +98,7 @@ public static class VTableBuilder
                 var fn = slot.Method.FunctionValue;
                 if (fn.Handle == IntPtr.Zero)
                 {
-                    string symbol = $"{slot.Method.DeclaringClass}_{slot.MethodName}";
+                    string symbol = NameMangler.GenerateMethodName(_ctx.ModuleContext.Name, className, slot.MethodName);
                     fn = _ctx.Module.GetNamedFunction(symbol);
                     if (fn.Handle == IntPtr.Zero)
                     {

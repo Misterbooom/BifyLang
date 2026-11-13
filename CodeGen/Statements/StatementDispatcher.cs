@@ -21,6 +21,7 @@ public class StatementDispatcher(CodeGenContext ctx)
             {
                 break;
             }
+
             EmitStatement(node);
         }
     }
@@ -33,8 +34,8 @@ public class StatementDispatcher(CodeGenContext ctx)
             {
                 break;
             }
+
             EmitStatement(node);
-            
         }
     }
 
@@ -56,10 +57,12 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new ReturnGen(_ctx).EmitReturn(astReturn);
                 break;
             case AstAssignmentOperator astAssignmentOperator:
-                new AssignmentGen(_ctx).EmitAssign(astAssignmentOperator);
+                using (_ctx.HeapControl.BeginTempScope())
+                    new AssignmentGen(_ctx).EmitAssign(astAssignmentOperator);
                 break;
             case AstUnaryOperator astUnaryOperator:
-                new UnaryOperatorGen(_ctx).EmitUnaryOperator(astUnaryOperator, true);
+                using (_ctx.HeapControl.BeginTempScope())
+                    new UnaryOperatorGen(_ctx).EmitUnaryOperator(astUnaryOperator, true);
                 break;
             case AstIf astIf:
                 new IfGen(_ctx).EmitIfStatement(astIf);
@@ -71,7 +74,8 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new ForGen(_ctx).EmitForLoop(astFor);
                 break;
             case AstCall or AstNew:
-                new ExpressionDispatcher(_ctx).EmitExpression(node);
+                using (_ctx.HeapControl.BeginTempScope())
+                    new ExpressionDispatcher(_ctx).EmitExpression(node);
                 break;
             case AstBreak astBreak:
                 new JumpGen(_ctx).EmitBreak(astBreak);
@@ -86,6 +90,5 @@ public class StatementDispatcher(CodeGenContext ctx)
                 new BifySyntaxError($"Invalid statement.").Throw();
                 break;
         }
-        _ctx.HeapControl.ReleaseTemps();
     }
 }

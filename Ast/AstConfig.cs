@@ -1,52 +1,44 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast
 {
     public static class AstConfig
     {
-        // Precedence configuration with higher values indicating higher precedence
         public static readonly Dictionary<TokenType, int> Precedence = new()
         {
-            // Parentheses have the highest precedence, to ensure that expressions inside them are evaluated first
-            { TokenType.LPAREN,   0 },
-            { TokenType.RPAREN,   0 },
+            { TokenType.LPAREN,    0 },
+            { TokenType.RPAREN,    0 },
 
-            // Arithmetic operators
-            { TokenType.POW,      10 },      // Exponentiation
-            { TokenType.MUL,      9 },       // Multiplication
-            { TokenType.DIV,      9 },       // Division
-            { TokenType.FLOORDIV, 9 },       // Floor division
-            { TokenType.MOD,      9 },       // Modulo
-            { TokenType.ADD,      8 },       // Addition
-            { TokenType.SUB,      8 },       // Subtraction
+            { TokenType.POW,       10 },
+            { TokenType.MUL,       9 },
+            { TokenType.DIV,       9 },
+            { TokenType.FLOORDIV,  9 },
+            { TokenType.MOD,       9 },
+            { TokenType.ADD,       8 },
+            { TokenType.SUB,       8 },
 
-            // Comparison operators
-            { TokenType.GT,       7 },       // Greater than
-            { TokenType.LT,       7 },       // Less than
-            { TokenType.GTEQ,     7 },       // Greater than or equal to
-            { TokenType.LTEQ,     7 },       // Less than or equal to
-            { TokenType.EQ,       6 },       // Equal to
-            { TokenType.NEQ,      6 },       // Not equal to
+            { TokenType.GT,        7 },
+            { TokenType.LT,        7 },
+            { TokenType.GTEQ,      7 },
+            { TokenType.LTEQ,      7 },
+            { TokenType.EQ,        6 },
+            { TokenType.NEQ,       6 },
 
-            // Boolean operators (AND, OR, NOT have lower precedence than arithmetic)
-            { TokenType.AND,      5 },       // Logical AND
-            { TokenType.OR,       4 },       // Logical OR
-            { TokenType.NOT,      3 },       // Logical NOT
+            { TokenType.AND,       5 },
+            { TokenType.OR,        4 },
+            { TokenType.NOT,       3 },
 
-            // Bitwise operators
-            { TokenType.BITAND,   2 },       // Bitwise AND
-            { TokenType.BITOR,    2 },       // Bitwise OR
-            { TokenType.BITXOR,   2 },       // Bitwise XOR
-            { TokenType.BITNOT,   1 },       // Bitwise NOT
+            { TokenType.BITAND,    2 },
+            { TokenType.BITOR,     2 },
+            { TokenType.BITXOR,    2 },
+            { TokenType.BITNOT,    1 },
 
-            // Increment/Decrement operators
-            { TokenType.INCREMENT, 11 },     // Increment operator (highest precedence for unary operators)
-            { TokenType.DECREMENT, 11 },     // Decrement operator
+            { TokenType.INCREMENT, 11 },
+            { TokenType.DECREMENT, 11 },
 
-            // Other operators
-            { TokenType.COMMA,    0 },       // Comma for separating arguments
-            { TokenType.RANGE,    0 },       // Range operator (for slicing/ranges)
+            { TokenType.COMMA,     0 },
+            { TokenType.RANGE,     0 },
         };
 
     }

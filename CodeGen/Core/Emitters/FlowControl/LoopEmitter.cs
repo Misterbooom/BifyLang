@@ -27,6 +27,7 @@ public static class LoopEmitter
 
         using (ctx.EnterLoop(breakTarget, continueTarget))
         using (ctx.EnterScope())
+            
         {
             new StatementDispatcher(ctx).EmitBlock((AstBlock)blockNode);
         }

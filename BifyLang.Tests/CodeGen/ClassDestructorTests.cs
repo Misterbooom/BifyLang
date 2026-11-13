@@ -22,7 +22,7 @@ public class ClassDestructorTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var item = (ClassType)m.Context.TypeRegistry.GetBifyType("Item");
+        var item = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Item");
         Assert.That(item.VTable.Slots.Count, Is.EqualTo(1));
         Assert.That(item.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
         Assert.That(item.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("Item"));
@@ -43,7 +43,7 @@ public class ClassDestructorTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var res = (ClassType)m.Context.TypeRegistry.GetBifyType("Resource");
+        var res = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Resource");
         Assert.That(res.VTable.Slots.Count, Is.EqualTo(1));
         Assert.That(res.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
         Assert.That(res.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("Resource"));
@@ -67,8 +67,8 @@ public class ClassDestructorTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var b = (ClassType)m.Context.TypeRegistry.GetBifyType("BaseResource");
-        var d = (ClassType)m.Context.TypeRegistry.GetBifyType("DerivedResource");
+        var b = (ClassType)m.Context.TypeRegistry.GetBifyType("main.BaseResource");
+        var d = (ClassType)m.Context.TypeRegistry.GetBifyType("main.DerivedResource");
 
         Assert.That(b.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("BaseResource"));
         Assert.That(d.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("DerivedResource"));
@@ -90,7 +90,7 @@ public class ClassDestructorTests : BifyTestBase
         using var m = Bify.Compile(code);
         m.AssertValid();
 
-        var svc = (ClassType)m.Context.TypeRegistry.GetBifyType("Service");
+        var svc = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Service");
         Assert.That(svc.VTable.Slots.Count, Is.EqualTo(3));
         Assert.That(svc.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
         Assert.That(svc.Methods["destructor"].VTableIndex, Is.EqualTo(0));

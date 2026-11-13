@@ -15,9 +15,8 @@ namespace BifyLang.CodeGen.Core
         public BifyType Type { get; }         
         public bool IsConstant { get; }      
         public bool IsWeak { get; }
-        public bool IsCallable { get; }
 
-        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false, bool isCallable = false)
+        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
         {
             Name = name;
             Pointer = pointer;
@@ -30,22 +29,28 @@ namespace BifyLang.CodeGen.Core
     public class Scope
     {
         public Scope? Parent { get; }
+
+        public bool IsDestructor { get; set; }
+
+        private bool _isDestructor = false;
+        
         
         private readonly Dictionary<string, Symbol> _symbols = new();
 
         public Scope(Scope? parent = null)
         {
             Parent = parent;
+            IsDestructor = parent?.IsDestructor ?? false;
         }
 
-        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false, bool isCallable = false)
+        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
         {
             if (_symbols.ContainsKey(name))
             {
                 return false; 
             }
 
-            _symbols[name] = new Symbol(name, pointer, type, isConstant, isWeak, isCallable);
+            _symbols[name] = new Symbol(name, pointer, type, isConstant, isWeak);
             return true;
         }
 

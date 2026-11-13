@@ -25,6 +25,16 @@ public static class NameMangler
         ArgumentException.ThrowIfNullOrEmpty(moduleName);
         ArgumentException.ThrowIfNullOrEmpty(funcName);
 
+        if (moduleName == "main" && funcName == "main")
+            return "main";
+
         return $"{moduleName}.{funcName}";
+    }
+    public static string GenerateVtable(string moduleName, string className)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(moduleName);
+        ArgumentException.ThrowIfNullOrEmpty(className);
+
+        return $"{moduleName}.{className}.vtable";
     }
 }
