@@ -31,6 +31,7 @@
     <Compile Remove="BifyLang.Tests\**" />
     <None Remove="BifyLang.Tests\**" />
     <EmbeddedResource Remove="BifyLang.Tests\**" />
+    <Compile Remove="CodeGen\Expressions\CallGen_legacy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Traceback\" />

@@ -37,7 +37,9 @@ public class VariableDeclGen(CodeGenContext ctx)
         bool isConst = varDecl.Flag != null && varDecl.Flag.HasFlag("const");
 
         StoreInitialValue(alloca, varType, initialValue, isWeak);
+        
         _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
+        BifyDebug.Log(_ctx.CurrentScope.ToString());
     }
 
     private (BifyType VarType, TypedValue? InitialValue) ResolveVariableType(AstVarDecl varDecl)

@@ -3,6 +3,8 @@
   <component name="UserContentModel">
     <attachedFolders />
     <explicitIncludes />
-    <explicitExcludes />
+    <explicitExcludes>
+      <Path>CodeGen/Expressions/CallGen_legacy.cs</Path>
+    </explicitExcludes>
   </component>
 </project>

@@ -38,6 +38,7 @@ namespace BifyLang.Lexer
             {"case", TokenType.CASE},
             {"default", TokenType.DEFAULT},
             {"unsafe", TokenType.UNSAFE},
+            {"import", TokenType.IMPORT},
         };
 
         public readonly static Dictionary<char, TokenType> SingleCharTokens = new()

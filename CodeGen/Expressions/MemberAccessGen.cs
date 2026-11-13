@@ -13,11 +13,25 @@ public class MemberAccessGen(CodeGenContext ctx)
 
     public TypedValue EmitMemberAccess(AstMemberAccess memberAccess)
     {
+        
+        if (memberAccess.Left is AstIdentifier identifier && _ctx.ModulesMap.TryGetValue(identifier.Name, out var moduleType))
+        {
+            if (memberAccess.Right is not AstIdentifier key)
+            {
+                return new BifyAttributeError("Expected member identifier").Throw<TypedValue>();
+            }
+
+            if (moduleType.ModuleContext.CurrentScope.TryLookup(key.Name, out var member))
+            {
+                return new TypedValue(member.Pointer, member.Type);
+            }
+            return new BifyAttributeError($"Module '{identifier.Name}' has no member '{key.Name}'").Throw<TypedValue>();
+        }
         var (target, classType, memberName) = EmitTarget(memberAccess);
 
         if (classType.Fields.TryGetValue(memberName, out var field))
         {
-            MemberResolver.CheckAccess(_ctx, classType, field);
+            MemberResolver.CheckAccess(_ctx, classType, field.AccessLevel, field.Name);
             var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, classType, target.Value, field);
             var loaded = _ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
             return new TypedValue(loaded, field.Type, field.IsWeak);
@@ -25,9 +39,10 @@ public class MemberAccessGen(CodeGenContext ctx)
 
         if (classType.Methods.TryGetValue(memberName, out var method))
         {
-            MemberResolver.CheckAccess(_ctx, classType, method);
-            string symbol = $"{method.DeclaringClass}_{method.Name}";
+            MemberResolver.CheckAccess(_ctx, classType, method.AccessLevel, method.Name);
+            string symbol = NameMangler.GenerateMethodName(_ctx.ModuleContext.Name, classType.Name, method.Name);
             var fn = _ctx.Module.GetNamedFunction(symbol);
+            BifyDebug.Log("METHOD: " + method.Signature.Name);
             return new TypedValue(fn, method.Signature, false);
         }
 
@@ -40,7 +55,7 @@ public class MemberAccessGen(CodeGenContext ctx)
 
         if (classType.Fields.TryGetValue(memberName, out var field))
         {
-            MemberResolver.CheckAccess(_ctx, classType, field);
+            MemberResolver.CheckAccess(_ctx, classType, field.AccessLevel, field.Name);
             var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, classType, target.Value, field);
             return (fieldPtr, field, classType);
         }
@@ -51,12 +66,11 @@ public class MemberAccessGen(CodeGenContext ctx)
         return new BifyAttributeError($"Type '{classType.Name}' has no member '{memberName}'").Throw<(LLVMValueRef, ClassField, ClassType)>();
     }
 
-    /// <summary>
-    /// Evaluates the left side of a member access, validates it is a class instance,
-    /// and upgrades weak references to a strong temporary (released at statement end).
-    /// </summary>
+
     private (TypedValue Target, ClassType Class, string MemberName) EmitTarget(AstMemberAccess memberAccess)
     {
+
+        
         var target = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
         if (target.Type is not ClassType classType)
             return new BifyTypeError($"Cannot access member on non-class type '{target.Type.Name}'").Throw<(TypedValue, ClassType, string)>();

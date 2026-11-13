@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Types;
@@ -8,35 +7,49 @@ using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Expressions;
 
-public class IdentifierGen
+public static class IdentifierGen
 {
     public static TypedValue EmitIdentifier(CodeGenContext ctx, AstIdentifier identifier)
     {
-        string name = identifier.Name;
-        if (name == "true")
-            return LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, true));
-        if (name == "false")
-            return LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, false));
-        if (name == "null")
-            return LiteralGen.EmitNull(ctx, new AstNull(identifier.Token));
-
-        if (!ctx.CurrentScope.TryLookup(name, out var symbol))
+        return identifier.Name switch
         {
-            if (MemberResolver.TryResolveThisField(ctx, name, out var fieldPtr, out var field))
-            {
-                var loaded = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
-                return new TypedValue(loaded, field.Type, field.IsWeak);
-            }
+            "true"  => LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, true)),
+            "false" => LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, false)),
+            "null"  => LiteralGen.EmitNull(ctx, new AstNull(identifier.Token)),
+            var name => ResolveAndLoad(ctx, name)
+        };
+    }
 
-            new BifyNameError($"Variable '{name}' is not defined").Throw();
-            return new TypedValue(default, BifyType.CreateInt(ctx));
+    private static TypedValue ResolveAndLoad(CodeGenContext ctx, string name)
+    {
+        if (ctx.CurrentScope.TryLookup(name, out var symbol))
+        {
+            return LoadSymbol(ctx, symbol);
         }
+
+        if (MemberResolver.TryResolveThisField(ctx, name, out var fieldPtr, out var field))
+        {
+            var loaded = ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
+            return new TypedValue(loaded, field.Type, field.IsWeak);
+        }
+
+        if (ctx.ModulesMap.TryGetValue(name, out var moduleType))
+        {
+            return new TypedValue(default, moduleType);
+        }
+
+        return new BifyNameError($"Variable '{name}' is not defined").Throw<TypedValue>();
+    }
+
+    private static TypedValue LoadSymbol(CodeGenContext ctx, Symbol symbol)
+    {
         if (symbol.Type.Type.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
         {
-            return new TypedValue(symbol.Pointer, symbol.Type);
+            BifyDebug.Log("Loading function: " + symbol.Name);
+            return new TypedValue(symbol.Pointer, symbol.Type, isCallable:true);
         }
 
-        var loadedValue = ctx.Builder.BuildLoad2(symbol.Type.Type, symbol.Pointer, name);
-        return new TypedValue(loadedValue, symbol.Type, symbol.IsWeak);
+        var loaded = ctx.Builder.BuildLoad2(symbol.Type.Type, symbol.Pointer, symbol.Name);
+        return new TypedValue(loaded, symbol.Type, symbol.IsWeak, symbol.IsCallable);
     }
 }

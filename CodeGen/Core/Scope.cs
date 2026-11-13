@@ -15,8 +15,9 @@ namespace BifyLang.CodeGen.Core
         public BifyType Type { get; }         
         public bool IsConstant { get; }      
         public bool IsWeak { get; }
+        public bool IsCallable { get; }
 
-        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
+        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false, bool isCallable = false)
         {
             Name = name;
             Pointer = pointer;
@@ -37,14 +38,14 @@ namespace BifyLang.CodeGen.Core
             Parent = parent;
         }
 
-        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
+        public bool Define(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false, bool isCallable = false)
         {
             if (_symbols.ContainsKey(name))
             {
                 return false; 
             }
 
-            _symbols[name] = new Symbol(name, pointer, type, isConstant, isWeak);
+            _symbols[name] = new Symbol(name, pointer, type, isConstant, isWeak, isCallable);
             return true;
         }
 
@@ -84,6 +85,43 @@ namespace BifyLang.CodeGen.Core
                         ctx.HeapControl.BuildReleaseStrong(val);
                 }
             }
+        }
+        public override string ToString()
+        {
+            var sb = new System.Text.StringBuilder();
+            var current = this;
+            var depth = 0;
+
+            while (current != null)
+            {
+                var indent = new string(' ', depth * 2);
+                sb.AppendLine($"{indent}Scope (Level {depth}) [{current._symbols.Count} symbol(s)]:");
+
+                if (current._symbols.Count == 0)
+                {
+                    sb.AppendLine($"{indent}  <empty>");
+                }
+                else
+                {
+                    foreach (var sym in current._symbols.Values)
+                    {
+                        var modifiers = (sym.IsConstant, sym.IsWeak) switch
+                        {
+                            (true, true) => " [const, weak]",
+                            (true, false) => " [const]",
+                            (false, true) => " [weak]",
+                            _ => ""
+                        };
+
+                        sb.AppendLine($"{indent}  - {sym.Name}: {sym.Type.GetType().Name}({sym.Type.Name}){modifiers} (0x{sym.Pointer.Handle:X})");
+                    }
+                }
+
+                current = current.Parent;
+                depth++;
+            }
+
+            return sb.ToString().TrimEnd();
         }
     }
 }

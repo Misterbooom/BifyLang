@@ -20,7 +20,7 @@ public static class NativeRunner
             using var compiled = Bify.Compile(code);
             compiled.AssertValid();
 
-            compiler.GenerateExecutable("test.bify", tempExe, CompilerFlags.NONE, compiled.Module);
+            compiler.GenerateExecutable(tempExe, CompilerFlags.NONE, compiled.Module);
 
             if (!File.Exists(tempExe))
             {

@@ -12,16 +12,14 @@ public class MethodEmitter(CodeGenContext ctx)
     public void EmitMethod(ClassMethod classMethod)
     {
         string symbol = $"{classMethod.DeclaringClass}_{classMethod.Name}";
-
-        ClassType classType = (ClassType)_ctx.TypeRegistry.GetBifyType(classMethod.DeclaringClass);
         var parameters = new List<ParameterInfo>
         {
-            new("this", classType, false)
+            new("this", classMethod.DeclaringClass, false)
         };
         parameters.AddRange(classMethod.Parameters);
 
         var returnType = new BifyType(classMethod.Signature.Name, classMethod.Signature.Type.ReturnType);
         bool isDestructor = classMethod.Name == DestructorSynthesizer.DestructorName;
-        _bodyEmitter.Emit(classMethod.FunctionValue, returnType, parameters, classMethod.Body, isMethod: true, isDestructor: isDestructor, declaringClass: classType);
+        _bodyEmitter.Emit(classMethod.FunctionValue, returnType, parameters, classMethod.Body, isMethod: true, isDestructor: isDestructor, declaringClass: classMethod.DeclaringClass);
     }
 }

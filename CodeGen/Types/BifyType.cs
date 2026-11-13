@@ -86,5 +86,5 @@ public class BifyType
         Name.GetHashCode();
 
     public override string ToString() =>
-        Name;
+        $"{Name}:{GetType().Name}:{Type}";
 }

@@ -10,7 +10,7 @@ namespace BifyLang.CodeGen.Core;
 
 public static class ClassMemberCollector
 {
-    public static ClassField CollectField(AstVarDecl varDecl, CodeGenContext ctx, string className, int index)
+    public static ClassField CollectField(AstVarDecl varDecl, CodeGenContext ctx, ClassType classType, int index)
     {
         string name = varDecl.AssignmentNode.Left.Token.Value;
         var flags = varDecl.Flag?.Flags.Select(f => f.Token.Value) ?? [];
@@ -26,10 +26,10 @@ public static class ClassMemberCollector
         bool isConst = varDecl.Flag?.HasFlag("const") ?? false;
         bool isWeak = varDecl.Flag?.HasFlag("weak") ?? false;
 
-        return new ClassField(name, type, value, accessLevel, index, isConst, isWeak, className);
+        return new ClassField(name, type, value, accessLevel, index, isConst, isWeak, classType);
     }
 
-    public static ClassMethod CollectMethod(AstFunctionDecl funcDecl, CodeGenContext ctx, string className)
+    public static ClassMethod CollectMethod(AstFunctionDecl funcDecl, CodeGenContext ctx, ClassType classType)
     {
         string name = funcDecl.FunctionNameNode.Name;
         var flags = funcDecl.FlagNode?.Flags.Select(f => f.Token.Value) ?? [];
@@ -67,12 +67,12 @@ public static class ClassMemberCollector
 
         var paramTypes = new List<LLVMTypeRef> { LLVMTypeRef.CreatePointer(ctx.Context.Int8Type, 0) };
         paramTypes.AddRange(parameters.Select(p => p.Type.Type));
-
+        var mangledName = NameMangler.GenerateMethodName(ctx.ModuleContext.Name, classType.Name, name);
         var funcType = LLVMTypeRef.CreateFunction(returnType.Type, paramTypes.ToArray(), false);
-        var signature = new BifyType(returnType.Name, funcType);
-        var functionValue = ctx.Module.AddFunction(className + "_" + name, funcType);
+        var signature = new CallableType(name, mangledName, [..parameters], returnType, funcType, true);
+        var functionValue = ctx.Module.AddFunction(mangledName, funcType);
         
-        return new ClassMethod(name, signature, functionValue, accessLevel, -1, className, funcDecl.BlockNode, isVirtual, isOverride, parameters);
+        return new ClassMethod(name, signature, functionValue, accessLevel, -1, classType, funcDecl.BlockNode, isVirtual, isOverride, parameters);
     }
 
     public static AccessLevel ParseAccessLevel(AstFlag? flag)

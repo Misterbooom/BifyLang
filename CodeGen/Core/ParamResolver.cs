@@ -43,4 +43,17 @@ public static class ParamResolver
 
         new BifySyntaxError("Expected an AstParam node").Throw();
     }
+    public static void FlattenComma(AstNode? node, List<AstNode> list)
+    {
+        if (node == null) return;
+        if (node is AstBinaryOp bin && bin.Token.Type == TokenType.COMMA)
+        {
+            FlattenComma(bin.Left, list);
+            FlattenComma(bin.Right, list);
+        }
+        else
+        {
+            list.Add(node);
+        }
+    }
 }

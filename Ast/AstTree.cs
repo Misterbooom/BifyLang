@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
@@ -6,8 +6,10 @@ namespace BifyLang.Ast
 {
     internal class AstTree
     {
+        private readonly string[] _sourceCode;
         public AstTree(string[] sourceCode)
         {
+            _sourceCode = sourceCode;
             Traceback.Instance.InitializeSource(sourceCode);
         }
 
@@ -20,7 +22,10 @@ namespace BifyLang.Ast
             {
                 lines.Add(ParseLine(lineTokens, ref tokenIndex, ref lineCount));
             }
-            AstModule module = new("","",lines);
+            AstModule module = new("", Traceback.Instance.FilePath, lines)
+            {
+                SourceCode = _sourceCode
+            };
             return module;
         }
         private AstNode ParseLine(List<Token> line, ref int tokenIndex, ref int lineCount)

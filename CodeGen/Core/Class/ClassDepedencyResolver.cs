@@ -19,9 +19,12 @@ public class ClassDependencyResolver
     private readonly Dictionary<string, VisitState> _states = [];
     private readonly List<ClassInfo> _compilationOrder = [];
 
-    public ClassInfo[] Resolve(AstModule module)
+    public ClassInfo[] Resolve(IEnumerable<AstModule> modules)
     {
-        CollectClasses(module);
+        foreach (var astModule in modules)
+        {
+            CollectClasses(astModule);
+        }
         VerifyInheritanceMap();
 
         foreach (var className in _classes.Keys)
@@ -44,15 +47,17 @@ public class ClassDependencyResolver
 
             string parentName = classNode.ParentNode?.Token.Value ?? "";
 
-            var classInfo = new ClassInfo(className, classNode);
-
-            if (_classes.ContainsKey(className))
+            var classInfo = new ClassInfo(className, classNode, module.Name);
+            
+            var mangledName= NameMangler.GenerateClassName(module.Name, className);
+            
+            if (_classes.ContainsKey(mangledName))
             {
                 new BifyNameError($"Class with name '{className}' already exists!").Throw();
                 return;
             }
-            _classes.Add(className, classInfo);
-            _inheritanceMap.Add(className, parentName);
+            _classes.Add(mangledName, classInfo);
+            _inheritanceMap.Add(mangledName, parentName);
         }
     }
 

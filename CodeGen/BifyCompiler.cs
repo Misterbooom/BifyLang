@@ -1,186 +1,249 @@
 using System;
+using System.Diagnostics;
 using System.IO;
-using LLVMSharp;
-using LLVMSharp.Interop;
 using BifyLang.Ast;
-using BifyLang.Exceptions;
 using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Types;
+using BifyLang.Exceptions;
+using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen
+namespace BifyLang.CodeGen;
+
+[Flags]
+public enum CompilerFlags
 {
-    [Flags]
-    internal enum CompilerFlags
+    NONE = 0,
+    EXECUTE = 1 << 0
+}
+
+internal class BifyCompiler
+{
+    public static string RuntimeSourcePath { get; set; } =
+        "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
+
+    static BifyCompiler()
     {
-        NONE, 
-        EXECUTE = 1 << 0
+        LLVM.InitializeAllTargetInfos();
+        LLVM.InitializeAllTargets();
+        LLVM.InitializeAllTargetMCs();
+        LLVM.InitializeAllAsmParsers();
+        LLVM.InitializeAllAsmPrinters();
     }
 
-    internal class BifyCompiler
+    public static unsafe bool VerifyModule(LLVMModuleRef module, out string? error)
     {
-        public BifyCompiler()
+        error = null;
+        sbyte* message = null;
+
+        if (LLVM.VerifyModule(module, LLVMVerifierFailureAction.LLVMReturnStatusAction, &message) != 0)
         {
-            LLVM.InitializeAllTargetInfos();
-            LLVM.InitializeAllTargets();
-            LLVM.InitializeAllTargetMCs();
-            LLVM.InitializeAllAsmParsers();
-            LLVM.InitializeAllAsmPrinters();
+            if (message != null)
+            {
+                error = new string(message);
+                LLVM.DisposeMessage(message);
+            }
+            return false;
         }
 
-        public static bool VerifyModule(LLVMModuleRef module, out string? error)
+        return true;
+    }
+
+    public void Compile(AstModule moduleNode, string filePath, string outputFilePath, CompilerFlags flags)
+    {
+        var ctx = new CodeGenContext();
+        var module = ctx.GenerateModule(moduleNode);
+
+        LLVMValueRef userMain = FindUserMain(module);
+        EmitEntryPointWrapper(ctx, module, userMain);
+
+        if (!VerifyModule(module, out var error))
         {
-            error = null;
-            unsafe
-            {
-                sbyte* message = null; 
-
-                if (LLVM.VerifyModule(
-                        module, 
-                        LLVMVerifierFailureAction.LLVMReturnStatusAction, 
-                        &message) != 0)
-                {
-                    if (message != null)
-                    {
-                        error = new string(message);
-                        LLVM.DisposeMessage(message);
-                    }
-                    return false;
-                }
-            }
-            
-
-            return true;
-        }
-        public void Compile(AstModule moduleNode, string filePath, string outputFilePath, CompilerFlags flags)
-        {
-            // LLVMValueRef mainFunction = Module.GetNamedFunction("main");
-            var module = new CodeGenContext().GenerateModule(moduleNode);
-            
-            LLVMValueRef mainFunction = module.GetNamedFunction("main");
-            if (mainFunction.Handle == IntPtr.Zero)
-            {
-                // Console.WriteLine("Main function not found.");
-                new BifySyntaxError("Main function not found.").Throw();
-                return;
-            }
-            if (!VerifyModule(module, out var error))
-            {
-                Console.WriteLine($"LLVM module verification failed:\n{error}");
-                Console.WriteLine(module.ToString());
-            }
-
-            string fileExtension = Path.GetExtension(outputFilePath);
-            if (fileExtension == ".o")
-            {
-                GenerateObjectFile(filePath, outputFilePath, module);
-            }
-            else if (fileExtension is ".out" or "")
-            {
-                GenerateExecutable(filePath, outputFilePath, flags, module);
-            }
-            else if (fileExtension == ".ir")
-            {
-                File.WriteAllText(outputFilePath,module.ToString());
-            }
-            else
-            {
-                Console.WriteLine($"Invalid output file extension: {fileExtension}");
-            }
+            Console.Error.WriteLine($"LLVM module verification failed:\n{error}");
+            Console.Error.WriteLine(module.ToString());
+            throw new InvalidOperationException("Module verification failed.");
         }
 
-        public static string RuntimeSourcePath { get; set; } = "/home/artur/RiderProjects/BifyLang/CodeGen/runtime.c";
-
-        public void GenerateObjectFile(string filePath, string outputFilePath, LLVMModuleRef module)
+        string fileExtension = Path.GetExtension(outputFilePath);
+        switch (fileExtension)
         {
-            unsafe
+            case ".o":
+                GenerateObjectFile(outputFilePath, module);
+                break;
+            case ".out" or "":
+                GenerateExecutable(outputFilePath, flags, module);
+                break;
+            case ".ir":
+                File.WriteAllText(outputFilePath, module.ToString());
+                break;
+            default:
+                throw new ArgumentException($"Invalid output file extension: '{fileExtension}'");
+        }
+    }
+
+    private static LLVMValueRef FindUserMain(LLVMModuleRef module)
+    {
+        LLVMValueRef userMain = default;
+
+        for (var fn = module.FirstFunction; fn.Handle != IntPtr.Zero; fn = fn.NextFunction)
+        {
+            BifyDebug.Log(fn.Name);
+            var parts = fn.Name.Split('.');
+
+            if (parts.Length == 2 && parts[1] == "main")
             {
-                try
+                if (userMain.Handle != IntPtr.Zero)
                 {
-                    LLVMTargetMachineRef targetMachine = CreateTargetMachine();
-                    targetMachine.EmitToFile(module, outputFilePath, LLVMCodeGenFileType.LLVMObjectFile);
-                    LLVM.DisposeTargetMachine(targetMachine);
-                }
-                catch (Exception e)
-                {
-                    BifyDebug.Log($"Failed to create target machine: {e.Message}");
+                    new BifyNameError($"Duplicate main function name: {fn.Name}").Throw();
                 }
 
+                userMain = fn;
             }
         }
 
-        // TODO: Add windows support
-        public void GenerateExecutable(string filePath, string outputFilePath, CompilerFlags flags, LLVMModuleRef module)
+        if (userMain.Handle == IntPtr.Zero)
         {
-            string tempObjFile = Path.GetTempFileName() + ".o";
-            BifyDebug.Log("Generating object file:"  + tempObjFile);
-            GenerateObjectFile(filePath, tempObjFile, module);
-            BifyDebug.Log("Compiling object file: " + tempObjFile);
+            new BifyNameError("Main function not found.").Throw();
+        }
+
+        return userMain;
+    }
+
+    private static unsafe void EmitEntryPointWrapper(
+        CodeGenContext ctx,
+        LLVMModuleRef module,
+        LLVMValueRef userMain)
+    {
+        LLVMTypeRef intType = BifyType.CreateInt(ctx).Type;
+        LLVMTypeRef userFnType = LLVM.GlobalGetValueType(userMain);
+
+        LLVMTypeRef mainWrapperType = LLVMTypeRef.CreateFunction(intType, [], IsVarArg: false);
+        LLVMValueRef mainWrapper = module.AddFunction("main", mainWrapperType);
+
+        LLVMBasicBlockRef entry = mainWrapper.AppendBasicBlock("entry");
+        ctx.Builder.PositionAtEnd(entry);
+
+        if (userFnType.ReturnType == intType)
+        {
+            LLVMValueRef[] refs = [];
+            LLVMValueRef exitCode = ctx.Builder.BuildCall2(userFnType, userMain, refs, "exit_code");
+            ctx.Builder.BuildRet(exitCode);
+        }
+        else
+        {
+            ctx.Builder.BuildCall2(userFnType, userMain, []);
+            ctx.Builder.BuildRet(LLVMValueRef.CreateConstInt(intType, 0, SignExtend: false));
+        }
+    }
+
+    public unsafe void GenerateObjectFile(string outputFilePath, LLVMModuleRef module)
+    {
+        LLVMTargetMachineRef targetMachine = CreateTargetMachine();
+        try
+        {
+            targetMachine.EmitToFile(module, outputFilePath, LLVMCodeGenFileType.LLVMObjectFile);
+        }
+        finally
+        {
+            LLVM.DisposeTargetMachine(targetMachine);
+        }
+    }
+
+    public void GenerateExecutable(string outputFilePath, CompilerFlags flags, LLVMModuleRef module)
+    {
+        string tempObjFile = Path.Combine(Path.GetTempPath(), $"bify_{Guid.NewGuid():N}.o");
+
+        try
+        {
+            BifyDebug.Log($"Generating object file: {tempObjFile}");
+            GenerateObjectFile(tempObjFile, module);
+
+            BifyDebug.Log($"Linking object file: {tempObjFile}");
             LinkLibraries(tempObjFile, outputFilePath);
-            
-            
+        }
+        finally
+        {
             if (File.Exists(tempObjFile))
             {
                 File.Delete(tempObjFile);
             }
-
-            if (flags.HasFlag(CompilerFlags.EXECUTE))
-            {
-                BifyDebug.Log("Running executable: " + outputFilePath);
-                var processInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = outputFilePath,
-                    RedirectStandardOutput = false,
-                    RedirectStandardError = false,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = new System.Diagnostics.Process { StartInfo = processInfo };
-
-                process.Start();
-    
-    
-                process.WaitForExit();
-
-                if (process.ExitCode != 0)
-                {
-                    BifyDebug.Log($"Process ended up with error. Code: {process.ExitCode}");
-                }
-            }
         }
 
-        public void LinkLibraries(string objectFilePath, string outputFilePath)
+        if (flags.HasFlag(CompilerFlags.EXECUTE))
         {
-            string stdcPath = RuntimeSourcePath;
-            if (!File.Exists(stdcPath))
-            {
-                var candidate = Path.Combine(AppContext.BaseDirectory, "CodeGen", "runtime.c");
-                if (File.Exists(candidate)) stdcPath = candidate;
-            }
-            
-            var processInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "clang",
-                Arguments = $"\"{objectFilePath}\" \"{stdcPath}\" -o \"{outputFilePath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            RunExecutable(outputFilePath);
+        }
+    }
 
-            using var process = System.Diagnostics.Process.Start(processInfo);
-            process?.WaitForExit();
+    public void LinkLibraries(string objectFilePath, string outputFilePath)
+    {
+        string stdcPath = ResolveRuntimePath();
 
-            if (process != null && process.ExitCode != 0)
-            {
-                string error = process.StandardError.ReadToEnd();
-                throw new InvalidOperationException($"Clang compilation and linking failed:\n{error}");
-            }
-            Console.WriteLine("Successfully compiled.");
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = "clang",
+            Arguments = $"\"{objectFilePath}\" \"{stdcPath}\" -o \"{outputFilePath}\"",
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(processInfo)
+            ?? throw new InvalidOperationException("Failed to start clang process.");
+
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Clang compilation and linking failed:\n{error}");
         }
 
-        private unsafe LLVMTargetMachineRef CreateTargetMachine()
+        Console.WriteLine("Successfully compiled.");
+    }
+
+    private static void RunExecutable(string executablePath)
+    {
+        BifyDebug.Log($"Running executable: {executablePath}");
+
+        var processInfo = new ProcessStartInfo
         {
-            sbyte* targetTriple = LLVM.GetDefaultTargetTriple();
+            FileName = Path.GetFullPath(executablePath),
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(processInfo)
+            ?? throw new InvalidOperationException($"Failed to start executable: {executablePath}");
+
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            BifyDebug.Log($"Process exited with non-zero code: {process.ExitCode}");
+        }
+    }
+
+    private static string ResolveRuntimePath()
+    {
+        if (File.Exists(RuntimeSourcePath))
+        {
+            return RuntimeSourcePath;
+        }
+
+        string candidate = Path.Combine(AppContext.BaseDirectory, "CodeGen", "runtime.c");
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        throw new FileNotFoundException($"Could not find runtime.c at '{RuntimeSourcePath}' or '{candidate}'.");
+    }
+
+    private static unsafe LLVMTargetMachineRef CreateTargetMachine()
+    {
+        sbyte* targetTriple = LLVM.GetDefaultTargetTriple();
+        try
+        {
             LLVMTarget* target;
             sbyte* error = null;
 
@@ -191,24 +254,22 @@ namespace BifyLang.CodeGen
                 throw new InvalidOperationException($"Error selecting target: {message}");
             }
 
-            LLVMTargetMachineRef targetMachine;
-
             fixed (byte* cpuPtr = "generic\0"u8)
             fixed (byte* featuresPtr = "\0"u8)
             {
-                targetMachine = LLVM.CreateTargetMachine(
+                return LLVM.CreateTargetMachine(
                     target,
                     targetTriple,
                     (sbyte*)cpuPtr,
                     (sbyte*)featuresPtr,
                     LLVMCodeGenOptLevel.LLVMCodeGenLevelDefault,
-                    LLVMRelocMode.LLVMRelocDefault,
-                    LLVMCodeModel.LLVMCodeModelDefault
-                );
+                    LLVMRelocMode.LLVMRelocPIC,
+                    LLVMCodeModel.LLVMCodeModelDefault);
             }
-
-            return targetMachine;
         }
-
+        finally
+        {
+            LLVM.DisposeMessage(targetTriple);
+        }
     }
 }

@@ -36,30 +36,71 @@ public class TypeRegistry
         if (TryGetType(name, out var existing))
             return existing;
 
-        if (name.EndsWith("*"))
+        if (name.Contains('.'))
         {
-            var baseType = GetBifyType(name[..^1]);
-            var llvmType = baseType.Type == _ctx.Context.VoidType
-                ? LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0)
-                : LLVMTypeRef.CreatePointer(baseType.Type, 0);
-            var ptrType = new BifyType(name, llvmType);
-            _types[name] = ptrType;
-            return ptrType;
+            var parts = name.Split('.', 2);
+            string modName = parts[0];
+            string typeName = parts[1];
+            if (_ctx.ModulesMap.TryGetValue(modName, out var modType))
+            {
+                if (modType.ModuleContext.ClassesInfo.TryGetValue(typeName, out var clsType))
+                {
+                    _types[name] = clsType;
+                    return clsType;
+                }
+            }
+
+            if (TryGetType(typeName, out var directType))
+            {
+                _types[name] = directType;
+                return directType;
+            }
         }
 
-        if (name.EndsWith("]"))
+        // if (name.EndsWith("*"))
+        // {
+        //     var baseType = GetBifyType(name[..^1]);
+        //     var llvmType = baseType.Type == _ctx.Context.VoidType
+        //         ? LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0)
+        //         : LLVMTypeRef.CreatePointer(baseType.Type, 0);
+        //     var ptrType = new BifyType(name, llvmType);
+        //     _types[name] = ptrType;
+        //     return ptrType;
+        // }
+
+        // if (name.EndsWith("]"))
+        // {
+        //     int idx = name.LastIndexOf('[');
+        //     string baseName = idx > 0 ? name[..idx] : name;
+        //     var baseType = GetBifyType(baseName);
+        //     var llvmType = LLVMTypeRef.CreatePointer(baseType.Type, 0);
+        //     var arrType = new BifyType(name, llvmType);
+        //     _types[name] = arrType;
+        //     return arrType;
+        // }
+
+        return new BifyNameError("Type not found: " + name).Throw<BifyType>();
+    }
+    public override string ToString()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"TypeRegistry [{_types.Count} type(s)]:");
+
+        if (_types.Count == 0)
         {
-            int idx = name.LastIndexOf('[');
-            string baseName = idx > 0 ? name[..idx] : name;
-            var baseType = GetBifyType(baseName);
-            var llvmType = LLVMTypeRef.CreatePointer(baseType.Type, 0);
-            var arrType = new BifyType(name, llvmType);
-            _types[name] = arrType;
-            return arrType;
+            sb.AppendLine("  <empty>");
+        }
+        else
+        {
+            foreach (var (name, bifyType) in _types)
+            {
+                var llvmTypeStr = bifyType.Type.Handle != System.IntPtr.Zero 
+                    ? bifyType.Type.PrintToString() 
+                    : "null";
+                sb.AppendLine($"  - {name}: {bifyType.GetType().Name} (LLVM: {llvmTypeStr}, 0x{bifyType.Type.Handle:X})");
+            }
         }
 
-        var customType = new BifyType(name, LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0));
-        _types[name] = customType;
-        return customType;
+        return sb.ToString().TrimEnd();
     }
 }

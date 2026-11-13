@@ -27,6 +27,9 @@ public class DeclarationDispatcher(CodeGenContext ctx)
             case AstClass astClass:
                 new ClassGen(_ctx).EmitClass(astClass);
                 break;
+            case AstImport astImport:
+                new ImportGen(_ctx).EmitImport(astImport);
+                break;
             default:
                 new BifySyntaxError("Only function and class declarations are allowed at the top level").Throw();
                 break;

@@ -15,12 +15,13 @@ public class NewGen(CodeGenContext ctx)
 
     public TypedValue EmitNew(AstNew astNew)
     {
-        if (astNew.ValueNode is not AstIdentifier id)
+        string? className = TryExtractClassName(astNew.ValueNode);
+        if (className == null)
             return new BifySyntaxError("Expected class identifier after 'new'").Throw<TypedValue>();
 
-        var bifyType = _ctx.TypeRegistry.GetBifyType(id.Name);
+        var bifyType = _ctx.TypeRegistry.GetBifyType(className);
         if (bifyType is not ClassType classType)
-            return new BifyTypeError($"'{id.Name}' is not a class").Throw<TypedValue>();
+            return new BifyTypeError($"'{className}' is not a class").Throw<TypedValue>();
 
         var classBuilder = new ClassBuilder(_ctx);
         var instancePtr = classBuilder.BuildInstance(classType);
@@ -48,7 +49,7 @@ public class NewGen(CodeGenContext ctx)
         else if (argsNode != null)
         {
             var argNodes = new List<AstNode>();
-            CallGen.FlattenComma(argsNode, argNodes);
+            ParamResolver.FlattenComma(argsNode, argNodes);
             if (argNodes.Count > 0)
             {
                 new BifyTypeError($"Class '{classType.Name}' has no constructor matching arguments").Throw();
@@ -62,7 +63,7 @@ public class NewGen(CodeGenContext ctx)
         AstNode? argsNode)
     {
         var argNodes = new List<AstNode>();
-        CallGen.FlattenComma(argsNode, argNodes);
+        ParamResolver.FlattenComma(argsNode, argNodes);
 
         if (argNodes.Count != ctor.Parameters.Count)
         {
@@ -80,9 +81,19 @@ public class NewGen(CodeGenContext ctx)
             {
                 val = TypeCaster.ImplicitCast(_ctx, val, expectedType);
             }
+
             args.Add(val.Value);
         }
 
         return args;
     }
+
+    private string? TryExtractClassName(AstNode node) => node switch
+    {
+        AstIdentifier id => NameMangler.GenerateClassName(_ctx.ModuleContext.Name, id.Name),
+        AstMemberAccess ma when
+            TryExtractClassName(ma.Left) is { } left &&
+            ma.Right is AstIdentifier right => NameMangler.GenerateClassName(left, right.Name),
+        _ => null
+    };
 }

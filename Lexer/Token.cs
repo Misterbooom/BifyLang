@@ -101,7 +101,8 @@ namespace BifyLang.Lexer
         SWITCH,
         CASE,
         DEFAULT,
-        UNSAFE
+        UNSAFE,
+        IMPORT
     }
     public class Token(TokenType type, string value, List<Token> tokens = null)
     {

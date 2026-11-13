@@ -11,6 +11,7 @@ public class CastGen
     {
         BifyType targetType = TypeResolver.Resolve(castNode.TypeNode, ctx);
         TypedValue value = dispatcher.EmitExpression(castNode.ValueNode);
+        
 
         return TypeCaster.ExplicitCast(ctx, value, targetType);
     }

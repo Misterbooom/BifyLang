@@ -12,9 +12,11 @@ public class ClassGen(CodeGenContext ctx)
 
     public void EmitClass(AstClass classNode)
     {
-        if (!_ctx.TypeRegistry.TryGetType(classNode.NameNode.Token.Value, out var type))
+        string mangledName = NameMangler.GenerateClassName(_ctx.ModuleContext.Name,classNode.NameNode.Token.Value);
+        
+        if (!_ctx.TypeRegistry.TryGetType(mangledName, out var type))
         {
-            throw new Exception($"Cannot resolve type '{classNode.NameNode.Token.Value}' from TypeRegistry. ");
+            throw new Exception($"Cannot resolve type '{mangledName}' from TypeRegistry. ");
         }
 
         ClassType classType = (ClassType)type;
@@ -22,10 +24,7 @@ public class ClassGen(CodeGenContext ctx)
 
         foreach (var method in classType.Methods.Values)
         {
-            if (method.DeclaringClass == classType.Name)
-            {
-                methodEmitter.EmitMethod(method);
-            }
+            methodEmitter.EmitMethod(method);
         }
 
         VTableBuilder.Build(classType.VTable, _ctx, classNode.NameNode.Token.Value);

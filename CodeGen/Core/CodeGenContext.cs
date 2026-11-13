@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Module;
 using BifyLang.CodeGen.Declarations;
-using BifyLang.CodeGen.Statements;
 using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
@@ -15,22 +17,30 @@ public class CodeGenContext : IDisposable
 
     public LLVMModuleRef Module { get; private set; }
     public LLVMBuilderRef Builder { get; private set; }
-    public Scope CurrentScope { get; private set; } = new Scope(parent: null);
+    public ModuleContext ModuleContext;
+
+    public Scope CurrentScope
+    {
+        get { return ModuleContext.CurrentScope; }
+        private set { ModuleContext.CurrentScope = value; }
+    }
+
     public TypeRegistry TypeRegistry { get; private set; }
-    public LoopContext  LoopContext = new LoopContext(null, null, null, null);
+
+    public LoopContext LoopContext = new LoopContext(null, null, null, null);
     public BifyType FunctionReturnType;
     public HeapControl HeapControl;
-    public ClassInfo[] ClassesInfo {get; private set;}
+    public Dictionary<string, ModuleType> ModulesMap = [];
 
     public CodeGenContext()
     {
         Context = LLVMContextRef.Create();
         Module = Context.CreateModuleWithName("main");
         Builder = Context.CreateBuilder();
+        ModuleContext = new ModuleContext(this, "main", "");
         TypeRegistry = new TypeRegistry(this);
         HeapControl = new HeapControl(this);
         HeapControl.DefineRuntimeFunctions();
-        BuiltinFunctions.DeclarePrintf(this);
     }
 
     private sealed class ScopeExitHandle(CodeGenContext ctx) : IDisposable
@@ -42,6 +52,7 @@ public class CodeGenContext : IDisposable
                                ?? throw new InvalidOperationException("Cannot exit root scope");
         }
     }
+
     private sealed class LoopExitHandle(CodeGenContext ctx) : IDisposable
     {
         public void Dispose()
@@ -49,11 +60,39 @@ public class CodeGenContext : IDisposable
             ctx.LoopContext = ctx.LoopContext.Parent;
         }
     }
+
+    private sealed class ModuleExitHandle(CodeGenContext ctx, ModuleContext previousContext) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            ctx.ModuleContext = previousContext;
+        }
+    }
+
     public IDisposable EnterScope()
     {
         CurrentScope = new Scope(parent: CurrentScope);
         return new ScopeExitHandle(this);
     }
+
+    public IDisposable EnterModule(ModuleContext newModuleContext)
+    {
+        var previous = ModuleContext;
+        ModuleContext = newModuleContext;
+        BuiltinFunctions.DeclarePrintf(this);
+
+        return new ModuleExitHandle(this, previous);
+    }
+
+    public IDisposable EnterModule(string name, string path)
+    {
+        return EnterModule(new ModuleContext(this, name, path));
+    }
+
     public void ReleaseScopesUpTo(Scope targetScope)
     {
         var scope = CurrentScope;
@@ -63,16 +102,16 @@ public class CodeGenContext : IDisposable
             scope = scope.Parent;
         }
     }
+
     /// <summary>
-    /// Use before EnterScope 
+    /// use before EnterScope 
     /// </summary>
     public IDisposable EnterLoop(LLVMBasicBlockRef breakBlock, LLVMBasicBlockRef continueBlock)
     {
-        LoopContext = new LoopContext(LoopContext,breakBlock, continueBlock, CurrentScope);
+        LoopContext = new LoopContext(LoopContext, breakBlock, continueBlock, CurrentScope);
         return new LoopExitHandle(this);
     }
 
-    
     public LLVMValueRef BuildEntryAlloca(LLVMTypeRef type, string name)
     {
         if (FunctionEntry.Handle == IntPtr.Zero)
@@ -92,14 +131,14 @@ public class CodeGenContext : IDisposable
         return alloca;
     }
 
-    public LLVMModuleRef GenerateModule(AstModule module)
+    public LLVMModuleRef GenerateModule(AstModule rootModule)
     {
-        ClassDependencyResolver resolver = new ClassDependencyResolver();
-        ClassesInfo = resolver.Resolve(module);
-        new ClassLayoutBuilder(this).BuildClassesLayout(ClassesInfo);
-        DeclarationDispatcher declarationDispatcher = new DeclarationDispatcher(this);
-        
-        declarationDispatcher.EmitModule(module);
+        var rootContext = new ModuleContext(this, rootModule.Name, rootModule.ModulePath);
+        var rootInfo = new ModuleInfo(rootModule.Name, rootModule.ModulePath, rootModule, rootContext);
+        var pool = new ModulePoolCollector(this).Collect(rootModule);
+        ModuleInfo[] allModuleInfos = [.. pool, rootInfo];
+        var allClasses = new ClassDependencyResolver().Resolve(allModuleInfos.Select(m => m.ModuleNode));
+        new ModuleLayoutBuilder(this).Build(allModuleInfos, allClasses);
         return Module;
     }
 

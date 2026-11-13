@@ -1,7 +1,9 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Module;
 using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
@@ -14,18 +16,19 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
     public void BuildClassesLayout(ClassInfo[] classes)
     {
+        List<ClassType> classTypes = [];
         foreach (var info in classes)
         {
-            DeclareOpaque(info);
+            classTypes.Add(DeclareOpaque(info));
         }
 
-        foreach (var info in classes)
+        for(int i =0; i < classes.Length; i++)
         {
-            BuildBody(info);
+            BuildBody(classTypes[i], classes[i]);
         }
     }
 
-    private void DeclareOpaque(ClassInfo info)
+    private ClassType DeclareOpaque(ClassInfo info)
     {
         var structType = _ctx.Context.CreateNamedStruct(info.Name);
         var pointerType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
@@ -40,13 +43,22 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
                 new BifyTypeError($"Class '{info.Name}' inherits from unknown class '{parentName}'.").Throw();
         }
 
-        var classType = new ClassType(info.Name, pointerType, structType, parent);
-        _ctx.TypeRegistry.Register(info.Name, classType);
+        string mangledName = NameMangler.GenerateClassName(info.moduleName, info.Name);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType, parent);
+        _ctx.TypeRegistry.Register(mangledName, classType);
+        _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
+        return classType;
     }
 
-    private void BuildBody(ClassInfo info)
+    private void BuildBody(ClassType type, ClassInfo info)
     {
-        var classType = (ClassType)_ctx.TypeRegistry.GetBifyType(info.Name);
+        BifyDebug.Log($"{_ctx.TypeRegistry}");
+        
+        var classType = _ctx.TypeRegistry.GetBifyType(type.FullName) as ClassType;
+        if (classType == null)
+        {
+            throw new Exception($"Class: '{type.FullName}' was not registred in TypeRegistry.");
+        }
 
         InheritMembers(classType);
         ProcessFields(info, classType);
@@ -87,7 +99,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
             if (classType.Methods.ContainsKey(name) || name == DestructorSynthesizer.DestructorName)
                 new BifyNameError($"Field '{name}' in class '{info.Name}' conflicts with existing method.").Throw();
 
-            var field = ClassMemberCollector.CollectField(varDecl, _ctx, info.Name, nextIndex++);
+            var field = ClassMemberCollector.CollectField(varDecl, _ctx, classType, nextIndex++);
             classType.Fields.Add(name, field);
         }
     }
@@ -106,14 +118,14 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
                 continue;
 
             if (classType.Fields.ContainsKey(name))
-                new BifyNameError($"Method '{name}' in class '{info.Name}' conflicts with existing field.").Throw();
+                new BifyNameError($"Method '{name}' in class '{classType.FullName}' conflicts with existing field.").Throw();
 
-            var method = ClassMemberCollector.CollectMethod(funcDecl, _ctx, info.Name);
+            var method = ClassMemberCollector.CollectMethod(funcDecl, _ctx, classType);
             int vtableIndex = VTableBuilder.Apply(classType.VTable, method, classType.Parent);
             method.VTableIndex = vtableIndex;
 
             if (classType.Methods.ContainsKey(name) && !method.IsOverride)
-                new BifyNameError($"Duplicate method '{name}' in class '{info.Name}'.").Throw();
+                new BifyNameError($"Duplicate method '{name}' in class '{classType.FullName}'.").Throw();
 
             classType.Methods[name] = method;
         }
@@ -128,8 +140,8 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
         }
 
         var method = dtors.Count == 1
-            ? ClassMemberCollector.CollectMethod(dtors[0], _ctx, info.Name)
-            : DestructorSynthesizer.CreateDefault(_ctx, info.Name);
+            ? ClassMemberCollector.CollectMethod(dtors[0], _ctx, classType)
+            : DestructorSynthesizer.CreateDefault(_ctx, classType);
 
         method.VTableIndex = VTableBuilder.ApplyDestructor(classType.VTable, method);
         classType.Methods[DestructorSynthesizer.DestructorName] = method;

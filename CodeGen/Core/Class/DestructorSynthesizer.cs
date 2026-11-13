@@ -9,20 +9,22 @@ public static class DestructorSynthesizer
 {
     public const string DestructorName = "destructor";
 
-    public static ClassMethod CreateDefault(CodeGenContext ctx, string className)
+    public static ClassMethod CreateDefault(CodeGenContext ctx, ClassType classType)
     {
         var returnType = BifyType.CreateVoid(ctx);
         var paramTypes = new[] { LLVMTypeRef.CreatePointer(ctx.Context.Int8Type, 0) };
         var funcType = LLVMTypeRef.CreateFunction(returnType.Type, paramTypes, false);
-        var signature = new BifyType(returnType.Name, funcType);
+        var mangledName = NameMangler.GenerateMethodName(ctx.ModuleContext.Name, classType.Name,
+            DestructorSynthesizer.DestructorName);
+        var signature = new CallableType(DestructorSynthesizer.DestructorName, mangledName, [], returnType, funcType);
 
         return new ClassMethod(
             name: DestructorName,
             signature: signature,
-            ctx.Module.AddFunction(className + "_" + DestructorName, funcType),
+            ctx.Module.AddFunction(mangledName,funcType),
             accessLevel: AccessLevel.PUBLIC,
             vtableIndex: 0,
-            declaringClass: className,
+            declaringClass: classType,
             body: null,
             isVirtual: true,
             isOverride: false,

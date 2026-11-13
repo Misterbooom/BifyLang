@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast
@@ -348,11 +350,73 @@ namespace BifyLang.Ast
             return baseStr + $"{new String(' ', 4 * (level + 1))}\n{typeStr}\n{functionNameStr}\n{argumentsStr}\n{blockStr}";
         }
     }
-    public class AstModule(string moduleName, string modulePath, List<AstNode> nodes) : AstNode(new Token(TokenType.IDENTIFIER, moduleName))
+    public class AstModule : AstNode
     {
-        public readonly List<AstNode> ChildNodes = nodes;
-        public string ModuleName = moduleName;
-        public string ModulePath = modulePath;
+        public readonly List<AstNode> ChildNodes;
+        public string ModulePath;
+        public string[] SourceCode { get; set; } = [];
+        public string[] SourceLines => SourceCode;
+        private string _name;
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                ValidateIdentifier(value);
+                _name = value;
+            }
+        }
+
+        public AstModule(string moduleName, string modulePath, List<AstNode> nodes)
+            : base(new Token(TokenType.IDENTIFIER, moduleName))
+        {
+            ChildNodes = nodes;
+            ModulePath = modulePath;
+            Name = ResolveModuleName(moduleName, modulePath);
+        }
+
+        public AstModule(string modulePath, List<AstNode> nodes)
+            : this(Path.GetFileNameWithoutExtension(modulePath), modulePath, nodes)
+        {
+        }
+
+        private static string ResolveModuleName(string moduleName, string modulePath)
+        {
+            string rawName = !string.IsNullOrEmpty(modulePath)
+                ? Path.GetFileNameWithoutExtension(modulePath)
+                : moduleName;
+
+            if (string.IsNullOrEmpty(rawName))
+            {
+                string fallback = Traceback.Instance.FilePath;
+                if (!string.IsNullOrEmpty(fallback))
+                {
+                    rawName = Path.GetFileNameWithoutExtension(fallback);
+                }
+            }
+
+            return string.IsNullOrEmpty(rawName) ? "main" : rawName;
+        }
+
+        private static void ValidateIdentifier(string name)
+        {
+            if (!IsValidIdentifier(name))
+            {
+                new BifyNameError($"Invalid module identifier '{name}'. Module name must be a valid identifier.").Throw();
+            }
+        }
+
+        public static bool IsValidIdentifier(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            if (name[0] != '_' && !char.IsLetter(name[0])) return false;
+            for (int i = 1; i < name.Length; i++)
+            {
+                if (name[i] != '_' && !char.IsLetterOrDigit(name[i])) return false;
+            }
+            return true;
+        }
 
         public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
         {

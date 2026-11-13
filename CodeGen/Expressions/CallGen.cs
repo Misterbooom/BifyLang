@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Types;
@@ -16,143 +17,106 @@ public class CallGen(CodeGenContext ctx)
 
     public TypedValue EmitCall(AstCall astCall)
     {
-        LLVMValueRef callee;
-        LLVMTypeRef funcType;
-        string retName;
-        LLVMValueRef? thisArg = null;
-
-        if (astCall.CallableName is AstMemberAccess memberAccess)
+        var target = new ExpressionDispatcher(_ctx).EmitExpression(astCall.CallableName);
+        if (!target.IsCallable)
         {
-            var target = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
-            if (target.Type is not ClassType classType)
-                return new BifyTypeError($"Cannot call member on non-class type '{target.Type.Name}'").Throw<TypedValue>();
-
-            if (memberAccess.Right is not AstIdentifier id || !classType.Methods.TryGetValue(id.Name, out var method))
-                return new BifyAttributeError($"Type '{target.Type.Name}' has no method '{memberAccess.Right?.Token.Value}'").Throw<TypedValue>();
-
-            MemberResolver.CheckAccess(_ctx, classType, method);
-            if (target.IsWeak)
-            {
-                var upgraded = _ctx.HeapControl.BuildUpgradeWeak(target.Value);
-                target = new TypedValue(upgraded, target.Type, false);
-                _ctx.HeapControl.TempRefs.Add(target);
-            }
-            funcType = method.Signature.Type;
-            retName = method.Signature.Name;
-            thisArg = target.Value;
-
-            if (method.VTableIndex >= 0)
-            {
-                var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
-                var vptrSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, target.Value, 0, "vptr_slot");
-                var vtable = _ctx.Builder.BuildLoad2(ptrType, vptrSlot, "vtable");
-                var slotPtr = _ctx.Builder.BuildGEP2(ptrType, vtable, new[] { LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, (ulong)method.VTableIndex, false) }, "slot_ptr");
-                callee = _ctx.Builder.BuildLoad2(ptrType, slotPtr, $"{method.Name}_fn");
-            }
-            else
-            {
-                string symbol = $"{method.DeclaringClass}_{method.Name}";
-                callee = _ctx.Module.GetNamedFunction(symbol);
-                if (callee.Handle == IntPtr.Zero)
-                    callee = _ctx.Module.AddFunction(symbol, method.Signature.Type);
-            }
-        }
-        else
-        {
-            (callee, funcType, retName) = ResolveCallable(astCall.CallableName);
+            return new BifyTypeError("Can't call  " + astCall.CallableName.Token.Value).Throw<TypedValue>();
         }
 
-        if (callee.Handle == IntPtr.Zero || funcType.Handle == IntPtr.Zero)
-            return default;
+        CallableType? callableType = target.Type as CallableType;
+        if (callableType == null)
+        {
+            throw new Exception($"Type {target.Type} is not a callable type");
+        }
+        CheckForMethod(out var thisArg, callableType);
 
-        var args = ResolveArgs(_ctx, astCall.ArgumentsNode, funcType, thisArg);
-        if (!funcType.IsFunctionVarArg && args.Count != funcType.GetParamTypes().Length)
-            return default;
-
-        var callReturn = _ctx.Builder.BuildCall2(funcType, callee, [.. args]);
-        var resType = _ctx.TypeRegistry.GetBifyType(retName);
-        return new TypedValue(callReturn, resType, false);
+        
+        var args = ResolveArgs(_ctx, astCall, callableType, thisArg);
+        BifyDebug.Log(target.ToString());
+        
+        var callReturn = _ctx.Builder.BuildCall2(callableType.Type, target.Value, args.Select(i => i.Value).ToArray());
+        return new TypedValue(callReturn, callableType.ReturnType);
     }
 
-    private unsafe (LLVMValueRef Callee, LLVMTypeRef FuncType, string RetName) ResolveCallable(AstNode node)
+
+    public static TypedValue[] ResolveArgs(
+        CodeGenContext ctx,
+        AstCall astCall,
+        CallableType callableType,
+        TypedValue? thisArg)
     {
-        if (node is AstIdentifier id)
-        {
-            if (_ctx.CurrentScope.TryLookup(id.Name, out var symbol) && symbol.Type.Type.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
-                return (symbol.Pointer, symbol.Type.Type, symbol.Type.Name);
+        List<AstNode> flatArgs = [];
+        ParamResolver.FlattenComma(astCall.ArgumentsNode, flatArgs);
 
-            var func = _ctx.Module.GetNamedFunction(id.Name);
-            if (func.Handle != IntPtr.Zero)
-            {
-                LLVMTypeRef fType = LLVM.GlobalGetValueType(func);
-                return (func, fType, ToBifyType(fType.ReturnType).Name);
-            }
-
-            new BifyNameError($"Function '{id.Name}' is not defined").Throw();
-            return (default, default, "unknown");
-        }
-
-        var callable = new ExpressionDispatcher(_ctx).EmitExpression(node);
-        return (callable.Value, callable.Type.Type, callable.Type.Name);
-    }
-
-    public static List<LLVMValueRef> ResolveArgs(CodeGenContext ctx, AstNode? node, LLVMTypeRef funcType, LLVMValueRef? thisArg = null)
-    {
-        var nodes = new List<AstNode>();
-        FlattenComma(node, nodes);
-
-        var paramTypes = funcType.GetParamTypes();
         int offset = thisArg.HasValue ? 1 : 0;
-        int expectedCount = paramTypes.Length - offset;
+        ValidateArgCount(callableType, flatArgs.Count, offset);
 
-        if (!funcType.IsFunctionVarArg && nodes.Count != expectedCount)
-            new BifyTypeError($"Function expects {expectedCount} arguments, but got {nodes.Count}").Throw();
-
-        var args = new List<LLVMValueRef>(nodes.Count + offset);
+        var args = new TypedValue[flatArgs.Count + offset];
         if (thisArg.HasValue)
-            args.Add(thisArg.Value);
-
-        for (int i = 0; i < nodes.Count; i++)
         {
-            var val = new ExpressionDispatcher(ctx).EmitExpression(nodes[i]);
-            int paramIndex = i + offset;
-            if (paramIndex < paramTypes.Length && val.Value.TypeOf != paramTypes[paramIndex])
-                val = TypeCaster.ImplicitCast(ctx, val, ToBifyType(paramTypes[paramIndex]));
-            args.Add(val.Value);
+            args[0] = thisArg.Value;
         }
+
+        var dispatcher = new ExpressionDispatcher(ctx);
+        for (int i = 0; i < flatArgs.Count; i++)
+        {
+            args[i + offset] = ResolveSingleArg(ctx, dispatcher, flatArgs[i], callableType, i + offset);
+        }
+
         return args;
     }
 
-    public static BifyType ToBifyType(LLVMTypeRef type)
+    private static void ValidateArgCount(CallableType callable, int provided, int offset)
     {
-        var name = type.Kind switch
+        int expected = callable.ParametersType.Length - offset;
+        bool valid = callable.Type.IsFunctionVarArg
+            ? provided >= expected
+            : provided == expected;
+
+        if (!valid)
         {
-            LLVMTypeKind.LLVMVoidTypeKind => "void",
-            LLVMTypeKind.LLVMFloatTypeKind => "float",
-            LLVMTypeKind.LLVMDoubleTypeKind => "double",
-            LLVMTypeKind.LLVMIntegerTypeKind => type.IntWidth switch
-            {
-                1 => "bool",
-                8 => "char",
-                _ => "int"
-            },
-            LLVMTypeKind.LLVMPointerTypeKind => "ptr",
-            _ => "unknown"
-        };
-        return new BifyType(name, type);
+            string prefix = callable.Type.IsFunctionVarArg ? "at least " : "";
+            new BifyTypeError($"Function expects {prefix}{expected} arguments, but got {provided}").Throw();
+        }
     }
 
-    public static void FlattenComma(AstNode? node, List<AstNode> list)
+    private static TypedValue ResolveSingleArg(
+        CodeGenContext ctx,
+        ExpressionDispatcher dispatcher,
+        AstNode argNode,
+        CallableType callable,
+        int paramIndex)
     {
-        if (node == null) return;
-        if (node is AstBinaryOp bin && bin.Token.Type == TokenType.COMMA)
+        var val = dispatcher.EmitExpression(argNode);
+
+        if (paramIndex >= callable.ParametersType.Length)
         {
-            FlattenComma(bin.Left, list);
-            FlattenComma(bin.Right, list);
+            return val;
         }
-        else
+
+        var param = callable.ParametersType[paramIndex];
+        if (!TypeCaster.CanImplicitCast(val.Type, param.Type))
         {
-            list.Add(node);
+            new BifyTypeError(
+                $"Argument '{param.Name}' expects type '{param.Type}', but got '{val.Type}'"
+            ).Throw();
+        }
+        return TypeCaster.ImplicitCast(ctx, val, param.Type);
+    }
+
+    void CheckForMethod(out TypedValue? thisArg, CallableType callableType)
+    {
+        thisArg = null;
+
+        if (!callableType.IsMethod)
+        {
+            return;
+        }
+
+        if (_ctx.CurrentScope.TryLookup("this", out var thisSym))
+        {
+            thisArg = new TypedValue(thisSym.Pointer,thisSym.Type, isCallable:true);
         }
     }
+
 }

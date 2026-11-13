@@ -7,11 +7,6 @@ namespace BifyLang.CodeGen.Core;
 
 public static class MemberResolver
 {
-    public static void CheckAccess(CodeGenContext ctx, ClassType classType, ClassField field) =>
-        CheckAccess(ctx, classType, field.AccessLevel, field.DeclaringClass, field.Name);
-
-    public static void CheckAccess(CodeGenContext ctx, ClassType classType, ClassMethod method) =>
-        CheckAccess(ctx, classType, method.AccessLevel, method.DeclaringClass, method.Name);
 
     public static LLVMValueRef ResolveFieldPtr(CodeGenContext ctx, ClassType classType, LLVMValueRef instance, ClassField field) =>
         ctx.Builder.BuildStructGEP2(classType.StructType, instance, (uint)field.Index, field.Name);
@@ -27,23 +22,22 @@ public static class MemberResolver
             return false;
 
         field = found;
-        CheckAccess(ctx, ct, field);
+        CheckAccess(ctx, ct,field.AccessLevel, field.Name);
         var thisVal = ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
         fieldPtr = ResolveFieldPtr(ctx, ct, thisVal, field);
         return true;
     }
 
-    public static void CheckAccess(CodeGenContext ctx, ClassType classType, AccessLevel accessLevel, string declaringClass, string memberName)
+    public static void CheckAccess(CodeGenContext ctx, ClassType classType, AccessLevel accessLevel,  string memberName)
     {
-        string decl = string.IsNullOrEmpty(declaringClass) ? classType.Name : declaringClass;
 
         if (accessLevel == AccessLevel.PRIVATE)
         {
             if (!ctx.CurrentScope.TryLookup("this", out var thisSym) ||
                 thisSym.Type is not ClassType ct ||
-                ct.Name != decl)
+                ct.FullName != classType.FullName)
             {
-                new BifyAttributeError($"Cannot access private member '{memberName}' of class '{decl}'").Throw();
+                new BifyAttributeError($"Cannot access private member '{memberName}' of class '{classType.FullName}'").Throw();
             }
         }
         else if (accessLevel == AccessLevel.PROTECTED)
@@ -51,7 +45,7 @@ public static class MemberResolver
             bool allowed = false;
             if (ctx.CurrentScope.TryLookup("this", out var thisSym) && thisSym.Type is ClassType ct)
             {
-                if (ctx.TypeRegistry.TryGetType(decl, out var declType) && declType is ClassType declClassType)
+                if (ctx.TypeRegistry.TryGetType(classType.FullName, out var declType) && declType is ClassType declClassType)
                 {
                     allowed = ct.IsSubclassOf(declClassType);
                 }
@@ -59,7 +53,7 @@ public static class MemberResolver
 
             if (!allowed)
             {
-                new BifyAttributeError($"Cannot access protected member '{memberName}' of class '{decl}'").Throw();
+                new BifyAttributeError($"Cannot access protected member '{memberName}' of class '{classType.FullName}'").Throw();
             }
         }
     }

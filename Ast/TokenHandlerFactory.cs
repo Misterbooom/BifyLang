@@ -36,6 +36,7 @@ internal static class TokenHandlerFactory
             TokenType.CLASS => new ClassHandler(builder),
             TokenType.NEW => new NewHandler(builder),
             TokenType.UNSAFE => new UnsafeHandler(builder),
+            TokenType.IMPORT => new ImportHandler(builder),
             _ => new DefaultTokenHandler(builder),
         };
     }

@@ -57,8 +57,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx)
         var thisVal = function.GetParam(0);
         foreach (var field in declaringClass.Fields.Values)
         {
-            // Inherited fields are released by the chained parent destructor.
-            if (field.Type is not ClassType || field.DeclaringClass != declaringClass.Name)
+            if (field.Type is not ClassType || field.DeclaringClass.FullName != declaringClass.FullName)
                 continue;
 
             var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, declaringClass, thisVal, field);
