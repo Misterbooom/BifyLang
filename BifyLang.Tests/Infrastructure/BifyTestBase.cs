@@ -9,13 +9,11 @@ public abstract class BifyTestBase
     [SetUp]
     public virtual void SetUp()
     {
-        Traceback.Instance.Reset();
     }
 
     [TearDown]
     public virtual void TearDown()
     {
-        Traceback.Instance.Reset();
     }
 
     protected static void AssertValidFunction(string code, string funcName = "test")
@@ -25,8 +23,8 @@ public abstract class BifyTestBase
         m.Function(funcName);
     }
 
-    protected static TError AssertCompileError<TError>(string code) where TError : BifyError
-        => BifyAssert.CompileError<TError>(code);
+    protected static Diagnostic AssertCompileError(string code, DiagnosticKind expectedKind, string? expectedSubstring = null)
+        => BifyAssert.CompileError(code, expectedKind, expectedSubstring);
 
     protected static void AssertExecution(string code, string expectedStdout, int expectedExitCode = 0)
     {

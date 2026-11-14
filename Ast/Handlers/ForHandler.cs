@@ -14,21 +14,19 @@ namespace BifyLang.Ast.Handlers
 
             var initTokens = splittedTokens.ElementAtOrDefault(0);
             AstNode initNode = initTokens != null && initTokens.Count > 0
-                ? new AstBuilder(initTokens, true).BuildNode()
+                ? new AstBuilder(initTokens, Builder.Diagnostics, Builder.FilePath, true).BuildNode()
                 : null;
 
             AstNode conditionNode = Builder.ParseTokens(splittedTokens.ElementAtOrDefault(1));
 
             AstNode incrementNode = Builder.ParseTokens(splittedTokens.ElementAtOrDefault(2));
             if (Builder.GetNextToken()?.Type != TokenType.LCUR)
-
             {
-                new BifySyntaxError("For body not found!").Throw();
+                Builder.Fail("For body not found!", DiagnosticKind.Syntax, Builder.PeekTokenOrNull() ?? token);
             }
             var blockNode = Builder.HandleBody("For");
-            Traceback.Instance.SetCurrentLine(token.Line);
-            AstFor astFor = new AstFor(token, blockNode, conditionNode, incrementNode,initNode);
-            LoopValidator.ValidateForStatement(splittedTokens,astFor);
+            AstFor astFor = new AstFor(token, blockNode, conditionNode, incrementNode, initNode);
+            LoopValidator.ValidateForStatement(Builder, splittedTokens, astFor);
             Builder.MoveToEnd();
             Builder.CurrentNode = astFor;
 

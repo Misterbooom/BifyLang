@@ -45,22 +45,39 @@ public class BifyCompiler
         return true;
     }
 
-    public void Compile(AstModule moduleNode, string filePath, string outputFilePath, CompilerFlags flags)
+    public void Compile(AstModule moduleNode, string filePath, string outputFilePath, CompilerFlags flags, DiagnosticBag? initialDiagnostics = null)
     {
-        var ctx = new CodeGenContext();
-        var module = ctx.GenerateModule(moduleNode);
-
-        LLVMValueRef userMain = FindUserMain(module);
-        if (userMain.Name != "main")
-            EmitEntryPointWrapper(ctx, module, userMain);
-
-        if (!VerifyModule(module, out var error))
+        var ctx = new CodeGenContext(initialDiagnostics);
+        try
         {
-            Console.Error.WriteLine($"LLVM module verification failed:\n{error}");
-            Console.Error.WriteLine(module.ToString());
-            throw new InvalidOperationException("Module verification failed.");
-        }
+            var module = ctx.GenerateModule(moduleNode);
+            if (ctx.Diagnostics.HasErrors)
+            {
+                ErrorFormatter.PrintDiagnostics(ctx.Diagnostics);
+                return;
+            }
 
+            LLVMValueRef userMain = FindUserMain(ctx, module);
+            if (userMain.Name != "main")
+                EmitEntryPointWrapper(ctx, module, userMain);
+
+            if (!VerifyModule(module, out var error))
+            {
+                Console.Error.WriteLine($"LLVM module verification failed:\n{error}");
+                Console.Error.WriteLine(module.ToString());
+                throw new InvalidOperationException("Module verification failed.");
+            }
+
+            EmitOutput(outputFilePath, flags, module);
+        }
+        catch (BifyCompilationException)
+        {
+            ErrorFormatter.PrintDiagnostics(ctx.Diagnostics);
+        }
+    }
+
+    private void EmitOutput(string outputFilePath, CompilerFlags flags, LLVMModuleRef module)
+    {
         string fileExtension = Path.GetExtension(outputFilePath);
         switch (fileExtension)
         {
@@ -78,7 +95,7 @@ public class BifyCompiler
         }
     }
 
-    private static LLVMValueRef FindUserMain(LLVMModuleRef module)
+    private static LLVMValueRef FindUserMain(CodeGenContext ctx, LLVMModuleRef module)
     {
         LLVMValueRef userMain = default;
 
@@ -90,18 +107,14 @@ public class BifyCompiler
             if (fn.Name == "main" || (parts.Length == 2 && parts[1] == "main"))
             {
                 if (userMain.Handle != IntPtr.Zero)
-                {
-                    new BifyNameError($"Duplicate main function name: {fn.Name}").Throw();
-                }
+                    ctx.Fail($"Duplicate main function name: {fn.Name}", DiagnosticKind.Name);
 
                 userMain = fn;
             }
         }
 
         if (userMain.Handle == IntPtr.Zero)
-        {
-            new BifyNameError("Main function not found.").Throw();
-        }
+            ctx.Fail("Main function not found.", DiagnosticKind.Name);
 
         return userMain;
     }

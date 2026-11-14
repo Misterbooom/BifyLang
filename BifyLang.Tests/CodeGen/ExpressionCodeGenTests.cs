@@ -117,7 +117,7 @@ public class ExpressionCodeGenTests : BifyTestBase
         var dispatcher = new ExpressionDispatcher(ctx);
         var idNode = new AstIdentifier(new Token(TokenType.IDENTIFIER, "undefinedVar"), "undefinedVar");
 
-        BifyAssert.ActionThrows<BifyNameError>(() => dispatcher.EmitExpression(idNode));
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => dispatcher.EmitExpression(idNode), diagnostics: ctx.Diagnostics);
     }
 
     [Test]
@@ -169,7 +169,7 @@ public class ExpressionCodeGenTests : BifyTestBase
         var dispatcher = new ExpressionDispatcher(ctx);
         var invalidNode = new AstBlock([]);
 
-        BifyAssert.ActionThrows<BifySyntaxError>(() => dispatcher.EmitExpression(invalidNode));
+        BifyAssert.ActionThrows(DiagnosticKind.Syntax, () => dispatcher.EmitExpression(invalidNode), diagnostics: ctx.Diagnostics);
     }
 
     [Test]
@@ -258,6 +258,6 @@ public class ExpressionCodeGenTests : BifyTestBase
         var valNode = new AstString(new Token(TokenType.STRING, "hello"), "hello");
         var castNode = new AstCast(new Token(TokenType.IDENTIFIER, "float"), typeNode, valNode);
 
-        BifyAssert.ActionThrows<BifyCastError>(() => h.Dispatcher.EmitExpression(castNode));
+        BifyAssert.ActionThrows(DiagnosticKind.Cast, () => h.Dispatcher.EmitExpression(castNode), diagnostics: h.Ctx.Diagnostics);
     }
 }

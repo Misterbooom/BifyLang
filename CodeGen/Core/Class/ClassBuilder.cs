@@ -32,6 +32,9 @@ public class ClassBuilder(CodeGenContext ctx)
     {
         foreach (var field in classType.Fields.Values.OrderBy(f => f.Index))
         {
+            if (field.IsPoison)
+                continue;
+
             var fieldPtr = MemberResolver.ResolveFieldPtr(ctx, classType, instancePtr, field);
 
             if (field.ValueNode != null)

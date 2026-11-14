@@ -24,7 +24,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         ClassType? declaringClass = null)
     {
         LLVMBasicBlockRef? dtorCleanup = null;
-        
+
         var entry = function.AppendBasicBlock("entry");
         if (isDestructor)
             dtorCleanup = function.AppendBasicBlock("dtorCleanup");
@@ -34,28 +34,23 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 
         using (_ctx.EnterScope())
         {
+            _ctx.CurrentScope.FunctionName = function.Name;
             BindParameters(function, parameters, isMethod);
             _ctx.CurrentScope.IsDestructor = isDestructor;
-            if (isConstructor)
+            if (isConstructor && declaringClass != null)
             {
                 if (!_ctx.CurrentScope.TryLookup("this", out var thisSym))
                     throw new InvalidOperationException("ThisSym fucked up.");
-                //load cause thisSym.Pointer is alloc
                 var loaded = _ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this_loaded");
-                ClassBuilder.InitFields(_ctx, declaringClass,loaded);
+                ClassBuilder.InitFields(_ctx, declaringClass, loaded);
             }
             if (body is AstBlock block)
             {
                 new StatementDispatcher(_ctx).EmitBlock(block);
             }
-            
-            
-
-            
         }
 
-       
-        if (isDestructor && _ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
+        if (isDestructor && dtorCleanup.HasValue && _ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
         {
             _ctx.Builder.BuildBr(dtorCleanup.Value);
         }
@@ -72,13 +67,13 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 
     private void EmitDestructorFieldCleanups(LLVMValueRef function, ClassType declaringClass)
     {
-   
+
         var dtorCleanup = function.GetBasicBlock("dtorCleanup");
         _ctx.Builder.PositionAtEnd(dtorCleanup);
         var thisVal = function.GetParam(0);
         foreach (var field in declaringClass.Fields.Values)
         {
-            if (field.Type is not ClassType || field.DeclaringClass.FullName != declaringClass.FullName)
+            if (field.IsPoison || field.Type is not ClassType || field.DeclaringClass.FullName != declaringClass.FullName)
                 continue;
 
             var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, declaringClass, thisVal, field);
@@ -92,7 +87,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         EmitParentDestructorCall(declaringClass, thisVal);
         _ctx.Builder.BuildRetVoid();
     }
-    
+
 
     private void EmitParentDestructorCall(ClassType declaringClass, LLVMValueRef thisVal)
     {
@@ -115,8 +110,8 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
             var alloca = _ctx.Builder.BuildAlloca(param.Type.Type, param.Name);
             var paramVal = function.GetParam(i);
             _ctx.Builder.BuildStore(paramVal, alloca);
-            
-            
+
+
             bool isThisParam = isMethod && i == 0;
 
             if (param.Type is ClassType && !isThisParam)

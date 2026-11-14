@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Class;
@@ -20,22 +21,22 @@ public class CodeGenContext : IDisposable
     public LLVMModuleRef Module { get; private set; }
     public LLVMBuilderRef Builder { get; private set; }
     public ModuleContext ModuleContext;
-
     public Scope CurrentScope
     {
         get { return ModuleContext.CurrentScope; }
         private set { ModuleContext.CurrentScope = value; }
     }
-
     public TypeRegistry TypeRegistry { get; private set; }
-
     public LoopContext LoopContext = new LoopContext(null, null, null, null);
     public BifyType FunctionReturnType;
     public HeapControl HeapControl;
+    public DiagnosticBag Diagnostics;
+    public int CurrentLine;
     public Dictionary<string, ModuleType> ModulesMap = [];
 
-    public CodeGenContext()
+    public CodeGenContext(DiagnosticBag? diagnostics = null)
     {
+        Diagnostics = diagnostics ?? new DiagnosticBag();
         Context = LLVMContextRef.Create();
         Module = Context.CreateModuleWithName("main");
         Builder = Context.CreateBuilder();
@@ -43,6 +44,47 @@ public class CodeGenContext : IDisposable
         TypeRegistry = new TypeRegistry(this);
         HeapControl = new HeapControl(this);
         HeapControl.DefineRuntimeFunctions();
+    }
+
+    private SourceLocation CreateLocation(AstNode? node)
+    {
+        int line = node?.LineNumber is > 0 ? node.LineNumber : CurrentLine;
+        return new SourceLocation(
+            ModuleContext?.FullPath ?? "",
+            line,
+            node?.ColumnNumber ?? 0,
+            ModuleContext?.Name,
+            CurrentScope?.FunctionName
+        );
+    }
+
+    public void Error(string msg, DiagnosticKind kind, AstNode? node = null)
+    {
+        Diagnostics.Report(msg, kind, CreateLocation(node));
+    }
+
+    [DoesNotReturn]
+    public void Fail(string msg, DiagnosticKind kind, AstNode? node = null)
+    {
+        Diagnostics.Fail(msg, kind, CreateLocation(node));
+    }
+
+    [DoesNotReturn]
+    public T Fail<T>(string msg, DiagnosticKind kind, AstNode? node = null)
+    {
+        return Diagnostics.Fail<T>(msg, kind, CreateLocation(node));
+    }
+
+    [DoesNotReturn]
+    public void AbortPoison()
+    {
+        throw new BifyCompilationException();
+    }
+
+    [DoesNotReturn]
+    public T AbortPoison<T>()
+    {
+        throw new BifyCompilationException();
     }
 
     private sealed class ScopeExitHandle(CodeGenContext ctx) : IDisposable
@@ -106,7 +148,7 @@ public class CodeGenContext : IDisposable
     }
 
     /// <summary>
-    /// use before EnterScope 
+    /// use before EnterScope
     /// </summary>
     public IDisposable EnterLoop(LLVMBasicBlockRef breakBlock, LLVMBasicBlockRef continueBlock)
     {
@@ -139,7 +181,7 @@ public class CodeGenContext : IDisposable
         var rootInfo = new ModuleInfo(rootModule.Name, rootModule.ModulePath, rootModule, rootContext);
         var pool = new ModulePoolCollector(this).Collect(rootModule);
         ModuleInfo[] allModuleInfos = [.. pool, rootInfo];
-        var dependency = new ClassDependencyResolver();
+        var dependency = new ClassDependencyResolver(this);
         var allClasses = dependency.Resolve(allModuleInfos.Select(m => m.ModuleNode));
         BifyDebug.Log(dependency.ToString());
         new ModuleLayoutBuilder(this).Build(allModuleInfos, allClasses);

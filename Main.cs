@@ -28,42 +28,35 @@ internal class Program
             Out = new AnsiConsoleOutput(rawOut)
         });
 
-        try
+
+        var inputArgument = new Argument<FileInfo?>("input") { Arity = ArgumentArity.ZeroOrOne };
+        var outputOption = new Option<FileInfo?>("output", aliases: ["--output", "-o"]);
+        var execOption = new Option<bool>("exec", aliases: ["--exec", "-e"]);
+
+        var rootCommand = new RootCommand("BifyLang Compiler")
         {
-            var inputArgument = new Argument<FileInfo?>("input") { Arity = ArgumentArity.ZeroOrOne };
-            var outputOption = new Option<FileInfo?>("output", aliases: ["--output", "-o"]);
-            var execOption = new Option<bool>("exec", aliases: ["--exec", "-e"]);
+            inputArgument,
+            outputOption,
+            execOption
+        };
 
-            var rootCommand = new RootCommand("BifyLang Compiler")
-            {
-                inputArgument,
-                outputOption,
-                execOption
-            };
-
-            rootCommand.SetAction(result =>
-            {
-                FileInfo? input = result.GetValue(inputArgument);
-                if (input == null)
-                {
-                    Console.WriteLine("No input file specified. Provide a file path to compile.");
-                    return;
-                }
-
-                FileInfo? output = result.GetValue(outputOption);
-                bool exec = result.GetValue(execOption);
-
-                var compilerFlags = exec ? CompilerFlags.EXECUTE : CompilerFlags.NONE;
-
-                CompilationHelper.CompileFile(input.FullName, output?.FullName, compilerFlags);
-            });
-
-            return Task.FromResult(rootCommand.Parse(args).Invoke());
-        }
-        catch (Exception exception)
+        rootCommand.SetAction(result =>
         {
-            AnsiConsole.WriteException(exception);
-            return Task.FromResult(1);
-        }
+            FileInfo? input = result.GetValue(inputArgument);
+            if (input == null)
+            {
+                Console.WriteLine("No input file specified. Provide a file path to compile.");
+                return;
+            }
+
+            FileInfo? output = result.GetValue(outputOption);
+            bool exec = result.GetValue(execOption);
+
+            var compilerFlags = exec ? CompilerFlags.EXECUTE : CompilerFlags.NONE;
+
+            CompilationHelper.CompileFile(input.FullName, output?.FullName, compilerFlags);
+        });
+
+        return Task.FromResult(rootCommand.Parse(args).Invoke());
     }
 }

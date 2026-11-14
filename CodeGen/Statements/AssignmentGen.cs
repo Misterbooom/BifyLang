@@ -14,13 +14,11 @@ namespace BifyLang.CodeGen.Statements;
 public class AssignmentGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
 
-public void EmitAssign(AstAssignmentOperator assignmentOp)
+    public void EmitAssign(AstAssignmentOperator assignmentOp)
     {
         var (pointer, type, name, isConstant, isWeak) = ResolveTarget(assignmentOp.IdentifierNode);
         if (isConstant)
-        {
-            new BifyTypeError("Assigning to constant variable!").Throw();
-        }
+            Fail("Assigning to constant variable!", DiagnosticKind.Type, assignmentOp);
 
         TypedValue value = new ExpressionDispatcher(_ctx).EmitExpression(assignmentOp.ValueNode);
 
@@ -31,36 +29,33 @@ public void EmitAssign(AstAssignmentOperator assignmentOp)
             TokenType.SUBE => TokenType.SUB,
             TokenType.MULE => TokenType.MUL,
             TokenType.DIVE or TokenType.FLOORDIVE => TokenType.DIV,
-            _ => new BifySyntaxError($"Unsupported assignment operator: {assignmentOp.Token.Value}").Throw<TokenType?>()
+            _ => Fail<TokenType?>($"Unsupported assignment operator: {assignmentOp.Token.Value}", DiagnosticKind.Syntax, assignmentOp)
         };
 
         if (binOp.HasValue)
         {
             var currentVal = new TypedValue(_ctx.Builder.BuildLoad2(type.Type, pointer, name), type);
             value = BinaryOpGen.EmitBinary(_ctx, binOp.Value, currentVal, value);
-            
-            if (value.Type is ClassType || value.Type.Name == "null" && type is ClassType)
-            {
-                _ctx.HeapControl.BuildArcAssign(pointer, value, isWeak);
-            }
-            else
-            {
-                TypedValue casted = (type.Name == "char" && value.Type.Name == "int")
-                    ? TypeCaster.ExplicitCast(_ctx, value, type)
-                    : TypeCaster.ImplicitCast(_ctx, value, type);
-                _ctx.Builder.BuildStore(casted.Value, pointer);
-            }
+            StoreAssignedValue(pointer, type, value, isWeak, allowCharFromInt: true);
+            return;
         }
-        else if (value.Type is ClassType || value.Type.Name == "null" && type is ClassType)
+
+        StoreAssignedValue(pointer, type, value, isWeak, allowCharFromInt: false);
+    }
+
+    private void StoreAssignedValue(LLVMValueRef pointer, BifyType type, TypedValue value, bool isWeak, bool allowCharFromInt)
+    {
+        if (value.Type is ClassType || (value.Type.Name == "null" && type is ClassType))
         {
             TypedValue casted = TypeCaster.ImplicitCast(_ctx, value, type);
             _ctx.HeapControl.BuildArcAssign(pointer, casted, isWeak);
+            return;
         }
-        else
-        {
-            TypedValue casted = TypeCaster.ImplicitCast(_ctx, value, type);
-            _ctx.Builder.BuildStore(casted.Value, pointer);
-        }
+
+        TypedValue scalar = allowCharFromInt && type.Name == "char" && value.Type.Name == "int"
+            ? TypeCaster.ExplicitCast(_ctx, value, type)
+            : TypeCaster.ImplicitCast(_ctx, value, type);
+        _ctx.Builder.BuildStore(scalar.Value, pointer);
     }
 
     private (LLVMValueRef Pointer, BifyType Type, string Name, bool IsConstant, bool isWeak) ResolveTarget(AstNode node)
@@ -68,12 +63,17 @@ public void EmitAssign(AstAssignmentOperator assignmentOp)
         if (node is AstIdentifier id)
         {
             if (_ctx.CurrentScope.TryLookup(id.Name, out var symbol))
+            {
+                if (symbol.IsPoison)
+                    AbortPoison();
+
                 return (symbol.Pointer, symbol.Type, symbol.Name, symbol.IsConstant, symbol.IsWeak);
+            }
 
             if (MemberResolver.TryResolveThisField(_ctx, id.Name, out var ptr, out var f))
                 return (ptr, f.Type, f.Name, f.IsConst, f.IsWeak);
 
-            return new BifyNameError($"Variable '{id.Name}' is not defined").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
+            return Fail<(LLVMValueRef, BifyType, string, bool, bool)>($"Variable '{id.Name}' is not defined", DiagnosticKind.Name, id);
         }
 
         if (node is AstMemberAccess memberAccess)
@@ -82,7 +82,7 @@ public void EmitAssign(AstAssignmentOperator assignmentOp)
             return (ptr, field.Type, field.Name, field.IsConst, field.IsWeak);
         }
 
-        return new BifyTypeError($"Cannot assign to {node.Token.Value}").Throw<(LLVMValueRef, BifyType, string, bool, bool)>();
+        return Fail<(LLVMValueRef, BifyType, string, bool, bool)>($"Cannot assign to {node.Token.Value}", DiagnosticKind.Type, node);
     }
 
 

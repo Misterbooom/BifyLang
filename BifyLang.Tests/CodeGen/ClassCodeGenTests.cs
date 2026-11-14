@@ -123,7 +123,7 @@ public class ClassCodeGenTests : BifyTestBase
             int x = s.val;
         }
         """;
-        BifyAssert.CompileError<BifyAttributeError>(code);
+        BifyAssert.CompileError(code, DiagnosticKind.Attribute);
     }
 
     [Test]
@@ -140,7 +140,7 @@ public class ClassCodeGenTests : BifyTestBase
             int x = s.get();
         }
         """;
-        BifyAssert.CompileError<BifyAttributeError>(code);
+        BifyAssert.CompileError(code, DiagnosticKind.Attribute);
     }
 
     [Test]
@@ -332,7 +332,7 @@ public class ClassCodeGenTests : BifyTestBase
             int x = c.secret;
         }
         """;
-        BifyAssert.CompileError<BifyAttributeError>(code);
+        BifyAssert.CompileError(code, DiagnosticKind.Attribute);
     }
 
     [Test]
@@ -344,7 +344,7 @@ public class ClassCodeGenTests : BifyTestBase
         void test() {
         }
         """;
-        BifyAssert.CompileError<BifyTypeError>(code);
+        BifyAssert.CompileError(code, DiagnosticKind.Type);
     }
 
     [Test]

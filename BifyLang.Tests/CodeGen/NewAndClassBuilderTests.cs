@@ -99,25 +99,25 @@ public class NewAndClassBuilderTests : BifyTestBase
 
     [Test]
     public void New_NonClassType_Throws() =>
-        AssertCompileError<BifyTypeError>("void test() { int x = new int(); }");
+        AssertCompileError("void test() { int x = new int(); }", DiagnosticKind.Type);
 
     [Test]
     public void New_ConstructorArgumentMismatch_Throws() =>
-        AssertCompileError<BifyTypeError>("""
+        AssertCompileError("""
         class Point {
             public constructor(int a, int b) {}
         }
         void test() {
             Point p = new Point(10);
         }
-        """);
+        """, DiagnosticKind.Type);
 
     [Test]
     public void New_ArgumentsPassedToClassWithoutConstructor_Throws() =>
-        AssertCompileError<BifyTypeError>("""
+        AssertCompileError("""
         class Empty {}
         void test() {
             Empty e = new Empty(1, 2);
         }
-        """);
+        """, DiagnosticKind.Type);
 }

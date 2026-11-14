@@ -95,12 +95,12 @@ void render(int* buffer, int width, int height) {}
     [Test]
     public void CodeGen_DuplicateParameterNameThrows()
     {
-        AssertCompileError<BifyNameError>("void badFunc(int x, float x) {}");
+        AssertCompileError("void badFunc(int x, float x) {}", DiagnosticKind.Name);
     }
 
     [Test]
     public void CodeGen_NonVoidWithoutReturnThrows()
     {
-        AssertCompileError<BifyTypeError>("int badFunc() {}");
+        AssertCompileError("int badFunc() {}", DiagnosticKind.Type);
     }
 }

@@ -6,36 +6,31 @@ namespace BifyLang.Ast.Validators;
 
 internal static class SwitchValidator
 {
-    public static void Validate(AstSwitch astSwitch)
+    public static void Validate(AstBuilder builder, AstSwitch astSwitch)
     {
         if (astSwitch.ExpressionNode == null)
         {
-            var error = new BifySyntaxError(ErrorMessage.ConditionIsRequiredInSwitch(), "", astSwitch.Token.Value);
-            Traceback.Instance.ThrowException(error, astSwitch.Token.Column);
+            builder.Fail(ErrorMessage.ConditionIsRequiredInSwitch(), DiagnosticKind.Syntax, astSwitch.Token);
         }
     }
 
-    public static void ThrowExpectedColonAfterCase(Token token)
+    public static void ThrowExpectedColonAfterCase(AstBuilder builder, Token token)
     {
-        var error = new BifySyntaxError(ErrorMessage.ExpectedColonAfterCase(), "", token.Value);
-        Traceback.Instance.ThrowException(error, token.Column);
+        builder.Fail(ErrorMessage.ExpectedColonAfterCase(), DiagnosticKind.Syntax, token);
     }
 
-    public static void ThrowExpectedColonAfterDefault(Token token)
+    public static void ThrowExpectedColonAfterDefault(AstBuilder builder, Token token)
     {
-        var error = new BifySyntaxError(ErrorMessage.ExpectedColonAfterDefault(), "", token.Value);
-        Traceback.Instance.ThrowException(error, token.Column);
+        builder.Fail(ErrorMessage.ExpectedColonAfterDefault(), DiagnosticKind.Syntax, token);
     }
 
-    public static void ThrowMultipleDefaultError(Token token)
+    public static void ThrowMultipleDefaultError(AstBuilder builder, Token token)
     {
-        var error = new BifySyntaxError(ErrorMessage.MultipleDefaultInSwitch(), "", token.Value);
-        Traceback.Instance.ThrowException(error, token.Column);
+        builder.Fail(ErrorMessage.MultipleDefaultInSwitch(), DiagnosticKind.Syntax, token);
     }
 
-    public static void ThrowInvalidSwitchBodyToken(Token token)
+    public static void ThrowInvalidSwitchBodyToken(AstBuilder builder, Token token)
     {
-        var error = new BifySyntaxError(ErrorMessage.InvalidSwitchBodyToken(token.Value), "", token.Value);
-        Traceback.Instance.ThrowException(error, token.Column);
+        builder.Fail(ErrorMessage.InvalidSwitchBodyToken(token.Value), DiagnosticKind.Syntax, token);
     }
 }

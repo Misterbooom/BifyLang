@@ -10,25 +10,19 @@ namespace BifyLang.CodeGen.Statements.ControlFlow;
 public class JumpGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
 
-    public void EmitBreak(AstBreak _)
+    public void EmitBreak(AstBreak astBreak)
     {
         if (_ctx.LoopContext.BreakBlock.Handle == IntPtr.Zero)
-        {
-            new BifySyntaxError("Break statement must be inside a loop or switch.").Throw();
-            return;
-        }
+            Fail("Break statement must be inside a loop or switch.", DiagnosticKind.Syntax, astBreak);
 
         _ctx.ReleaseScopesUpTo(_ctx.LoopContext.Scope);
         _ctx.Builder.BranchIfUnterminated(_ctx.LoopContext.BreakBlock);
     }
 
-    public void EmitContinue(AstContinue _)
+    public void EmitContinue(AstContinue astContinue)
     {
         if (_ctx.LoopContext.ContinueBlock.Handle == IntPtr.Zero)
-        {
-            new BifySyntaxError("Continue statement must be inside a loop.").Throw();
-            return;
-        }
+            Fail("Continue statement must be inside a loop.", DiagnosticKind.Syntax, astContinue);
 
         var targetLoop = _ctx.LoopContext;
         while (targetLoop.Parent != null && targetLoop.Parent.ContinueBlock.Handle == targetLoop.ContinueBlock.Handle)

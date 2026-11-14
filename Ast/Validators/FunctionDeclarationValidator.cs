@@ -5,28 +5,22 @@ namespace BifyLang.Ast.Validators
 {
     internal class FunctionDeclarationValidator
     {
-        public static void Validate(Token nameToken, AstNode parametersNode, AstNode blockNode, AstNode typeNode)
+        public static void Validate(AstBuilder builder, Token nameToken, AstNode parametersNode, AstNode blockNode, AstNode typeNode)
         {
             if (nameToken == null || (nameToken.Type != TokenType.IDENTIFIER && nameToken.Type != TokenType.CONSTRUCTOR && nameToken.Type != TokenType.DESTRUCTOR))
             {
-                BifyError bifyError = new BifySyntaxError(ErrorMessage.ExpectedFunctionName(), "", nameToken == null ? typeNode.Token.Value : nameToken.Value);
-                Traceback.Instance.ThrowException(bifyError, nameToken == null ? typeNode.Token.Column : nameToken.Column);
+                builder.Fail(ErrorMessage.ExpectedFunctionName(), DiagnosticKind.Syntax, nameToken ?? typeNode?.Token);
             }
 
             if (nameToken?.Type == TokenType.DESTRUCTOR && parametersNode != null)
             {
-                new BifySyntaxError("Destructor cannot have parameters.").Throw();
+                builder.Fail("Destructor cannot have parameters.", DiagnosticKind.Syntax, nameToken);
             }
 
             if (typeNode is not AstIdentifier && typeNode.Token.Type != TokenType.POINTER && typeNode is not AstIndexOperator)
             {
-                BifyTypeError bifyTypeError = new(ErrorMessage.InvalidFunctionType());
-                Traceback.Instance.ThrowException(bifyTypeError, typeNode?.Token.Column ?? nameToken.Column);
+                builder.Fail(ErrorMessage.InvalidFunctionType(), DiagnosticKind.Type, typeNode?.Token ?? nameToken);
             }
-
-          
         }
-
-       
     }
 }

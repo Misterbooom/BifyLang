@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.Exceptions;
@@ -25,26 +26,19 @@ public static class VTableBuilder
         return 0;
     }
 
-    public static int Apply(VTable vtable, ClassMethod method, ClassType? parent)
+    public static int Apply(CodeGenContext ctx, VTable vtable, ClassMethod method, AstNode? node = null)
     {
         if (method.Name == DestructorSynthesizer.DestructorName)
-        {
             return ApplyDestructor(vtable, method);
-        }
 
         bool hasParentSlot = vtable.TryFind(method.Name, out var slot);
 
         if (method.IsOverride)
         {
             if (!hasParentSlot || slot == null)
-            {
-                new BifyTypeError(
-                    $"Method '{method.Name}' is marked 'override' but no virtual method with this name was found in base classes."
-                ).Throw();
-                return -1;
-            }
+                ctx.Fail($"Method '{method.Name}' is marked 'override' but no virtual method with this name was found in base classes.", DiagnosticKind.Type, node);
 
-            VerifyOverrideSignature(slot.Method, method);
+            VerifyOverrideSignature(ctx, slot.Method, method, node);
             vtable.Replace(slot.Index, method);
             return slot.Index;
         }
@@ -52,34 +46,25 @@ public static class VTableBuilder
         if (method.IsVirtual)
         {
             if (hasParentSlot)
-            {
-                new BifyTypeError(
-                    $"Method '{method.Name}' is marked 'virtual' but already exists in base class VTable. Use 'override' instead."
-                ).Throw();
-                return -1;
-            }
+                ctx.Fail($"Method '{method.Name}' is marked 'virtual' but already exists in base class VTable. Use 'override' instead.", DiagnosticKind.Type, node);
 
             return vtable.AddMethod(method);
         }
 
         if (hasParentSlot)
-        {
-            new BifyTypeError(
-                $"Method '{method.Name}' hides inherited virtual method without 'override' flag."
-            ).Throw();
-            return -1;
-        }
+            ctx.Fail($"Method '{method.Name}' hides inherited virtual method without 'override' flag.", DiagnosticKind.Type, node);
 
         return -1;
     }
 
-    private static void VerifyOverrideSignature(ClassMethod parentMethod, ClassMethod overrideMethod)
+    private static void VerifyOverrideSignature(CodeGenContext ctx, ClassMethod parentMethod, ClassMethod overrideMethod, AstNode? node)
     {
         if (parentMethod.Signature.Type != overrideMethod.Signature.Type)
         {
-            new BifyTypeError(
-                $"Override method '{overrideMethod.Name}' signature does not match base method '{parentMethod.DeclaringClass}.{parentMethod.Name}'."
-            ).Throw();
+            ctx.Fail(
+                $"Override method '{overrideMethod.Name}' signature does not match base method '{parentMethod.DeclaringClass}.{parentMethod.Name}'.",
+                DiagnosticKind.Type,
+                node);
         }
     }
     public static void Build(VTable vTable,CodeGenContext _ctx, string className)

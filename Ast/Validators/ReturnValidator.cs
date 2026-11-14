@@ -1,23 +1,23 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 
 namespace BifyLang.Ast.Validators
 {
     internal class ReturnValidator
     {
-        public static void Validate(AstReturn node)
+        public static void Validate(AstBuilder builder, AstReturn node)
         {
             if (node.ArgumentsNode == null)
             {
                 return;
-            }   
+            }
             if (!CanBeReturned(node.ArgumentsNode))
             {
-                Traceback.Instance.ThrowException(new BifyTypeError($"'{node.GetType().Name.Replace("Ast", "")}' Cannot be returned",
-                    "", node.Token.Value));
+                builder.Fail(
+                    $"'{node.GetType().Name.Replace("Ast", "")}' Cannot be returned",
+                    DiagnosticKind.Type,
+                    node.Token
+                );
             }
-
-
-
         }
         private static bool CanBeReturned(AstNode node)
         {

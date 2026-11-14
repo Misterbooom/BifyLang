@@ -1,22 +1,20 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Validators
 {
     internal class IndexOperatorValidator
     {
-        public static bool Validate(AstNode previousNode, AstNode indexNode)
+        public static bool Validate(AstBuilder builder, AstNode previousNode, AstNode indexNode)
         {
             if (previousNode == null || !IsIndexableNode(previousNode))
             {
-                BifySyntaxError error = new(ErrorMessage.InvalidIndexTarget(), "", previousNode.Token.Value);
-                Traceback.Instance.ThrowException(error, previousNode.Token.Column);
+                builder.Fail(ErrorMessage.InvalidIndexTarget(), DiagnosticKind.Syntax, previousNode?.Token);
             }
 
             if (indexNode != null && !IsValidIndexNode(indexNode))
             {
-                BifySyntaxError error = new(ErrorMessage.InvalidIndexExpression(), "", indexNode.Token.Value);
-                Traceback.Instance.ThrowException(error, indexNode.Token.Column);
+                builder.Fail(ErrorMessage.InvalidIndexExpression(), DiagnosticKind.Syntax, indexNode.Token);
             }
 
             return true;

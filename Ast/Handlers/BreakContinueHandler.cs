@@ -1,4 +1,4 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
@@ -9,7 +9,7 @@ namespace BifyLang.Ast.Handlers
         {
             if (Builder.Tokens.Count > 1)
             {
-                new BifySyntaxError($"Invalid syntax of {token.Value} statement!").Throw();
+                Builder.Fail($"Invalid syntax of {token.Value} statement!", DiagnosticKind.Syntax, token);
             }
             if (token.Type == TokenType.BREAK)
             {

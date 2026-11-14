@@ -11,6 +11,11 @@ public class ExpressionDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
 
     public TypedValue EmitExpression(AstNode node)
     {
+        if (node is AstPoison || node.IsPoison)
+        {
+            return AbortPoison<TypedValue>();
+        }
+
         TypedValue value = node switch
         {
             AstInteger integer => LiteralGen.EmitInteger(_ctx, integer),
@@ -26,7 +31,7 @@ public class ExpressionDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
             AstNew astNew => new NewGen(_ctx).EmitNew(astNew),
             AstMemberAccess astMemberAccess => new MemberAccessGen(_ctx).EmitMemberAccess(astMemberAccess),
             
-            _ => new BifySyntaxError($"'{node.Token.Value}' is not an expression").Throw<TypedValue>(),
+            _ => Fail<TypedValue>($"'{node.Token.Value}' is not an expression", DiagnosticKind.Syntax, node),
         };
         if (value.Type is ClassType && node is AstCall or AstNew)
         {

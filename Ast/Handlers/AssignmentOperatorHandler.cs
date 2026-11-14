@@ -9,7 +9,11 @@ namespace BifyLang.Ast.Handlers
         {
             if (Builder.Nodes.Count == 0)
             {
-                new BifySyntaxError("Assignment operator used without a preceding expression. Please ensure an identifier is present before '='.").Throw();
+                Builder.Fail(
+                    "Assignment operator used without a preceding expression. Please ensure an identifier is present before '='.",
+                    DiagnosticKind.Syntax,
+                    token
+                );
             }
             if (Builder.Nodes.Count == 1)
             {
@@ -17,7 +21,11 @@ namespace BifyLang.Ast.Handlers
             }
             else
             {
-                new BifySyntaxError("Unexpected use of the assignment operator. Check the syntax and try again.").Throw();
+                Builder.Fail(
+                    "Unexpected use of the assignment operator. Check the syntax and try again.",
+                    DiagnosticKind.Syntax,
+                    token
+                );
             }
         }
         private void HandleAssignment(Token token)
@@ -31,7 +39,7 @@ namespace BifyLang.Ast.Handlers
                 var valueNode = Builder.ParseTokens(valueTokens);
                 if (valueNode == null)
                 {
-                    new BifySyntaxError(ErrorMessage.EmptyValueAssigned()).Throw();
+                    Builder.Fail(ErrorMessage.EmptyValueAssigned(), DiagnosticKind.Syntax, token);
                 }
                 Builder.Nodes.Clear();
                 Builder.CurrentNode = new AstAssignmentOperator(token, identifierNode, valueNode);
@@ -39,7 +47,11 @@ namespace BifyLang.Ast.Handlers
             }
             else
             {
-                new BifySyntaxError("Assignment operator must follow an identifier or index operator or member access.").Throw();
+                Builder.Fail(
+                    "Assignment operator must follow an identifier or index operator or member access.",
+                    DiagnosticKind.Syntax,
+                    node.Token ?? token
+                );
             }
         }
     }

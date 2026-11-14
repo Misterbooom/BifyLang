@@ -108,13 +108,13 @@ import ""./another/file.bify"";
     [Test]
     public void AstModuleInvalidIdentifierTest()
     {
-        BifyAssert.ActionThrows<BifyNameError>(() => new AstModule("path/second/test-module.bify", []));
-        BifyAssert.ActionThrows<BifyNameError>(() => new AstModule("path/second/test*module.bify", []));
-        BifyAssert.ActionThrows<BifyNameError>(() => new AstModule("path/second/123test.bify", []));
-        BifyAssert.ActionThrows<BifyNameError>(() => new AstModule("path/second/test module.bify", []));
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => new AstModule("path/second/test-module.bify", []));
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => new AstModule("path/second/test*module.bify", []));
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => new AstModule("path/second/123test.bify", []));
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => new AstModule("path/second/test module.bify", []));
 
         var validModule = new AstModule("valid_mod", []);
-        BifyAssert.ActionThrows<BifyNameError>(() => validModule.Name = "invalid-name");
+        BifyAssert.ActionThrows(DiagnosticKind.Name, () => validModule.Name = "invalid-name");
     }
 
     [Test]

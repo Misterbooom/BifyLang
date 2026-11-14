@@ -1,28 +1,32 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 
 namespace BifyLang.Ast.Validators
 {
-    public class OperandValidator
+    internal class OperandValidator
     {
-        public static void Validate(AstNode left, AstNode right, AstNode operatorNode)
+        public static void Validate(AstBuilder builder, AstNode left, AstNode right, AstNode operatorNode)
         {
             if (left == null || right == null)
             {
-                BifyArithmeticError error = new(ErrorMessage.NotEnoughOperands(operatorNode.Token.Value), "", operatorNode.Token.Value);
-                Traceback.Instance.ThrowException(error, operatorNode.Token.Column);
+                builder.Fail(
+                    ErrorMessage.NotEnoughOperands(operatorNode.Token.Value),
+                    DiagnosticKind.Arithmetic,
+                    operatorNode?.Token
+                );
             }
-            CheckOperandType(left, operatorNode);
-            CheckOperandType(right, operatorNode);
-
-
+            CheckOperandType(builder, left, operatorNode);
+            CheckOperandType(builder, right, operatorNode);
         }
-        private static void CheckOperandType(AstNode node, AstNode operatorNode)
+
+        private static void CheckOperandType(AstBuilder builder, AstNode node, AstNode operatorNode)
         {
             if (!IsOperand(node))
             {
-                BifyArithmeticError error = new(ErrorMessage.InvalidOperandType(node.GetType().Name.Replace("Ast","")), "", node.Token.Value);
-                Traceback.Instance.ThrowException(error,node.Token.Column);
-
+                builder.Fail(
+                    ErrorMessage.InvalidOperandType(node.GetType().Name.Replace("Ast", "")),
+                    DiagnosticKind.Arithmetic,
+                    node.Token ?? operatorNode?.Token
+                );
             }
         }
 

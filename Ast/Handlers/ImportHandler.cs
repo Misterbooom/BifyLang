@@ -11,7 +11,7 @@ namespace BifyLang.Ast.Handlers
 
             if (Builder.IsAtEnd())
             {
-                new BifySyntaxError("Expected string path after 'import'.").Throw();
+                Builder.Fail("Expected string path after 'import'.", DiagnosticKind.Syntax, token);
             }
 
             Token pathToken = Builder.Consume(TokenType.STRING, "Expected string path after 'import'.");

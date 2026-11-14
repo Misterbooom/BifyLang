@@ -44,30 +44,30 @@ public class FunctionGen(CodeGenContext ctx) : CodeGenBase(ctx)
     public void EmitFunctionBody(AstFunctionDecl functionDecl)
     {
         string functionName = functionDecl.FunctionNameNode.Name;
+        if (functionDecl.IsPoison || (_ctx.CurrentScope.TryLookup(functionName, out var sym) && sym.IsPoison))
+            return;
+
         var mangledName = NameMangler.GenerateFunctionName(_ctx.ModuleContext.Name, functionName);
-        
         var returnType = TypeResolver.Resolve(functionDecl.TypeNode, _ctx);
 
         var pathChecker = new FunctionPathChecker(functionDecl, _ctx);
         if (!pathChecker.AllPathsReturn && returnType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
-        {
-            new BifyTypeError($"Not all execution paths return a value in function {mangledName}").Throw();
-        }
+            Fail($"Not all execution paths return a value in function {mangledName}", DiagnosticKind.Type, functionDecl);
 
         var parameters = ParameterResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
 
         var functionValue = _ctx.Module.GetNamedFunction(mangledName);
         if (functionValue.Handle == 0)
-        {
             functionValue = DeclareFunction(functionDecl);
-        }
 
         _bodyEmitter.Emit(functionValue, returnType, parameters, functionDecl.BlockNode);
     }
 
-
     public void EmitFunction(AstFunctionDecl functionDecl)
     {
+        if (functionDecl.IsPoison)
+            return;
+
         DeclareFunction(functionDecl);
         EmitFunctionBody(functionDecl);
     }

@@ -25,7 +25,7 @@ public class TypeResolver
             {
                 return type;
             }
-            return new BifyNameError("Cannot resolve type " + id.Name).Throw<BifyType>();
+            return ctx.Fail<BifyType>("Cannot resolve type " + id.Name, DiagnosticKind.Name, typeNode);
         }
         return typeNode switch
         {
@@ -34,7 +34,7 @@ public class TypeResolver
                 ResolvePointer(unary, ctx),
             AstIndexOperator indexOp =>
                 ResolveArray(indexOp, ctx),
-            _ => new BifyUnknownError($"{typeNode.GetType()} is not a known type.").Throw<BifyType>()
+            _ => ctx.Fail<BifyType>($"{typeNode.GetType()} is not a known type.", DiagnosticKind.Unknown, typeNode)
         };
     }
 
@@ -45,9 +45,9 @@ public class TypeResolver
             string mangled = NameMangler.GenerateClassName(modId.Name, typeId.Name);
             if (ctx.TypeRegistry.TryGetType(mangled, out var type))
                 return type;
-            return new BifyNameError($"Cannot resolve type '{modId.Name}.{typeId.Name}'.").Throw<BifyType>();
+            return ctx.Fail<BifyType>($"Cannot resolve type '{modId.Name}.{typeId.Name}'.", DiagnosticKind.Name, memberAccess);
         }
-        return new BifyUnknownError($"Invalid type expression.").Throw<BifyType>();
+        return ctx.Fail<BifyType>("Invalid type expression.", DiagnosticKind.Unknown, memberAccess);
     }
 
     private static BifyType ResolvePointer(AstUnaryOperator unary, CodeGenContext ctx)

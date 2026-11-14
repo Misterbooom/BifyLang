@@ -35,10 +35,10 @@ public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
         };
 
         if (rawName == null)
-            return new BifySyntaxError("Expected class identifier after 'new'").Throw<ClassType>();
+            return Fail<ClassType>("Expected class identifier after 'new'", DiagnosticKind.Syntax, valueNode);
 
-        if(TypeResolver.Resolve(valueNode, _ctx) is not ClassType classType)
-            return new BifyTypeError($"'{rawName}' is not a class").Throw<ClassType>();
+        if (TypeResolver.Resolve(valueNode, _ctx) is not ClassType classType)
+            return Fail<ClassType>($"'{rawName}' is not a class", DiagnosticKind.Type, valueNode);
 
         return classType;
     }
@@ -51,12 +51,15 @@ public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
         if (!classType.Methods.TryGetValue("constructor", out var ctor))
         {
             if (argNodes.Count > 0)
-                new BifyTypeError($"Class '{classType.Name}' has no constructor taking {argNodes.Count} argument(s)").Throw();
+                Fail($"Class '{classType.Name}' has no constructor taking {argNodes.Count} argument(s)", DiagnosticKind.Type, argsNode);
             return;
         }
 
+        if (ctor.IsPoison)
+            AbortPoison();
+
         if (argNodes.Count != ctor.Parameters.Count)
-            new BifyTypeError($"Constructor '{classType.Name}' expects {ctor.Parameters.Count} argument(s), got {argNodes.Count}").Throw();
+            Fail($"Constructor '{classType.Name}' expects {ctor.Parameters.Count} argument(s), got {argNodes.Count}", DiagnosticKind.Type, argsNode);
 
         var func = ResolveConstructorFn(ctor);
         var args = EmitConstructorArgs(instancePtr, ctor.Parameters, argNodes);
@@ -71,7 +74,7 @@ public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
         string symbol = ctor.Signature is CallableType c ? c.FullName : $"{ctor.DeclaringClass.FullName}_constructor";
         var func = _ctx.Module.GetNamedFunction(symbol);
         if (func.Handle == IntPtr.Zero)
-            new BifyNameError($"Constructor '{symbol}' is not defined").Throw();
+            Fail($"Constructor '{symbol}' is not defined", DiagnosticKind.Name);
 
         return func;
     }

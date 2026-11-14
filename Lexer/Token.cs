@@ -102,7 +102,8 @@ namespace BifyLang.Lexer
         CASE,
         DEFAULT,
         UNSAFE,
-        IMPORT
+        IMPORT,
+        POISON
     }
     public class Token(TokenType type, string value, List<Token> tokens = null)
     {
@@ -110,6 +111,7 @@ namespace BifyLang.Lexer
         public readonly string Value = value;
         public int Line;
         public int Column;
+        public bool IsPoison { get; init; }
         public List<Token> Tokens = tokens;
 
         public override string ToString() =>

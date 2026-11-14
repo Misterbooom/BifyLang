@@ -11,29 +11,27 @@ namespace BifyLang.CodeGen.Statements;
 public class StatementDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
 {
 
-    public void EmitBlock(AstBlock blockNode)
-    {
-        foreach (var node in blockNode.ChildNodes)
-        {
-            if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
-            {
-                break;
-            }
-
-            EmitStatement(node);
-        }
-    }
+    public void EmitBlock(AstBlock blockNode) => EmitBlock(blockNode.ChildNodes);
 
     public void EmitBlock(List<AstNode> nodeList)
     {
         foreach (var node in nodeList)
         {
             if (_ctx.Builder.InsertBlock.Terminator.Handle != IntPtr.Zero)
-            {
                 break;
-            }
 
+            EmitStatementSafely(node);
+        }
+    }
+
+    private void EmitStatementSafely(AstNode node)
+    {
+        try
+        {
             EmitStatement(node);
+        }
+        catch (BifyCompilationException)
+        {
         }
     }
 
@@ -44,10 +42,15 @@ public class StatementDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
             node = line.Child;
         }
 
-        Traceback.Instance.Line = node.LineNumber;
+        if (node == null || node is AstPoison)
+            return;
+
+        _ctx.CurrentLine = node.LineNumber;
 
         switch (node)
         {
+            case AstPoison:
+                break;
             case AstVarDecl varDecl:
                 new VariableDeclGen(_ctx).EmitVariableDecl(varDecl);
                 break;
@@ -85,7 +88,7 @@ public class StatementDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
                 new SwitchGen(_ctx).EmitSwitch(astSwitch);
                 break;
             default:
-                new BifySyntaxError($"Invalid statement.").Throw();
+                Fail("Invalid statement.", DiagnosticKind.Syntax, node);
                 break;
         }
     }

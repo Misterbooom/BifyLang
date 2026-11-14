@@ -39,13 +39,13 @@ public class VariableDeclCodeGenTests : BifyTestBase
     [TestCase("int x = \"cannot convert string to int\";", TestName = "VarDecl_Error_IncompatibleTypes")]
     public void VarDecl_TypeErrors(string decl)
     {
-        AssertCompileError<BifyTypeError>($"void test() {{ {decl} }}");
+        AssertCompileError($"void test() {{ {decl} }}", DiagnosticKind.Type);
     }
 
     [Test]
     public void VarDeclCodeGen_ExplicitCastIncompatibleThrows()
     {
-        AssertCompileError<BifyCastError>("void test() { float x = (float)\"cannot cast string to float\"; }");
+        AssertCompileError("void test() { float x = (float)\"cannot cast string to float\"; }", DiagnosticKind.Cast);
     }
 
     [Test]
@@ -60,5 +60,24 @@ public class VariableDeclCodeGenTests : BifyTestBase
         var decl = new Ast.AstVarDecl(varId.Token, assign, typeId, flagNode: null);
 
         Assert.DoesNotThrow(() => new BifyLang.CodeGen.Statements.VariableDeclGen(tc.Ctx).EmitVariableDecl(decl));
+    }
+
+    [Test]
+    public void VarDecl_PoisonRecovery_SuppressesCascadingUndefinedVariableAndContinues()
+    {
+        string code = """
+        void test() {
+            int a = ;
+            int b = a + 1;
+            int c = "bad";
+        }
+        """;
+        var diagnostics = new DiagnosticBag();
+        Bify.Compile(code, diagnostics);
+
+        Assert.That(diagnostics.HasErrors, Is.True);
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Kind == DiagnosticKind.Syntax && d.Location.LineNumber == 2), Is.True);
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Kind == DiagnosticKind.Type && d.Location.LineNumber == 4), Is.True);
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Message.Contains("is not defined")), Is.False);
     }
 }

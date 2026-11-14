@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BifyLang.Ast.Validators;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
@@ -12,7 +12,11 @@ namespace BifyLang.Ast.Handlers
             if (!DeclarationParser.TryParseHeader(Builder, out DeclarationHeader header) ||
                 header.Kind != DeclarationKind.Function)
             {
-                new BifySyntaxError("Invalid function declaration syntax. Expected `Type name(params) { ... }`.").Throw();
+                Builder.Fail(
+                    "Invalid function declaration syntax. Expected `Type name(params) { ... }`.",
+                    DiagnosticKind.Syntax,
+                    token
+                );
                 return;
             }
             ParseDeclaration(header);
@@ -24,17 +28,27 @@ namespace BifyLang.Ast.Handlers
             ParseFunction(header.NameNode.Token, header.TypeNode, header.NameNode, header.FlagNode);
         }
 
-       
         public void ParseFunction(Token token, AstNode typeNode, AstIdentifier nameNode, AstFlag flagNode)
         {
+            bool isPoison = false;
             List<List<Token>> splitedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(), TokenType.COMMA);
-            AstParam[] parametersNodes = BuildParameters(splitedTokens);
+            AstParam[] parametersNodes = BuildParameters(splitedTokens, ref isPoison);
             AstBinaryOp parameters = ConnectParameters(parametersNodes);
             AstBlock blockNode = Builder.HandleBody("Function");
 
-            FunctionDeclarationValidator.Validate(nameNode.Token, parameters, blockNode, typeNode);
+            try
+            {
+                FunctionDeclarationValidator.Validate(Builder, nameNode.Token, parameters, blockNode, typeNode);
+            }
+            catch (BifyCompilationException)
+            {
+                isPoison = true;
+            }
 
-            AstNode functionNode = new AstFunctionDecl(token, typeNode, nameNode, parameters, blockNode, flagNode);
+            AstNode functionNode = new AstFunctionDecl(token, typeNode, nameNode, parameters, blockNode, flagNode)
+            {
+                IsPoison = isPoison
+            };
             Builder.CurrentNode = functionNode;
             Builder.TokenIndex++;
             Builder.Nodes.Clear();
@@ -57,22 +71,54 @@ namespace BifyLang.Ast.Handlers
             }
             return binaryOp;
         }
-        private AstParam[] BuildParameters(List<List<Token>> splitedTokens)
+
+        private AstParam[] BuildParameters(List<List<Token>> splitedTokens, ref bool isPoison)
         {
             int paramIndex = 0;
             List<AstParam> parameters = new List<AstParam>();
             foreach (var group in splitedTokens)
             {
-                AstBuilder b = new AstBuilder(group);
-                AstVarDecl parametersNode = b.BuildNode() as AstVarDecl;
-
-                if (parametersNode == null)
+                int beforeCount = Builder.Diagnostics.Diagnostics.Count;
+                try
                 {
-                    new BifySyntaxError($"Parameter #{paramIndex + 1}: Invalid parameter declaration.").Throw();
-                }
+                    AstBuilder b = new(group, Builder.Diagnostics, Builder.FilePath, true);
+                    AstVarDecl parametersNode = b.BuildNode() as AstVarDecl;
 
-                AstParam param = new AstParam(parametersNode.Type, parametersNode.AssignmentNode.Left, parametersNode.Flag);
-                parameters.Add(param);
+                    if (parametersNode == null)
+                    {
+                        if (Builder.Diagnostics.Diagnostics.Count == beforeCount)
+                        {
+                            Builder.Error(
+                                $"Parameter #{paramIndex + 1}: Invalid parameter declaration.",
+                                DiagnosticKind.Syntax,
+                                group.Count > 0 ? group[0] : null
+                            );
+                        }
+                        isPoison = true;
+                        paramIndex++;
+                        continue;
+                    }
+
+                    if (parametersNode.IsPoison)
+                    {
+                        isPoison = true;
+                    }
+
+                    AstParam param = new(parametersNode.Type, parametersNode.AssignmentNode.Left, parametersNode.Flag);
+                    parameters.Add(param);
+                }
+                catch (BifyCompilationException)
+                {
+                    if (Builder.Diagnostics.Diagnostics.Count == beforeCount && !group.Exists(t => t.IsPoison))
+                    {
+                        Builder.Error(
+                            $"Parameter #{paramIndex + 1}: Invalid parameter declaration.",
+                            DiagnosticKind.Syntax,
+                            group.Count > 0 ? group[0] : null
+                        );
+                    }
+                    isPoison = true;
+                }
                 paramIndex++;
             }
             return parameters.ToArray();

@@ -1,14 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 
 namespace BifyLang.Exceptions
 {
     public class SimpleErrorWrapper(Exception exception)
     {
-        /// <summary>
-        /// Prints the detailed traceback and code snippets using improved colors.
-        /// </summary>
-        /// <param name="contextLines">Number of code lines before and after the error line to display.</param>
+
         public void PrintStackTrace(int contextLines = 2)
         {
             ConsoleColor originalColor = Console.ForegroundColor;
@@ -82,12 +79,7 @@ namespace BifyLang.Exceptions
             }
         }
 
-        /// <summary>
-        /// Prints a snippet of the source code around the given error line.
-        /// </summary>
-        /// <param name="filePath">The path of the source file.</param>
-        /// <param name="errorLine">The error line number in the file.</param>
-        /// <param name="contextLines">Number of context lines before and after the error line.</param>
+
         private void PrintCodeSnippet(string filePath, int errorLine, int contextLines)
         {
             try

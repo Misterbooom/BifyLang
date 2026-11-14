@@ -22,23 +22,25 @@ public static class MemberResolver
             !ct.Fields.TryGetValue(name, out var found))
             return false;
 
+        if (found.IsPoison)
+            ctx.AbortPoison();
+
         field = found;
-        CheckAccess(ctx, ct,field.AccessLevel, field.Name);
+        CheckAccess(ctx, ct, field.AccessLevel, field.Name);
         var thisVal = ctx.Builder.BuildLoad2(thisSym.Type.Type, thisSym.Pointer, "this");
         fieldPtr = ResolveFieldPtr(ctx, ct, thisVal, field);
         return true;
     }
 
-    public static void CheckAccess(CodeGenContext ctx, ClassType classType, AccessLevel accessLevel,  string memberName)
+    public static void CheckAccess(CodeGenContext ctx, ClassType classType, AccessLevel accessLevel, string memberName)
     {
-
         if (accessLevel == AccessLevel.PRIVATE)
         {
             if (!ctx.CurrentScope.TryLookup("this", out var thisSym) ||
                 thisSym.Type is not ClassType ct ||
                 ct.FullName != classType.FullName)
             {
-                new BifyAttributeError($"Cannot access private member '{memberName}' of class '{classType.FullName}'").Throw();
+                ctx.Fail($"Cannot access private member '{memberName}' of class '{classType.FullName}'", DiagnosticKind.Attribute);
             }
         }
         else if (accessLevel == AccessLevel.PROTECTED)
@@ -53,9 +55,7 @@ public static class MemberResolver
             }
 
             if (!allowed)
-            {
-                new BifyAttributeError($"Cannot access protected member '{memberName}' of class '{classType.FullName}'").Throw();
-            }
+                ctx.Fail($"Cannot access protected member '{memberName}' of class '{classType.FullName}'", DiagnosticKind.Attribute);
         }
     }
 }

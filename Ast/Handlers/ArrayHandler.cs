@@ -1,4 +1,4 @@
-﻿using BifyLang.Lexer;
+using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
 {
@@ -10,9 +10,15 @@ namespace BifyLang.Ast.Handlers
         }
         public AstNode GetArrayNode(Token token)
         {
-            Builder.TokenIndex -= 1; //idk some shit that works otherwise you get error
-            var tokensInBrackets = TokensFormatter.GetTokensBetween(Builder.Tokens, ref Builder.TokenIndex,
-               TokenType.LBRACKET, TokenType.RBRACKET);
+            Builder.TokenIndex -= 1;
+            var tokensInBrackets = TokensFormatter.GetTokensBetween(
+                Builder.Tokens,
+                ref Builder.TokenIndex,
+                TokenType.LBRACKET,
+                TokenType.RBRACKET,
+                Builder.Diagnostics,
+                Builder.FilePath
+            );
 
             AstNode valueNode = Builder.ParseTokens(tokensInBrackets);
 

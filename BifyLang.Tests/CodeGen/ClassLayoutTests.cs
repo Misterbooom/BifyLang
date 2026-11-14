@@ -109,25 +109,25 @@ public class ClassLayoutTests : BifyTestBase
 
     [Test]
     public void ClassLayout_OverrideWithoutBaseMethod_Throws() =>
-        AssertCompileError<BifyTypeError>("class Foo { public override void bar() {} } void main() {}");
+        AssertCompileError("class Foo { public override void bar() {} } void main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_VirtualMethodAlreadyExists_Throws() =>
-        AssertCompileError<BifyTypeError>("class A { public virtual void bar() {} } class B : A { public virtual void bar() {} } void main() {}");
+        AssertCompileError("class A { public virtual void bar() {} } class B : A { public virtual void bar() {} } void main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_HidingVirtualWithoutOverride_Throws() =>
-        AssertCompileError<BifyTypeError>("class A { public virtual void bar() {} } class B : A { public void bar() {} } void main() {}");
+        AssertCompileError("class A { public virtual void bar() {} } class B : A { public void bar() {} } void main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_OverrideSignatureMismatch_Throws() =>
-        AssertCompileError<BifyTypeError>("class A { public virtual int bar(int x) { return x; } } class B : A { public override float bar(int x) { return 0.0; } } void main() {}");
+        AssertCompileError("class A { public virtual int bar(int x) { return x; } } class B : A { public override float bar(int x) { return 0.0; } } void main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_DuplicateField_Throws() =>
-        AssertCompileError<BifyNameError>("class A { public int x; } class B : A { public int x; } void main() {}");
+        AssertCompileError("class A { public int x; } class B : A { public int x; } void main() {}", DiagnosticKind.Name);
 
     [Test]
     public void ClassLayout_ConstructorCannotBeVirtual_Throws() =>
-        AssertCompileError<BifyTypeError>("class A { public virtual constructor() {} } void main() {}");
+        AssertCompileError("class A { public virtual constructor() {} } void main() {}", DiagnosticKind.Type);
 }

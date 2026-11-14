@@ -8,12 +8,20 @@ internal static class TokenHandlerFactory
 {
     public static TokenHandler CreateHandler(Token token, AstBuilder builder)
     {
-        Traceback.Instance.SetCurrentLine(token.Line);
+        if (token.Type == TokenType.POISON)
+        {
+            return builder.AbortPoison<TokenHandler>();
+        }
+
         if (builder.IsHandlingLine)
         {
             if (TokenConfig.BinaryOperators.ContainsValue(token.Type))
             {
-                new BifySyntaxError($"Only a assignment, call, increment, decrement and new object expressions can be used as a statement.").Throw();
+                return builder.Fail<TokenHandler>(
+                    "Only a assignment, call, increment, decrement and new object expressions can be used as a statement.",
+                    DiagnosticKind.Syntax,
+                    token
+                );
             }
         }
 

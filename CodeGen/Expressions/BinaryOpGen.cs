@@ -29,11 +29,11 @@ public class BinaryOpGen
 
     private static TypedValue EmitLogical(CodeGenContext ctx, ExpressionDispatcher dispatcher, AstBinaryOp binaryOp, TokenType op)
     {
-        TypedValue left;;
+        TypedValue left;
         using (ctx.HeapControl.BeginTempScope())
-         left = dispatcher.EmitExpression(binaryOp.Left);
+            left = dispatcher.EmitExpression(binaryOp.Left);
         if (left.Type.Name != "bool")
-            return new BifyTypeError($"Operator '{op}' is not supported for '{left.Type.Name}'").Throw<TypedValue>();
+            return ctx.Fail<TypedValue>($"Operator '{op}' is not supported for '{left.Type.Name}'", DiagnosticKind.Type, binaryOp);
 
         var isAnd = op == TokenType.AND;
         var function = ctx.FunctionEntry.Parent;
@@ -51,7 +51,7 @@ public class BinaryOpGen
         using (ctx.HeapControl.BeginTempScope())
             right = dispatcher.EmitExpression(binaryOp.Right);
         if (right.Type.Name != "bool")
-            return new BifyTypeError($"Operator '{op}' is not supported between 'bool' and '{right.Type.Name}'").Throw<TypedValue>();
+            return ctx.Fail<TypedValue>($"Operator '{op}' is not supported between 'bool' and '{right.Type.Name}'", DiagnosticKind.Type, binaryOp);
 
         var rightExitBlock = ctx.Builder.InsertBlock;
         if (rightExitBlock.Terminator.Handle == IntPtr.Zero)
@@ -65,7 +65,6 @@ public class BinaryOpGen
         phi.AddIncoming(new[] { shortCircuitVal, right.Value }, new[] { entryBlock, rightExitBlock }, 2);
         return new TypedValue(phi, boolType);
     }
-
 
     public static TypedValue EmitBinary(CodeGenContext ctx, TokenType op, TypedValue left, TypedValue right)
     {
@@ -92,7 +91,7 @@ public class BinaryOpGen
             right.Type.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind)
             return EmitPointerComparison(ctx, op, left.Value, right.Value);
 
-        return new BifyTypeError($"Operator '{op}' is not supported between '{left.Type.Name}' and '{right.Type.Name}'").Throw<TypedValue>();
+        return ctx.Fail<TypedValue>($"Operator '{op}' is not supported between '{left.Type.Name}' and '{right.Type.Name}'", DiagnosticKind.Type);
     }
 
     private static TypedValue EmitIntBinary(CodeGenContext ctx, TokenType op, LLVMValueRef left, LLVMValueRef right)
@@ -127,7 +126,7 @@ public class BinaryOpGen
             TokenType.BIT_XOR or TokenType.BITXOR => new TypedValue(ctx.Builder.BuildXor(left, right, "xortmp"),
                 intType),
 
-            _ => new BifySyntaxError($"Unsupported binary operator: {op}").Throw<TypedValue>()
+            _ => ctx.Fail<TypedValue>($"Unsupported binary operator: {op}", DiagnosticKind.Syntax)
         };
     }
 
@@ -157,7 +156,7 @@ public class BinaryOpGen
             TokenType.GTE or TokenType.GTEQ => new TypedValue(
                 ctx.Builder.BuildFCmp(LLVMRealPredicate.LLVMRealOGE, left, right, "fgtetmp"), boolType),
 
-            _ => new BifySyntaxError($"Unsupported float binary operator: {op}").Throw<TypedValue>()
+            _ => ctx.Fail<TypedValue>($"Unsupported float binary operator: {op}", DiagnosticKind.Syntax)
         };
     }
 
@@ -174,7 +173,7 @@ public class BinaryOpGen
             TokenType.NEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, left, right, "neqtmp"),
                 boolType),
 
-            _ => new BifySyntaxError($"Unsupported boolean binary operator: {op}").Throw<TypedValue>()
+            _ => ctx.Fail<TypedValue>($"Unsupported boolean binary operator: {op}", DiagnosticKind.Syntax)
         };
     }
 
@@ -189,7 +188,7 @@ public class BinaryOpGen
                 ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, left, right, "ptreq"), boolType),
             TokenType.NEQ => new TypedValue(ctx.Builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, left, right, "ptrneq"),
                 boolType),
-            _ => new BifySyntaxError($"Unsupported pointer comparison operator: {op}").Throw<TypedValue>()
+            _ => ctx.Fail<TypedValue>($"Unsupported pointer comparison operator: {op}", DiagnosticKind.Syntax)
         };
     }
 }

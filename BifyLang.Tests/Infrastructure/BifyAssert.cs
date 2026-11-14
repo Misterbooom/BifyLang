@@ -5,112 +5,102 @@ namespace BifyLang.Tests.Infrastructure;
 
 public static class BifyAssert
 {
-    public static TError CompileError<TError>(string code) where TError : BifyError
+    public static Diagnostic CompileError(string code, DiagnosticKind expectedKind, string? expectedSubstring = null)
     {
-        Traceback.Instance.Clear();
-        Traceback.Instance.Catch(typeof(TError));
+        DiagnosticBag diagnostics = new();
         try
         {
-            try
-            {
-                using var compiled = Bify.Compile(code);
-            }
-            catch (ApplicationException)
-            {
-                // Traceback throws ApplicationException when untracked or in some error paths
-            }
-            catch (Exception ex) when (ex is not AssertionException)
-            {
-                // In case a compiler exception cascaded from a caught BifyError returning default
-            }
-
-            var err = Traceback.Instance.GetError();
-            Assert.That(err, Is.Not.Null, $"Expected error of type '{typeof(TError).Name}', but no error was raised.");
-            Assert.That(err, Is.InstanceOf<TError>(), $"Expected error of type '{typeof(TError).Name}', but got '{err?.GetType().Name}': {err?.Message}");
-            return (TError)err!;
+            using var compiled = Bify.Compile(code, diagnostics);
         }
-        finally
+        catch (BifyCompilationException)
         {
-            Traceback.Instance.TrackPop();
         }
+
+        return AssertHasDiagnostic(diagnostics, expectedKind, expectedSubstring, "compilation");
     }
 
-    public static TError ActionThrows<TError>(Action action, string? expectedSubstring = null) where TError : BifyError
+    public static Diagnostic ActionThrows(
+        DiagnosticKind expectedKind,
+        Action action,
+        string? expectedSubstring = null,
+        DiagnosticBag? diagnostics = null)
     {
-        Traceback.Instance.Clear();
-        Traceback.Instance.Catch(typeof(TError));
+        Diagnostic? captured = null;
         try
         {
-            try { action(); }
-            catch (ApplicationException) { }
-            catch (Exception ex) when (ex is not AssertionException) { }
-
-            var err = Traceback.Instance.GetError();
-            Assert.That(err, Is.Not.Null, $"Expected error of type '{typeof(TError).Name}', but no error was raised.");
-            Assert.That(err, Is.InstanceOf<TError>(), $"Expected error of type '{typeof(TError).Name}', but got '{err?.GetType().Name}': {err?.Message}");
-            if (expectedSubstring != null)
-                Assert.That(err!.Message, Does.Contain(expectedSubstring));
-            return (TError)err!;
+            action();
         }
-        finally
+        catch (BifyCompilationException ex)
         {
-            Traceback.Instance.TrackPop();
+            captured = ex.Diagnostic;
         }
+
+        if (diagnostics != null)
+        {
+            return AssertHasDiagnostic(diagnostics, expectedKind, expectedSubstring, "action", captured);
+        }
+
+        Assert.That(captured, Is.Not.Null, $"Expected diagnostic of kind '{expectedKind}', but no compilation exception was thrown.");
+        Assert.That(captured!.Kind, Is.EqualTo(expectedKind),
+            $"Expected diagnostic of kind '{expectedKind}', but got '{captured.Kind}': {captured.Message}");
+        if (expectedSubstring != null)
+        {
+            Assert.That(captured.Message, Does.Contain(expectedSubstring));
+        }
+        return captured;
     }
 
-    public static TError ParseError<TError>(string code) where TError : BifyError
+    public static Diagnostic ParseError(string code, DiagnosticKind expectedKind = DiagnosticKind.Syntax, string? expectedSubstring = null)
     {
-        Traceback.Instance.Clear();
-        Traceback.Instance.Catch(typeof(TError));
+        DiagnosticBag diagnostics = new();
         try
         {
-            try
-            {
-                Bify.Parse(code);
-            }
-            catch (ApplicationException)
-            {
-                // Expected when Traceback encounters an untracked error or exits
-            }
-            catch (Exception ex) when (ex is not AssertionException)
-            {
-            }
-
-            var err = Traceback.Instance.GetError();
-            Assert.That(err, Is.Not.Null, $"Expected parse error of type '{typeof(TError).Name}', but no error was raised.");
-            Assert.That(err, Is.InstanceOf<TError>(), $"Expected parse error of type '{typeof(TError).Name}', but got '{err?.GetType().Name}': {err?.Message}");
-            return (TError)err!;
+            Bify.Parse(code, diagnostics);
         }
-        finally
+        catch (BifyCompilationException)
         {
-            Traceback.Instance.TrackPop();
         }
+
+        return AssertHasDiagnostic(diagnostics, expectedKind, expectedSubstring, "parsing");
     }
 
-    public static void AnySyntaxError(string code)
+    public static DiagnosticBag AnySyntaxError(string code)
     {
-        Traceback.Instance.Clear();
+        DiagnosticBag diagnostics = new();
         try
         {
-            bool threw = false;
-            try
-            {
-                Bify.Parse(code);
-            }
-            catch (ApplicationException)
-            {
-                threw = true;
-            }
-            catch (Exception)
-            {
-                threw = true;
-            }
-
-            Assert.That(threw, Is.True, "Expected syntax error during parsing, but none occurred.");
+            Bify.Parse(code, diagnostics);
         }
-        finally
+        catch (BifyCompilationException)
         {
-            Traceback.Instance.Clear();
         }
+
+        Assert.That(diagnostics.HasErrors, Is.True, "Expected diagnostic error during parsing, but none occurred.");
+        return diagnostics;
+    }
+
+    private static Diagnostic AssertHasDiagnostic(
+        DiagnosticBag diagnostics,
+        DiagnosticKind expectedKind,
+        string? expectedSubstring,
+        string phase,
+        Diagnostic? fallback = null)
+    {
+        List<Diagnostic> items = [.. diagnostics.Diagnostics];
+        if (fallback != null && !items.Contains(fallback))
+        {
+            items.Add(fallback);
+        }
+
+        Assert.That(items.Count, Is.GreaterThan(0), $"Expected diagnostic of kind '{expectedKind}' during {phase}, but none occurred.");
+
+        Diagnostic? match = items.FirstOrDefault(d =>
+            d.Kind == expectedKind &&
+            (expectedSubstring == null || d.Message.Contains(expectedSubstring, StringComparison.Ordinal)));
+
+        Assert.That(match, Is.Not.Null,
+            $"Expected diagnostic of kind '{expectedKind}'{(expectedSubstring != null ? $" containing '{expectedSubstring}'" : "")} during {phase}, " +
+            $"but got: [{string.Join("; ", items.Select(d => $"{d.Kind}: {d.Message}"))}]");
+        return match!;
     }
 }

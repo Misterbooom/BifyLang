@@ -20,7 +20,8 @@ public struct ClassField(
     int index = -1,
     bool isConst = false,
     bool isWeak = false,
-    ClassType declaringClass = default)
+    ClassType declaringClass = null!,
+    bool isPoison = false)
 {
     public readonly string Name = name;
     public readonly BifyType Type = type;
@@ -31,6 +32,7 @@ public struct ClassField(
     public AstNode? ValueNode = value;
     public bool IsConst = isConst;
     public bool IsWeak = isWeak;
+    public bool IsPoison = isPoison;
 }
 
 public struct ClassMethod(
@@ -39,11 +41,12 @@ public struct ClassMethod(
     LLVMValueRef functionValue,
     AccessLevel accessLevel,
     int vtableIndex = -1,
-    ClassType declaringClass =default,
+    ClassType declaringClass = null!,
     AstNode? body = null,
     bool isVirtual = false,
     bool isOverride = false,
-    List<ParameterInfo>? parameters = null)
+    List<ParameterInfo>? parameters = null,
+    bool isPoison = false)
 {
     public readonly string Name = name;
     public readonly CallableType Signature = signature;
@@ -55,4 +58,5 @@ public struct ClassMethod(
     public bool IsVirtual = isVirtual;
     public bool IsOverride = isOverride;
     public List<ParameterInfo> Parameters = parameters ?? [];
+    public bool IsPoison = isPoison;
 }

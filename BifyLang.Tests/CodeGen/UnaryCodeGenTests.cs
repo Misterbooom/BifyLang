@@ -24,18 +24,18 @@ public class UnaryCodeGenTests : BifyTestBase
     [Test]
     public void Unary_MutateConstThrows()
     {
-        AssertCompileError<BifyTypeError>("void test() { const int c = 5; c++; }");
+        AssertCompileError("void test() { const int c = 5; c++; }", DiagnosticKind.Type);
     }
 
     [Test]
     public void Unary_MutateUndefinedThrows()
     {
-        AssertCompileError<BifyNameError>("void test() { missingVar++; }");
+        AssertCompileError("void test() { missingVar++; }", DiagnosticKind.Name);
     }
 
     [Test]
     public void Unary_InvalidStatementThrows()
     {
-        AssertCompileError<BifySyntaxError>("void test() { -5; }");
+        AssertCompileError("void test() { -5; }", DiagnosticKind.Syntax);
     }
 }

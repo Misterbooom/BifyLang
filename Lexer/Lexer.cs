@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using BifyLang.Exceptions;
@@ -9,21 +9,21 @@ namespace BifyLang.Lexer
     {
         private int _position;
         private readonly string _code;
+        private readonly string _filePath;
         private int _lineCount = 1;
-        private readonly string[] _lines;
-        int _column = 1; // Initialize column counter
+        private int _lineStartOffset;
 
-        readonly List<Token> _tokens = [];
+        private readonly List<Token> _tokens = [];
 
-        public MyLexer(string code)
+        public DiagnosticBag Diagnostics { get; }
+
+        public MyLexer(string code, DiagnosticBag? diagnostics = null, string filePath = "main")
         {
-            this._code = code;
-            Traceback.Instance.InitializeSource(_code.Split("\n"));
-            _lines = _code.Split("\n");
+            _code = code;
+            Diagnostics = diagnostics ?? new DiagnosticBag();
+            _filePath = string.IsNullOrEmpty(filePath) ? "main" : filePath;
             _position = 0;
-
         }
-
 
         public List<Token> Tokenize()
         {
@@ -34,24 +34,26 @@ namespace BifyLang.Lexer
             while (_position < _code.Length)
             {
                 char currentChar = _code[_position];
-                int tempPos = _position;
-                KeyValuePair<string, TokenType> multichar = GenerateMultiChar();
-                _position = tempPos;
                 if (currentChar == '\n')
                 {
                     _lineCount++;
                     _position++;
-                    ResetColumn(); // Reset column to 1 for the new Line
+                    _lineStartOffset = _position;
                     continue;
                 }
                 if (char.IsWhiteSpace(currentChar))
                 {
-                    UpdateColumn(currentChar);
                     _position++;
                     continue;
                 }
 
-                // Handle parentheses
+                int tokenStart = _position;
+                int tokenColumn = (tokenStart - _lineStartOffset) + 1;
+
+                int tempPos = _position;
+                KeyValuePair<string, TokenType> multichar = GenerateMultiChar();
+                _position = tempPos;
+
                 if (currentChar == '(')
                 {
                     parenthesesStack.Push(_lineCount);
@@ -60,58 +62,56 @@ namespace BifyLang.Lexer
                 {
                     if (parenthesesStack.Count == 0)
                     {
-                        Traceback.Instance.ThrowException(new BifySyntaxError(ErrorMessage.UnmatchedClosingParenthesis(), "", ")"), _column);
+                        Diagnostics.Report(
+                            ErrorMessage.UnmatchedClosingParenthesis(),
+                            DiagnosticKind.Syntax,
+                            new SourceLocation(_filePath, _lineCount, tokenColumn)
+                        );
+                        AddToken(new Token(TokenType.POISON, ")") { IsPoison = true }, tokenColumn);
+                        _position++;
+                        continue;
                     }
                     parenthesesStack.Pop();
                 }
-
-
                 else if (currentChar == ';')
                 {
                     if (parenthesesStack.Count == 0 && squareBracketsStack.Count == 0 && curlyBracesStack.Count == 0)
                     {
-                        AddToken(new Token(TokenType.EOL, ";"));
+                        AddToken(new Token(TokenType.EOL, ";"), tokenColumn);
                     }
                     else
                     {
-                        AddToken(new Token(TokenType.SEMICOLON, ";"));
+                        AddToken(new Token(TokenType.SEMICOLON, ";"), tokenColumn);
                     }
-                    UpdateColumn(currentChar);
                     _position++;
                     continue;
                 }
+
                 if (currentChar == '"' || currentChar == '\'')
                 {
-                    string str = GenerateString();
-                    AddToken(new Token(currentChar == '"' ? TokenType.STRING : TokenType.CHAR, str));
-                    UpdateColumn(str.Length);
+                    AddToken(GenerateString(tokenColumn), tokenColumn);
                 }
-                else if (currentChar == '-' && char.IsDigit(_code[_position + 1]))
+                else if (currentChar == '-' && _position + 1 < _code.Length && char.IsDigit(_code[_position + 1]))
                 {
                     string digit = GenerateDigit();
-                    AddToken(new Token(TokenType.NUMBER, digit));
-                    UpdateColumn(digit.Length);
+                    AddToken(new Token(TokenType.NUMBER, digit), tokenColumn);
                 }
                 else if (char.IsDigit(currentChar))
                 {
                     string digit = GenerateDigit();
-                    AddToken(new Token(TokenType.NUMBER, digit));
-                    UpdateColumn(digit.Length);
+                    AddToken(new Token(TokenType.NUMBER, digit), tokenColumn);
                 }
                 else if (IsIdentifier(currentChar))
                 {
                     string identifier = GenerateIdentifier();
                     if (TokenConfig.MultiCharTokens.TryGetValue(identifier, out TokenType tokenType))
                     {
-                        AddToken(new Token(tokenType, identifier));
+                        AddToken(new Token(tokenType, identifier), tokenColumn);
                     }
                     else
                     {
-                        AddToken(new Token(TokenType.IDENTIFIER, identifier));
+                        AddToken(new Token(TokenType.IDENTIFIER, identifier), tokenColumn);
                     }
-                    UpdateColumn(identifier.Length);
-
-
                 }
                 else if (multichar.Key != " ")
                 {
@@ -120,36 +120,35 @@ namespace BifyLang.Lexer
                         SkipComment();
                         continue;
                     }
-                    AddToken(new Token(multichar.Value, multichar.Key));
-                    _position += multichar.Key.Length - 1;  
-                    UpdateColumn(multichar.Key.Length);
+                    AddToken(new Token(multichar.Value, multichar.Key), tokenColumn);
+                    _position += multichar.Key.Length - 1;
                 }
-               
                 else if (TokenConfig.SingleCharTokens.TryGetValue(currentChar, out TokenType tokenType))
                 {
-                    AddToken(new Token(tokenType, currentChar.ToString()));
-                    UpdateColumn(currentChar);
+                    AddToken(new Token(tokenType, currentChar.ToString()), tokenColumn);
                 }
-
                 else
                 {
                     if (!char.IsWhiteSpace(currentChar))
-                        Traceback.Instance.ThrowException(new BifySyntaxError(ErrorMessage.UnexpectedToken(currentChar.ToString()), _lines[_lineCount - 1], _code[_position].ToString(), _lineCount));
+                    {
+                        Diagnostics.Report(
+                            ErrorMessage.UnexpectedToken(currentChar.ToString()),
+                            DiagnosticKind.Syntax,
+                            new SourceLocation(_filePath, _lineCount, tokenColumn)
+                        );
+                        AddToken(new Token(TokenType.POISON, currentChar.ToString()) { IsPoison = true }, tokenColumn);
+                    }
                 }
 
                 _position++;
-                Traceback.Instance.SetCurrentLine(_lineCount);
             }
             return _tokens;
         }
-        private void ResetColumn() => _column = 1;
-        private void UpdateColumn(char currentChar) => _column++;
-        private void UpdateColumn(int length = 1) => _column += length;
 
-        private void AddToken(Token token)
+        private void AddToken(Token token, int column)
         {
             token.Line = _lineCount;
-            token.Column = _column;
+            token.Column = column;
             _tokens.Add(token);
         }
 
@@ -233,11 +232,12 @@ namespace BifyLang.Lexer
         }
 
 
-        public string GenerateString()
+        public Token GenerateString(int startColumn = 1)
         {
-            var result = new System.Text.StringBuilder();
+            StringBuilder result = new();
 
             char quoteChar = _code[_position];
+            TokenType tokenType = quoteChar == '"' ? TokenType.STRING : TokenType.CHAR;
             _position++;
 
             while (_position < _code.Length)
@@ -246,7 +246,7 @@ namespace BifyLang.Lexer
 
                 if (currentChar == quoteChar)
                 {
-                    return result.ToString();
+                    return new Token(tokenType, result.ToString());
                 }
 
                 if (currentChar == '\\')
@@ -272,6 +272,7 @@ namespace BifyLang.Lexer
                 }
                 else if (currentChar == '\n')
                 {
+                    _position--;
                     break;
                 }
                 else
@@ -281,15 +282,13 @@ namespace BifyLang.Lexer
                 _position++;
             }
 
-            Traceback.Instance.ThrowException(new BifySyntaxError(
+            Diagnostics.Report(
                 ErrorMessage.MissingCloseQuotationMark(),
-                _lines[_lineCount - 1],
-                quoteChar.ToString(),
-                _lineCount
-            ));
-            return result.ToString();
+                DiagnosticKind.Syntax,
+                new SourceLocation(_filePath, _lineCount, startColumn)
+            );
+            return new Token(tokenType, result.ToString()) { IsPoison = true };
         }
-
 
         public string GenerateIdentifier()
         {
@@ -310,62 +309,5 @@ namespace BifyLang.Lexer
             _position--;
             return identifier;
         }
-        public Token GenerateObject()
-        {
-            int counter = 0;
-            StringBuilder block = new();
-            int start = _position + 1;
-            while (_position < _code.Length)
-            {
-                char currentChar = _code[_position];
-
-                if (currentChar == '{')
-                {
-                    counter++;
-                }
-                else if (currentChar == '}')
-                {
-                    counter--;
-                    if (counter < 0)
-                    {
-                        Traceback.Instance.ThrowException(new BifySyntaxError(ErrorMessage.UnmatchedClosingBrace(), _lines[_lineCount - 1], "}", _lineCount));
-
-                    }
-                    else if (counter == 0)
-                    {
-                        block[0] = ' ';
-                        break;
-
-                    }
-
-
-                }
-                else if (currentChar == '\n')
-                {
-                    _lineCount++;
-                }
-
-                block.Append(currentChar);
-                _position++;
-            }
-
-            if (counter != 0)
-            {
-                Traceback.Instance.ThrowException(new BifySyntaxError(ErrorMessage.UnmatchedOpeningBrace(), _lines[_lineCount - 1], "{", _lineCount - 1));
-
-            }
-            string blockString = _code[start.._position];
-            MyLexer lexer = new(block.ToString());
-            List<Token> tokens = lexer.Tokenize();
-            _position += 1;
-            return new Token(TokenType.BLOCK, blockString, tokens);
-
-
-
-
-        }
-
-        [GeneratedRegex("\r?\n")]
-        private static partial Regex MyRegex();
     }
 }

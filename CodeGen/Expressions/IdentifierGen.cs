@@ -18,14 +18,18 @@ public static class IdentifierGen
             "true"  => LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, true)),
             "false" => LiteralGen.EmitBool(ctx, new AstBoolean(identifier.Token, false)),
             "null"  => LiteralGen.EmitNull(ctx, new AstNull(identifier.Token)),
-            var name => ResolveAndLoad(ctx, name)
+            _ => ResolveAndLoad(ctx, identifier)
         };
     }
 
-    private static TypedValue ResolveAndLoad(CodeGenContext ctx, string name)
+    private static TypedValue ResolveAndLoad(CodeGenContext ctx, AstIdentifier identifier)
     {
+        string name = identifier.Name;
         if (ctx.CurrentScope.TryLookup(name, out var symbol))
         {
+            if (symbol.IsPoison)
+                return ctx.AbortPoison<TypedValue>();
+
             return LoadSymbol(ctx, symbol);
         }
 
@@ -40,7 +44,7 @@ public static class IdentifierGen
             return new TypedValue(default, moduleType);
         }
 
-        return new BifyNameError($"Variable '{name}' is not defined").Throw<TypedValue>();
+        return ctx.Fail<TypedValue>($"Variable '{name}' is not defined", DiagnosticKind.Name, identifier);
     }
 
     private static TypedValue LoadSymbol(CodeGenContext ctx, Symbol symbol)

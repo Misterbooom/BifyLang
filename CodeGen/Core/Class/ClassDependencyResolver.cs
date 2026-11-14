@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Core.Class;
 
-public class ClassDependencyResolver
+public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
 {
     private enum VisitState
     {
@@ -16,6 +17,7 @@ public class ClassDependencyResolver
     private readonly Dictionary<string, ClassInfo> _classes = [];
     private readonly Dictionary<string, string> _inheritanceMap = [];
     private readonly Dictionary<string, VisitState> _states = [];
+    private readonly Dictionary<string, string> _modulePaths = [];
     private readonly List<ClassInfo> _compilationOrder = [];
 
     public ClassInfo[] Resolve(IEnumerable<AstModule> modules)
@@ -23,11 +25,16 @@ public class ClassDependencyResolver
         _classes.Clear();
         _inheritanceMap.Clear();
         _states.Clear();
+        _modulePaths.Clear();
         _compilationOrder.Clear();
 
         foreach (var astModule in modules)
         {
-            CollectClasses(astModule);
+            _modulePaths[astModule.Name] = astModule.ModulePath;
+            using (_ctx.EnterModule(astModule.Name, astModule.ModulePath))
+            {
+                CollectClasses(astModule);
+            }
         }
 
         VerifyInheritanceMap();
@@ -47,33 +54,40 @@ public class ClassDependencyResolver
             if (node is not AstClass classNode)
                 continue;
 
+            _ctx.CurrentLine = classNode.LineNumber;
             string rawClassName = classNode.NameNode.Token.Value;
             string mangledName = NameMangler.GenerateClassName(module.Name, rawClassName);
 
             if (_classes.ContainsKey(mangledName))
             {
-                new BifyNameError($"Class '{rawClassName}' already exists in module '{module.Name}'.").Throw();
-                return;
+                Error($"Class '{rawClassName}' already exists in module '{module.Name}'.", DiagnosticKind.Name, classNode);
+                continue;
             }
 
-            string mangledParentName = ResolveParentName(classNode.ParentNode, module.Name);
-            var classInfo = new ClassInfo(rawClassName, classNode, module.Name);
+            try
+            {
+                string mangledParentName = ResolveParentName(_ctx, classNode.ParentNode, module.Name);
+                var classInfo = new ClassInfo(rawClassName, classNode, module.Name);
 
-            _classes.Add(mangledName, classInfo);
-            _inheritanceMap.Add(mangledName, mangledParentName);
+                _classes.Add(mangledName, classInfo);
+                _inheritanceMap.Add(mangledName, mangledParentName);
+            }
+            catch (BifyCompilationException)
+            {
+            }
         }
     }
 
-    public static string ResolveParentName(AstNode? node, string currentModuleName)
+    public static string ResolveParentName(CodeGenContext ctx, AstNode? node, string currentModuleName)
     {
         return node switch
         {
             null => string.Empty,
             AstIdentifier id => NameMangler.GenerateClassName(currentModuleName, id.Name),
-            AstMemberAccess { Left: AstIdentifier moduleId, Right: AstIdentifier classId } 
+            AstMemberAccess { Left: AstIdentifier moduleId, Right: AstIdentifier classId }
                 => NameMangler.GenerateClassName(moduleId.Name, classId.Name),
-            AstMemberAccess 
-                => new BifySyntaxError("Invalid parent class reference.").Throw<string>(),
+            AstMemberAccess
+                => ctx.Fail<string>("Invalid parent class reference.", DiagnosticKind.Syntax, node),
             _ => throw new NotSupportedException($"'{node.GetType().Name}' is not supported as a parent class node.")
         };
     }
@@ -87,10 +101,16 @@ public class ClassDependencyResolver
 
             if (!_classes.ContainsKey(mangledParentName))
             {
-                new BifyTypeError(
-                    $"Class '{mangledClassName}' inherits from unknown class '{mangledParentName}'."
-                ).Throw();
-                return;
+                var info = _classes[mangledClassName];
+                string path = _modulePaths.GetValueOrDefault(info.ModuleName, "");
+                using (_ctx.EnterModule(info.ModuleName, path))
+                {
+                    Fail(
+                        $"Class '{mangledClassName}' inherits from unknown class '{mangledParentName}'.",
+                        DiagnosticKind.Type,
+                        info.ClassNode
+                    );
+                }
             }
         }
     }
@@ -101,10 +121,16 @@ public class ClassDependencyResolver
         {
             if (state == VisitState.Visiting)
             {
-                new BifyCircularInheritanceError(
-                    $"Circular inheritance detected at class '{mangledClassName}'."
-                ).Throw();
-                return;
+                var info = _classes[mangledClassName];
+                string path = _modulePaths.GetValueOrDefault(info.ModuleName, "");
+                using (_ctx.EnterModule(info.ModuleName, path))
+                {
+                    Fail(
+                        $"Circular inheritance detected at class '{mangledClassName}'.",
+                        DiagnosticKind.CircularInheritance,
+                        info.ClassNode
+                    );
+                }
             }
 
             if (state == VisitState.Visited)

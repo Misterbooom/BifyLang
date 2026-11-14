@@ -11,23 +11,20 @@ namespace BifyLang.Ast
         public Token Token { get; set; } = token;
         public AstNode Left { get; set; } = left;
         public AstNode Right { get; set; } = right;
+        public bool IsPoison { get; init; }
         private int _lineNumber;
+        private int _columnNumber;
+
         public int LineNumber
         {
+            get => _lineNumber == 0 ? (Token?.Line ?? 0) : _lineNumber;
+            set => _lineNumber = value;
+        }
 
-            get
-            {
-                if (_lineNumber == 0)
-                {
-                    return Token.Line;
-                }
-                return _lineNumber;
-            }
-            set
-            {
-                _lineNumber = value;
-            }
-
+        public int ColumnNumber
+        {
+            get => _columnNumber == 0 ? (Token?.Column ?? 0) : _columnNumber;
+            set => _columnNumber = value;
         }
 
         public override string ToString() => StrHelper();
@@ -36,7 +33,7 @@ namespace BifyLang.Ast
         {
             string indent = new(' ', 4 * level);
             string branch = isLeft ? "|- " : "|- ";
-            string treeStr = $"{indent}{branch}{note}{GetType().Name}('{Token.Value}',Line - {LineNumber})\n";
+            string treeStr = $"{indent}{branch}{note}{GetType().Name}('{Token?.Value ?? ""}',Line - {LineNumber})\n";
 
             if (Left != null)
             {
@@ -57,6 +54,14 @@ namespace BifyLang.Ast
             return Math.Max(leftLen, rightLen);
         }
 
+    }
+
+    public class AstPoison : AstNode
+    {
+        public AstPoison(Token token) : base(token)
+        {
+            IsPoison = true;
+        }
     }
 
 
@@ -119,7 +124,11 @@ namespace BifyLang.Ast
         }
         public override string ToString() => StrHelper();
     }
-    public class AstLine(AstNode child) : AstNode(new Token(TokenType.EOL, ";"))
+    public class AstLine(AstNode child) : AstNode(new Token(TokenType.EOL, ";")
+    {
+        Line = child?.LineNumber ?? 0,
+        Column = child?.ColumnNumber ?? 0
+    })
     {
         public readonly AstNode Child = child;
 
@@ -142,7 +151,11 @@ namespace BifyLang.Ast
     public class AstEol(Token token) : AstNode(token)
     {
     }
-    public class AstBlock(List<AstNode> childsNodes) : AstNode(new Token(TokenType.BLOCK, "Block"))
+    public class AstBlock(List<AstNode> childsNodes) : AstNode(new Token(TokenType.BLOCK, "Block")
+    {
+        Line = childsNodes is { Count: > 0 } ? childsNodes[0]?.LineNumber ?? 0 : 0,
+        Column = childsNodes is { Count: > 0 } ? childsNodes[0]?.ColumnNumber ?? 0 : 0
+    })
     {
 
         public readonly List<AstNode> ChildNodes = childsNodes;
@@ -387,23 +400,19 @@ namespace BifyLang.Ast
                 ? Path.GetFileNameWithoutExtension(modulePath)
                 : moduleName;
 
-            if (string.IsNullOrEmpty(rawName))
-            {
-                string fallback = Traceback.Instance.FilePath;
-                if (!string.IsNullOrEmpty(fallback))
-                {
-                    rawName = Path.GetFileNameWithoutExtension(fallback);
-                }
-            }
-
             return string.IsNullOrEmpty(rawName) ? "main" : rawName;
         }
 
-        private static void ValidateIdentifier(string name)
+        private void ValidateIdentifier(string name)
         {
             if (!IsValidIdentifier(name))
             {
-                new BifyNameError($"Invalid module identifier '{name}'. Module name must be a valid identifier.").Throw();
+                string filePath = string.IsNullOrEmpty(ModulePath) ? "main" : ModulePath;
+                throw new BifyCompilationException(new Diagnostic(
+                    $"Invalid module identifier '{name}'. Module name must be a valid identifier.",
+                    DiagnosticKind.Name,
+                    new SourceLocation(filePath, LineNumber, ColumnNumber)
+                ));
             }
         }
 
@@ -487,7 +496,7 @@ namespace BifyLang.Ast
             return nodes;
         }
     }
-    public class AstIndexOperator(AstNode nodeIndex, AstNode operandNode) : AstNode(new Token(TokenType.NUMBER, "UNKNOWN"))
+    public class AstIndexOperator(AstNode nodeIndex, AstNode operandNode) : AstNode(operandNode?.Token ?? nodeIndex?.Token ?? new Token(TokenType.NUMBER, "UNKNOWN"))
     {
         public readonly AstNode IndexNode = nodeIndex;
         public readonly AstNode TargetNode = operandNode;
@@ -499,7 +508,7 @@ namespace BifyLang.Ast
             return baseStr + $"{new String(' ', 4 * (level + 1))}\n{nodeIndexStr}\n{operandStr}";
         }
     }
-    public class AstParam(AstNode type, AstNode name, AstNode flag) : AstNode(new Token(TokenType.AND, "Param"))
+    public class AstParam(AstNode type, AstNode name, AstNode flag) : AstNode(name?.Token ?? type?.Token ?? new Token(TokenType.AND, "Param"))
     {
         public readonly AstNode Type = type;
         public readonly AstNode Name = name;
@@ -513,7 +522,11 @@ namespace BifyLang.Ast
             return baseStr + $"{new String(' ', 4 * (level + 1))}\n{typeStr}\n{nameStr}\n{flagStr}";
         }
     }
-    public class AstConditionStatement(AstNode left = null, AstNode right = null) : AstNode(new Token(TokenType.IDENTIFIER, "Condition statement"), left, right)
+    public class AstConditionStatement(AstNode left = null, AstNode right = null) : AstNode(new Token(TokenType.IDENTIFIER, "Condition statement")
+    {
+        Line = left?.LineNumber ?? right?.LineNumber ?? 0,
+        Column = left?.ColumnNumber ?? right?.ColumnNumber ?? 0
+    }, left, right)
     {
 
     }

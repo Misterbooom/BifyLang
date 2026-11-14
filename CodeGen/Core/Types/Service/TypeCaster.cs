@@ -49,8 +49,7 @@ public static class TypeCaster
             if (valClass.IsSubclassOf(tgtClass))
                 return new TypedValue(value.Value, targetType, value.IsWeak);
 
-            new BifyTypeError($"Cannot implicitly convert type '{valClass.Name}' to '{tgtClass.Name}'").Throw();
-            return value;
+            return ctx.Fail<TypedValue>($"Cannot implicitly convert type '{valClass.Name}' to '{tgtClass.Name}'", DiagnosticKind.Type);
         }
 
         if (value.Type.Name == targetType.Name || value.Type.Type == targetType.Type)
@@ -63,15 +62,14 @@ public static class TypeCaster
             targetType.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind)
             return CastPointer(ctx, value, targetType, "conv_ptr");
 
-        new BifyTypeError($"Cannot implicitly convert type '{value.Type.Name}' to '{targetType.Name}'").Throw();
-        return value;
+        return ctx.Fail<TypedValue>($"Cannot implicitly convert type '{value.Type.Name}' to '{targetType.Name}'", DiagnosticKind.Type);
     }
 
 
     public static TypedValue ExplicitCast(CodeGenContext ctx, TypedValue value, BifyType targetType)
     {
         if (value.Type is ClassType valClass && targetType is ClassType tgtClass)
-            return CastClass(valClass, tgtClass, value, targetType);
+            return CastClass(ctx, valClass, tgtClass, value, targetType);
 
         if (value.Type.Name == targetType.Name)
             return value;
@@ -92,17 +90,15 @@ public static class TypeCaster
         if (value.Type.Name == "int" && targetType.Type.Kind == LLVMTypeKind.LLVMPointerTypeKind)
             return new TypedValue(ctx.Builder.BuildIntToPtr(value.Value, targetType.Type, "cast_itoptr"), targetType);
 
-        new BifyCastError($"Cannot cast '{value.Type.Name}' to '{targetType.Name}'").Throw();
-        return value;
+        return ctx.Fail<TypedValue>($"Cannot cast '{value.Type.Name}' to '{targetType.Name}'", DiagnosticKind.Cast);
     }
 
-    private static TypedValue CastClass(ClassType valClass, ClassType tgtClass, TypedValue value, BifyType targetType)
+    private static TypedValue CastClass(CodeGenContext ctx, ClassType valClass, ClassType tgtClass, TypedValue value, BifyType targetType)
     {
         if (valClass.IsSubclassOf(tgtClass) || tgtClass.IsSubclassOf(valClass))
             return new TypedValue(value.Value, targetType, value.IsWeak);
 
-        new BifyCastError($"Cannot cast '{valClass.FullName}' to '{tgtClass.FullName}'").Throw();
-        return value;
+        return ctx.Fail<TypedValue>($"Cannot cast '{valClass.FullName}' to '{tgtClass.FullName}'", DiagnosticKind.Cast);
     }
 
     private static TypedValue CastPointer(CodeGenContext ctx, TypedValue value, BifyType targetType, string irName)

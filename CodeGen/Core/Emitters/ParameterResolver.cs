@@ -28,7 +28,7 @@ public static class ParameterResolver
         {
             string name = astParam.Name.Token.Value;
             if (parameters.Any(p => p.Name == name))
-                new BifyNameError($"Duplicated parameter: '{name}'").Throw();
+                ctx.Fail($"Duplicated parameter: '{name}'", DiagnosticKind.Name, astParam);
 
             bool isConst = astParam.Flag is AstFlag flag && flag.HasFlag("const");
             BifyType type = TypeResolver.Resolve(astParam.Type, ctx);
@@ -43,7 +43,7 @@ public static class ParameterResolver
             return;
         }
 
-        new BifySyntaxError("Expected an AstParam node").Throw();
+        ctx.Fail("Expected an AstParam node", DiagnosticKind.Syntax, node);
     }
     public static void FlattenComma(AstNode? node, List<AstNode> list)
     {

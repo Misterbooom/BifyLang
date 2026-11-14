@@ -1,4 +1,6 @@
 #nullable enable
+using BifyLang.Exceptions;
+
 namespace BifyLang.Tests.CodeGen;
 
 public partial class ArcAndCodeGenTests
@@ -129,7 +131,7 @@ public partial class ArcAndCodeGenTests
             Dummy d = (Dummy)l;
         }
         """;
-        AssertCompileError<BifyLang.Exceptions.BifyCastError>(code);
+        AssertCompileError(code, DiagnosticKind.Cast);
     }
 
     [Test]

@@ -10,10 +10,9 @@ namespace BifyLang.Tests.Semantics;
 [TestFixture]
 public class FunctionPathCheckerTests : BifyTestBase
 {
-    private static void ParseAndCheck(string code)
+    private static void ParseAndCheck(string code, CodeGenContext ctx)
     {
-        var module = Bify.Parse(code);
-        var ctx = new CodeGenContext();
+        var module = Bify.Parse(code, ctx.Diagnostics);
         foreach (var child in module.ChildNodes)
         {
             if (child is AstFunctionDecl fn)
@@ -33,14 +32,16 @@ public class FunctionPathCheckerTests : BifyTestBase
 
     private static void AssertSuccess(string code)
     {
-        ParseAndCheck(code);
-        var err = Traceback.Instance.GetError();
-        Assert.That(err, Is.Null, $"Expected no error, but got {err?.GetType().Name}: {err?.Message}");
+        using var ctx = new CodeGenContext();
+        ParseAndCheck(code, ctx);
+        Assert.That(ctx.Diagnostics.HasErrors, Is.False,
+            $"Expected no error, but got: [{string.Join("; ", ctx.Diagnostics.Diagnostics.Select(d => $"{d.Kind}: {d.Message}"))}]");
     }
 
     private static void AssertTypeError(string code, string? expectedSubstring = null)
     {
-        BifyAssert.ActionThrows<BifyTypeError>(() => ParseAndCheck(code), expectedSubstring);
+        using var ctx = new CodeGenContext();
+        BifyAssert.ActionThrows(DiagnosticKind.Type, () => ParseAndCheck(code, ctx), expectedSubstring, ctx.Diagnostics);
     }
 
     [Test]

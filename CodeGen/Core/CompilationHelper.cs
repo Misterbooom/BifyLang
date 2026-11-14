@@ -11,13 +11,13 @@ namespace BifyLang.CodeGen.Core;
 
 public static class CompilationHelper
 {
-    public static AstModule ParseToAst(string filePath)
+    public static AstModule ParseToAst(string filePath, DiagnosticBag? diagnostics = null)
     {
-        Traceback.Instance.FilePath = filePath;
+        DiagnosticBag bag = diagnostics ?? new DiagnosticBag();
         string code = File.ReadAllText(filePath);
 
         Stopwatch stopwatch = Stopwatch.StartNew();
-        MyLexer lexer = new(code);
+        MyLexer lexer = new(code, bag, filePath);
         List<Token> tokens = lexer.Tokenize();
         tokens.WriteTokens();
         stopwatch.Stop();
@@ -25,7 +25,7 @@ public static class CompilationHelper
 
         string[] codeByLine = code.Split('\n');
         stopwatch.Restart();
-        AstTree astParser = new(codeByLine);
+        AstTree astParser = new(codeByLine, bag, filePath);
         AstNode node = astParser.ParseTokens(tokens);
         stopwatch.Stop();
         Console.WriteLine($"AST parsing completed in {stopwatch.ElapsedMilliseconds} ms.");
@@ -40,9 +40,10 @@ public static class CompilationHelper
         string resolvedOutPath = outputFilePath ?? Path.ChangeExtension(filePath, ".out");
         Console.WriteLine($"Compiling {resolvedOutPath}");
 
-        AstModule astModule = ParseToAst(filePath);
+        DiagnosticBag diagnostics = new();
+        AstModule astModule = ParseToAst(filePath, diagnostics);
 
         var compiler = new BifyCompiler();
-        compiler.Compile(astModule, filePath, resolvedOutPath, flags);
+        compiler.Compile(astModule, filePath, resolvedOutPath, flags, diagnostics);
     }
 }

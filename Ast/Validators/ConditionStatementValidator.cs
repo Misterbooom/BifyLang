@@ -1,25 +1,22 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 
 namespace BifyLang.Ast.Validators
 {
     internal class ConditionStatementValidator
     {
-    
-        public static void ThrowUnmatchedIfError(AstElse astElse)
+        public static void ThrowUnmatchedIfError(AstBuilder builder, AstElse astElse)
         {
-            BifySyntaxError error = new(ErrorMessage.ElseWithoutMatchingIf(), "", astElse.Token.Value);
-            Traceback.Instance.ThrowException(error, astElse.Token.Column);
-        }
-        public static void ThrowUnmatchedIfError(AstElseIf astElseIf)
-        {
-            BifySyntaxError error = new(ErrorMessage.ElseIfWithoutMatchingIf(), "", astElseIf.Token.Value);
-            Traceback.Instance.ThrowException(error, astElseIf.Token.Column);
+            builder.Fail(ErrorMessage.ElseWithoutMatchingIf(), DiagnosticKind.Syntax, astElse.Token);
         }
 
-        public static void ThrowElseIfAfterElseError(AstElseIf astElseIf)
+        public static void ThrowUnmatchedIfError(AstBuilder builder, AstElseIf astElseIf)
         {
-            BifySyntaxError error = new(ErrorMessage.ElseIfCannotFollowElseDirectly(), "", astElseIf.Token.Value);
-            Traceback.Instance.ThrowException(error, astElseIf.Token.Column);
+            builder.Fail(ErrorMessage.ElseIfWithoutMatchingIf(), DiagnosticKind.Syntax, astElseIf.Token);
+        }
+
+        public static void ThrowElseIfAfterElseError(AstBuilder builder, AstElseIf astElseIf)
+        {
+            builder.Fail(ErrorMessage.ElseIfCannotFollowElseDirectly(), DiagnosticKind.Syntax, astElseIf.Token);
         }
     }
 }

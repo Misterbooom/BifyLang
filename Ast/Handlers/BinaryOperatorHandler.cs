@@ -94,23 +94,45 @@ namespace BifyLang.Ast.Handlers
         {
             if (Builder.IsAtEnd())
             {
-                new BifySyntaxError($"Unexpected end of expression. Please check that your expression is complete.: {Builder.GetPreviousToken()}").Throw();
+                Builder.Fail(
+                    $"Unexpected end of expression. Please check that your expression is complete.: {Builder.GetPreviousToken()}",
+                    DiagnosticKind.Syntax,
+                    Builder.GetPreviousToken()
+                );
             }
 
             Token token = Builder.NextToken();
+            if (token.Type == TokenType.POISON)
+            {
+                return Builder.AbortPoison<AstNode>();
+            }
 
             AstNode baseNode = token.Type switch
             {
                 TokenType.IDENTIFIER or TokenType.CONST => new IdentifierHandler(Builder).ParseIdentifier(token, true),
-                TokenType.NUMBER => NodeConventer.TokenToNode(token),
+                TokenType.NUMBER => NodeConventer.TokenToNode(token, Builder),
                 TokenType.LPAREN => ParseParenthesizedExpression(),
-                TokenType.SUB or TokenType.MUL or TokenType.INCREMENT or TokenType.DECREMENT or TokenType.NOT=> HandleUnaryOperator(token),
+                TokenType.SUB or TokenType.MUL or TokenType.INCREMENT or TokenType.DECREMENT or TokenType.NOT => HandleUnaryOperator(token),
                 TokenType.LBRACKET => new ArrayHandler(Builder).GetArrayNode(token),
-                TokenType.STRING or TokenType.CHAR => NodeConventer.TokenToNode(token),
+                TokenType.STRING or TokenType.CHAR => NodeConventer.TokenToNode(token, Builder),
                 TokenType.NEW => new NewHandler(Builder).ParseNewExpression(token),
-                _ => new BifySyntaxError($"Unexpected token '{token.Value}' found in expression. Verify your syntax and try again.").Throw<AstNode>()
+                _ => Builder.Fail<AstNode>(
+                    $"Unexpected token '{token.Value}' found in expression. Verify your syntax and try again.",
+                    DiagnosticKind.Syntax,
+                    token
+                )
             };
-            baseNode.LineNumber = token.Line;
+            if (baseNode != null)
+            {
+                if (baseNode.LineNumber == 0)
+                {
+                    baseNode.LineNumber = token.Line;
+                }
+                if (baseNode.ColumnNumber == 0)
+                {
+                    baseNode.ColumnNumber = token.Column;
+                }
+            }
             if (handlePostfix)
                 return ParsePostfix(baseNode);
             else
@@ -129,9 +151,15 @@ namespace BifyLang.Ast.Handlers
                 }
                 else if (next.Type == TokenType.LBRACKET)
                 {
-                    var indexTokens = TokensFormatter.GetTokensBetween(Builder.Tokens, ref Builder.TokenIndex,
-                                TokenType.LBRACKET, TokenType.RBRACKET);
-                    
+                    var indexTokens = TokensFormatter.GetTokensBetween(
+                        Builder.Tokens,
+                        ref Builder.TokenIndex,
+                        TokenType.LBRACKET,
+                        TokenType.RBRACKET,
+                        Builder.Diagnostics,
+                        Builder.FilePath
+                    );
+
                     var indexNode = Builder.ParseTokens(indexTokens);
                     expr = new AstIndexOperator(indexNode, expr);
                 }
@@ -142,14 +170,21 @@ namespace BifyLang.Ast.Handlers
                 else if (next.Type == TokenType.DOT)
                 {
                     Builder.NextToken();
-                    expr = new AstMemberAccess(next, expr,ParsePrimary(false));
+                    expr = new AstMemberAccess(next, expr, ParsePrimary(false));
                     Builder.TokenIndex--;
                 }
                 else
                 {
                     break;
                 }
-                expr.LineNumber = next.Line;
+                if (expr.LineNumber == 0)
+                {
+                    expr.LineNumber = next.Line;
+                }
+                if (expr.ColumnNumber == 0)
+                {
+                    expr.ColumnNumber = next.Column;
+                }
                 Builder.TokenIndex++;
             }
             return expr;

@@ -1,4 +1,4 @@
-﻿using BifyLang.Ast.Validators;
+using BifyLang.Ast.Validators;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
@@ -10,7 +10,7 @@ namespace BifyLang.Ast.Handlers
             AstNode conditionNode = Builder.ParseTokens(Builder.GetConditionTokens());
             AstNode blockNode = Builder.HandleBody("While");
             AstWhile astWhile = new AstWhile(token, blockNode, conditionNode);
-            LoopValidator.ValidateWhileStatement(astWhile);
+            LoopValidator.ValidateWhileStatement(Builder, astWhile);
 
             Builder.CurrentNode = astWhile;
             Builder.MoveToEnd();

@@ -25,7 +25,7 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         bool isConstructor = classMethod.Name == "constructor";
 
         if (!isConstructor && !isDestructor)
-            _ = new FunctionPathChecker(returnType, classMethod.Body);
+            _ = new FunctionPathChecker(returnType, classMethod.Body, _ctx);
 
         _bodyEmitter.Emit(
             classMethod.FunctionValue,

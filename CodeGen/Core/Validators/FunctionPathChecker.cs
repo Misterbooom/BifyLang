@@ -12,21 +12,23 @@ public class FunctionPathChecker
 {
     public readonly bool AllPathsReturn = false;
     private readonly BifyType _functionType;
+    private readonly CodeGenContext? _ctx;
 
-    public FunctionPathChecker(BifyType functionType, AstNode? node)
+    public FunctionPathChecker(BifyType functionType, AstNode? node, CodeGenContext? ctx = null)
     {
         _functionType = functionType;
+        _ctx = ctx;
         if (node == null) return;
 
         AllPathsReturn = Check(node);
         if (_functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind && !AllPathsReturn)
         {
-            Traceback.Instance.ThrowException(new BifyTypeError($"Not all execution paths return a value for {_functionType.Name}"));
+            _ctx?.Fail($"Not all execution paths return a value for {_functionType.Name}", DiagnosticKind.Type, node);
         }
     }
 
     public FunctionPathChecker(AstFunctionDecl functionDecl, CodeGenContext ctx)
-        : this(TypeResolver.Resolve(functionDecl.TypeNode, ctx), functionDecl.BlockNode)
+        : this(TypeResolver.Resolve(functionDecl.TypeNode, ctx), functionDecl.BlockNode, ctx)
     {
     }
 
@@ -34,8 +36,8 @@ public class FunctionPathChecker
     {
         if (node == null) return false;
 
-        if (node.Token != null && node.Token.Line > 0)
-            Traceback.Instance.SetCurrentLine(node.Token.Line);
+        if (_ctx != null && node.Token != null && node.Token.Line > 0)
+            _ctx.CurrentLine = node.Token.Line;
 
         return node switch
         {
@@ -54,7 +56,7 @@ public class FunctionPathChecker
     {
         if (astReturn.ArgumentsNode == null && _functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
         {
-            Traceback.Instance.ThrowException(new BifyTypeError($"Expected '{_functionType.Name}' but got 'void'"));
+            _ctx?.Fail($"Expected '{_functionType.Name}' but got 'void'", DiagnosticKind.Type, astReturn);
         }
         return true;
     }

@@ -1,4 +1,5 @@
 #nullable enable
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using BifyLang.Tests.Infrastructure;
 
@@ -84,5 +85,68 @@ public class LexerTests : BifyTestBase
         var secondLineToken = tokens.FirstOrDefault(t => t.Line == 2 && t.Value == "int");
         Assert.That(secondLineToken, Is.Not.Null);
         Assert.That(secondLineToken!.Column, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Lexer_TracksExactColumnAfterStringsAndEscapes()
+    {
+        string code = "\"hi\\n\\\"there\\\"\"; int x = 42;\n    int y = 7;";
+        var tokens = Bify.Lex(code);
+
+        var strToken = tokens.First(t => t.Type == TokenType.STRING);
+        Assert.That(strToken.Line, Is.EqualTo(1));
+        Assert.That(strToken.Column, Is.EqualTo(1));
+
+        var eolToken = tokens.First(t => t.Line == 1 && t.Type == TokenType.EOL);
+        Assert.That(eolToken.Column, Is.EqualTo(16));
+
+        var intToken = tokens.First(t => t.Line == 1 && t.Value == "int");
+        Assert.That(intToken.Column, Is.EqualTo(18));
+
+        var xToken = tokens.First(t => t.Line == 1 && t.Value == "x");
+        Assert.That(xToken.Column, Is.EqualTo(22));
+
+        var line2Int = tokens.First(t => t.Line == 2 && t.Value == "int");
+        Assert.That(line2Int.Column, Is.EqualTo(5));
+
+        var line2Y = tokens.First(t => t.Line == 2 && t.Value == "y");
+        Assert.That(line2Y.Column, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void Lexer_RecoversWithPoisonTokensAndReportsMultipleDiagnostics()
+    {
+        string code = "int a = @;\nint b = (1));\n\"unclosed\nint c = 5;";
+        var diagnostics = new DiagnosticBag();
+        var tokens = Bify.Lex(code, diagnostics, "lexer_test.bf");
+
+        Assert.That(diagnostics.Diagnostics.Count, Is.EqualTo(3));
+        Assert.That(diagnostics.Diagnostics.All(d => d.Kind == DiagnosticKind.Syntax), Is.True);
+        Assert.That(diagnostics.Diagnostics.All(d => d.Location.FilePath == "lexer_test.bf"), Is.True);
+
+        Assert.That(diagnostics.Diagnostics[0].Location.LineNumber, Is.EqualTo(1));
+        Assert.That(diagnostics.Diagnostics[0].Location.ColumnNumber, Is.EqualTo(9));
+
+        Assert.That(diagnostics.Diagnostics[1].Location.LineNumber, Is.EqualTo(2));
+        Assert.That(diagnostics.Diagnostics[1].Location.ColumnNumber, Is.EqualTo(12));
+
+        Assert.That(diagnostics.Diagnostics[2].Location.LineNumber, Is.EqualTo(3));
+        Assert.That(diagnostics.Diagnostics[2].Location.ColumnNumber, Is.EqualTo(1));
+
+        var poisonTokens = tokens.Where(t => t.IsPoison).ToList();
+        Assert.That(poisonTokens.Count, Is.EqualTo(3));
+        Assert.That(poisonTokens[0].Type, Is.EqualTo(TokenType.POISON));
+        Assert.That(poisonTokens[1].Type, Is.EqualTo(TokenType.POISON));
+        Assert.That(poisonTokens[2].Type, Is.EqualTo(TokenType.STRING));
+
+        var recoveredInt = tokens.FirstOrDefault(t => t.Line == 4 && t.Value == "int");
+        var recoveredIdent = tokens.FirstOrDefault(t => t.Line == 4 && t.Value == "c");
+        var recoveredNum = tokens.FirstOrDefault(t => t.Line == 4 && t.Value == "5");
+        Assert.That(recoveredInt, Is.Not.Null);
+        Assert.That(recoveredInt!.Column, Is.EqualTo(1));
+        Assert.That(recoveredIdent, Is.Not.Null);
+        Assert.That(recoveredIdent!.Column, Is.EqualTo(5));
+        Assert.That(recoveredNum, Is.Not.Null);
+        Assert.That(recoveredNum!.Column, Is.EqualTo(9));
     }
 }

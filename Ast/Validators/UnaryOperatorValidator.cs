@@ -1,25 +1,21 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Validators
 {
     internal class UnaryOperatorValidator
     {
-        public static bool Validate(string op,Token identifierToken)
+        public static bool Validate(AstBuilder builder, string op, Token identifierToken)
         {
             if (identifierToken == null)
             {
-                BifySyntaxError error = new(ErrorMessage.MissingOperandAfterUnaryOperator(op),"",op);
-                Traceback.Instance.ThrowException(error, identifierToken.Column);
+                builder.Fail(ErrorMessage.MissingOperandAfterUnaryOperator(op), DiagnosticKind.Syntax, null);
             }
             else if (identifierToken.Type != TokenType.IDENTIFIER)
             {
-                BifySyntaxError error = new(ErrorMessage.OperandMustBeIdentifierAfterUnaryOperator(op),"",op);
-                Traceback.Instance.ThrowException(error,identifierToken.Column);
-
+                builder.Fail(ErrorMessage.OperandMustBeIdentifierAfterUnaryOperator(op), DiagnosticKind.Syntax, identifierToken);
             }
             return true;
-
         }
     }
 }

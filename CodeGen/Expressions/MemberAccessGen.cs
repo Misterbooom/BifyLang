@@ -23,15 +23,23 @@ public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
 
         if (classType.Fields.TryGetValue(memberName, out var field))
         {
+            if (field.IsPoison)
+                AbortPoison();
+
             var fieldPtr = ResolveCheckedFieldPtr(target, classType, field);
             var loaded = _ctx.Builder.BuildLoad2(field.Type.Type, fieldPtr, field.Name);
             return new TypedValue(loaded, field.Type, field.IsWeak);
         }
 
         if (classType.Methods.TryGetValue(memberName, out var method))
-            return EmitMethodValue(classType, method);
+        {
+            if (method.IsPoison)
+                AbortPoison();
 
-        return new BifyAttributeError($"Type '{classType.Name}' has no member '{memberName}'").Throw<TypedValue>();
+            return EmitMethodValue(classType, method);
+        }
+
+        return Fail<TypedValue>($"Type '{classType.Name}' has no member '{memberName}'", DiagnosticKind.Attribute, memberAccess);
     }
 
     public (LLVMValueRef Pointer, ClassField Field, ClassType Class) ResolveMember(AstMemberAccess memberAccess)
@@ -39,12 +47,17 @@ public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
         var (target, classType, memberName) = ResolveTarget(memberAccess);
 
         if (classType.Fields.TryGetValue(memberName, out var field))
+        {
+            if (field.IsPoison)
+                AbortPoison();
+
             return (ResolveCheckedFieldPtr(target, classType, field), field, classType);
+        }
 
         if (classType.Methods.ContainsKey(memberName))
-            return new BifyTypeError($"Cannot assign to method '{memberName}'").Throw<(LLVMValueRef, ClassField, ClassType)>();
+            return Fail<(LLVMValueRef, ClassField, ClassType)>($"Cannot assign to method '{memberName}'", DiagnosticKind.Type, memberAccess);
 
-        return new BifyAttributeError($"Type '{classType.Name}' has no member '{memberName}'").Throw<(LLVMValueRef, ClassField, ClassType)>();
+        return Fail<(LLVMValueRef, ClassField, ClassType)>($"Type '{classType.Name}' has no member '{memberName}'", DiagnosticKind.Attribute, memberAccess);
     }
 
     private bool TryEmitModuleMember(AstMemberAccess memberAccess, out TypedValue result)
@@ -56,10 +69,10 @@ public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
 
         string memberName = ExpectMemberName(memberAccess);
         if (!moduleType.ModuleContext.CurrentScope.TryLookup(memberName, out var member))
-        {
-            result = new BifyAttributeError($"Module '{modId.Name}' has no member '{memberName}'").Throw<TypedValue>();
-            return true;
-        }
+            return Fail<bool>($"Module '{modId.Name}' has no member '{memberName}'", DiagnosticKind.Attribute, memberAccess);
+
+        if (member.IsPoison)
+            AbortPoison();
 
         result = new TypedValue(member.Pointer, member.Type);
         return true;
@@ -69,7 +82,7 @@ public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
     {
         var target = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
         if (target.Type is not ClassType classType)
-            return new BifyTypeError($"Cannot access member on non-class type '{target.Type.Name}'").Throw<(TypedValue, ClassType, string)>();
+            return Fail<(TypedValue, ClassType, string)>($"Cannot access member on non-class type '{target.Type.Name}'", DiagnosticKind.Type, memberAccess);
 
         string memberName = ExpectMemberName(memberAccess);
         if (target.IsWeak)
@@ -104,8 +117,8 @@ public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
         return new TypedValue(fn, method.Signature, false);
     }
 
-    private static string ExpectMemberName(AstMemberAccess memberAccess) =>
+    private string ExpectMemberName(AstMemberAccess memberAccess) =>
         memberAccess.Right is AstIdentifier id
             ? id.Name
-            : new BifySyntaxError("Expected member identifier").Throw<string>();
+            : Fail<string>("Expected member identifier", DiagnosticKind.Syntax, memberAccess);
 }

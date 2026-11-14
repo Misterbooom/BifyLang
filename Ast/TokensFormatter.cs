@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
@@ -6,8 +6,10 @@ namespace BifyLang.Ast
 {
     internal class TokensFormatter
     {
-        public static List<List<Token>> SplitLines(List<Token> tokens)
+        public static List<List<Token>> SplitLines(List<Token> tokens, DiagnosticBag? diagnostics = null, string filePath = "main")
         {
+            DiagnosticBag bag = diagnostics ?? new DiagnosticBag();
+            string resolvedPath = string.IsNullOrEmpty(filePath) ? "main" : filePath;
             List<List<Token>> lines = new();
             List<Token> currentLine = new();
 
@@ -17,7 +19,7 @@ namespace BifyLang.Ast
 
                 if (token.Type == TokenType.LCUR)
                 {
-                    List<Token> tokensInCur = GetTokensBetween(tokens, ref tokenIndex, TokenType.LCUR, TokenType.RCUR);
+                    List<Token> tokensInCur = GetTokensBetween(tokens, ref tokenIndex, TokenType.LCUR, TokenType.RCUR, bag, resolvedPath);
                     
                     currentLine.Add(token);
                     currentLine.AddRange(tokensInCur);
@@ -101,9 +103,10 @@ namespace BifyLang.Ast
             return tokenGroups;
         }
 
-        public static List<Token> GetTokensBetween(List<Token> tokens, ref int index, TokenType open, TokenType close)
+        public static List<Token> GetTokensBetween(List<Token> tokens, ref int index, TokenType open, TokenType close, DiagnosticBag? diagnostics = null, string filePath = "main")
         {
             int count = 0;
+            Token? unclosedOpenToken = null;
             List<Token> newTokens = new();
 
             while (index < tokens.Count)
@@ -112,7 +115,11 @@ namespace BifyLang.Ast
 
                 if (token.Type == open)
                 {
-                    if (count > 0)
+                    if (count == 0)
+                    {
+                        unclosedOpenToken = token;
+                    }
+                    else
                     {
                         newTokens.Add(token);
                     }
@@ -137,14 +144,14 @@ namespace BifyLang.Ast
 
             if (count > 0)
             {
-                Token lastOpenToken = tokens[index - 1];
-                BifySyntaxError error = new(
+                Token lastOpenToken = unclosedOpenToken ?? tokens[index - 1];
+                DiagnosticBag bag = diagnostics ?? new DiagnosticBag();
+                string resolvedPath = string.IsNullOrEmpty(filePath) ? "main" : filePath;
+                bag.Fail(
                     ErrorMessage.UnmatchedToken(open.ToString(), close.ToString()),
-                    "",
-                    GetKeyByValue(TokenConfig.SingleCharTokens, open).ToString()
+                    DiagnosticKind.Syntax,
+                    new SourceLocation(resolvedPath, lastOpenToken.Line, lastOpenToken.Column)
                 );
-
-                Traceback.Instance.ThrowException(error, lastOpenToken.Column - 1);
             }
 
             return newTokens;

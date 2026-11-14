@@ -13,6 +13,6 @@ class Printer{
 
 void main() {
 
-    Printer f = new Printer();
+    Printer.ds f = new Printer();
     f = null;
 } 

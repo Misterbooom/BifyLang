@@ -7,32 +7,64 @@ namespace BifyLang.Ast
     internal class AstTree
     {
         private readonly string[] _sourceCode;
-        public AstTree(string[] sourceCode)
+        private readonly string _filePath;
+
+        public DiagnosticBag Diagnostics { get; }
+
+        public AstTree(string[] sourceCode, DiagnosticBag? diagnostics = null, string filePath = "main")
         {
             _sourceCode = sourceCode;
-            Traceback.Instance.InitializeSource(sourceCode);
+            Diagnostics = diagnostics ?? new DiagnosticBag();
+            _filePath = string.IsNullOrEmpty(filePath) ? "main" : filePath;
         }
 
         public AstModule ParseTokens(List<Token> tokens)
         {
-            int tokenIndex = 0;
-            int lineCount = 0;
             List<AstNode> lines = [];
-            foreach(var lineTokens in TokensFormatter.SplitLines(tokens))
+            List<List<Token>> splitLines;
+            try
             {
-                lines.Add(ParseLine(lineTokens, ref tokenIndex, ref lineCount));
+                splitLines = TokensFormatter.SplitLines(tokens, Diagnostics, _filePath);
             }
-            AstModule module = new("", Traceback.Instance.FilePath, lines)
+            catch (BifyCompilationException)
+            {
+                Token fallback = tokens.Count > 0 ? tokens[^1] : new Token(TokenType.POISON, "");
+                lines.Add(new AstPoison(fallback));
+                return CreateModule(lines);
+            }
+
+            foreach (var lineTokens in splitLines)
+            {
+                try
+                {
+                    AstNode? node = ParseLine(lineTokens);
+                    if (node != null)
+                    {
+                        lines.Add(node);
+                    }
+                }
+                catch (BifyCompilationException)
+                {
+                    Token fallback = lineTokens.Count > 0 ? lineTokens[0] : new Token(TokenType.POISON, "");
+                    lines.Add(new AstPoison(fallback));
+                }
+            }
+
+            return CreateModule(lines);
+        }
+
+        private AstModule CreateModule(List<AstNode> lines)
+        {
+            return new AstModule("", _filePath, lines)
             {
                 SourceCode = _sourceCode
             };
-            return module;
-        }
-        private AstNode ParseLine(List<Token> line, ref int tokenIndex, ref int lineCount)
-        {
-            AstBuilder builder = new(line);
-            return builder.BuildNode();
         }
 
+        private AstNode ParseLine(List<Token> line)
+        {
+            AstBuilder builder = new(line, Diagnostics, _filePath);
+            return builder.BuildNode();
+        }
     }
 }

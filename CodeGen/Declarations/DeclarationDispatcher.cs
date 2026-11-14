@@ -11,15 +11,23 @@ public class DeclarationDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
     {
         foreach (var node in module.ChildNodes)
         {
-            EmitDeclaration(node);
+            try
+            {
+                EmitDeclaration(node);
+            }
+            catch (BifyCompilationException)
+            {
+            }
         }
     }
 
     public void EmitDeclaration(AstNode node)
     {
-        Traceback.Instance.Line = node.LineNumber;
+        _ctx.CurrentLine = node.LineNumber;
         switch (node)
         {
+            case AstPoison:
+                break;
             case AstFunctionDecl functionDecl:
                 new FunctionGen(_ctx).EmitFunction(functionDecl);
                 break;
@@ -30,7 +38,7 @@ public class DeclarationDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
                 new ImportGen(_ctx).EmitImport(astImport);
                 break;
             default:
-                new BifySyntaxError("Only function and class declarations are allowed at the top level").Throw();
+                Fail("Only function and class declarations are allowed at the top level", DiagnosticKind.Syntax, node);
                 break;
         }
     }

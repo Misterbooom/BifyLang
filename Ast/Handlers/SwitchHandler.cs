@@ -14,7 +14,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
         AstNode? expressionNode = conditionTokens.Count > 0 ? Builder.ParseTokens(conditionTokens) : null;
         if (expressionNode == null)
         {
-            SwitchValidator.Validate(new AstSwitch(token, null!));
+            SwitchValidator.Validate(Builder, new AstSwitch(token, null!));
             return;
         }
 
@@ -25,7 +25,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
         }
         if (bodyTokens == null)
         {
-            new BifySyntaxError("Switch body not found.").Throw();
+            Builder.Fail("Switch body not found.", DiagnosticKind.Syntax, Builder.PeekTokenOrNull() ?? token);
             return;
         }
 
@@ -61,7 +61,7 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
 
                 if (i >= bodyTokens.Count || bodyTokens[i].Type != TokenType.COLON)
                 {
-                    SwitchValidator.ThrowExpectedColonAfterCase(caseToken);
+                    SwitchValidator.ThrowExpectedColonAfterCase(Builder, caseToken);
                     return;
                 }
                 i++;
@@ -69,14 +69,21 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
                 AstNode? valueNode = valueTokens.Count > 0 ? Builder.ParseTokens(valueTokens) : null;
                 if (valueNode == null)
                 {
-                    new BifySyntaxError("Expected expression after 'case'.").Throw();
+                    Builder.Fail("Expected expression after 'case'.", DiagnosticKind.Syntax, caseToken);
                     return;
                 }
 
                 List<Token> caseBodyTokens = [];
                 if (i < bodyTokens.Count && bodyTokens[i].Type == TokenType.LCUR)
                 {
-                    caseBodyTokens = TokensFormatter.GetTokensBetween(bodyTokens, ref i, TokenType.LCUR, TokenType.RCUR);
+                    caseBodyTokens = TokensFormatter.GetTokensBetween(
+                        bodyTokens,
+                        ref i,
+                        TokenType.LCUR,
+                        TokenType.RCUR,
+                        Builder.Diagnostics,
+                        Builder.FilePath
+                    );
                     i++;
                 }
                 else
@@ -106,21 +113,28 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
 
                 if (i >= bodyTokens.Count || bodyTokens[i].Type != TokenType.COLON)
                 {
-                    SwitchValidator.ThrowExpectedColonAfterDefault(defaultToken);
+                    SwitchValidator.ThrowExpectedColonAfterDefault(Builder, defaultToken);
                     return;
                 }
                 i++;
 
                 if (defaultNode != null)
                 {
-                    SwitchValidator.ThrowMultipleDefaultError(defaultToken);
+                    SwitchValidator.ThrowMultipleDefaultError(Builder, defaultToken);
                     return;
                 }
 
                 List<Token> defaultBodyTokens = [];
                 if (i < bodyTokens.Count && bodyTokens[i].Type == TokenType.LCUR)
                 {
-                    defaultBodyTokens = TokensFormatter.GetTokensBetween(bodyTokens, ref i, TokenType.LCUR, TokenType.RCUR);
+                    defaultBodyTokens = TokensFormatter.GetTokensBetween(
+                        bodyTokens,
+                        ref i,
+                        TokenType.LCUR,
+                        TokenType.RCUR,
+                        Builder.Diagnostics,
+                        Builder.FilePath
+                    );
                     i++;
                 }
                 else
@@ -149,13 +163,13 @@ internal class SwitchHandler(AstBuilder builder) : TokenHandler(builder)
             }
             else
             {
-                SwitchValidator.ThrowInvalidSwitchBodyToken(current);
+                SwitchValidator.ThrowInvalidSwitchBodyToken(Builder, current);
                 return;
             }
         }
 
         AstSwitch astSwitch = new AstSwitch(token, expressionNode, cases, defaultNode);
-        SwitchValidator.Validate(astSwitch);
+        SwitchValidator.Validate(Builder, astSwitch);
 
         Builder.CurrentNode = astSwitch;
         Builder.TokenIndex++;

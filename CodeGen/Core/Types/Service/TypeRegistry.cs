@@ -61,7 +61,7 @@ public class TypeRegistry
             return arrType;
         }
 
-        return new BifyNameError("Type not found: " + name).Throw<BifyType>();
+        return _ctx.Fail<BifyType>("Type not found: " + name, DiagnosticKind.Name);
     }
     public override string ToString()
     {

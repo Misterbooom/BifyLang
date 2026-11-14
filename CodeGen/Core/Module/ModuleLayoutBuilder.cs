@@ -41,8 +41,21 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
         {
             if (moduleChildNode is AstFunctionDecl functionChildNode)
             {
+                _ctx.CurrentLine = functionChildNode.LineNumber;
                 BifyDebug.Log("Declaring function: " + functionChildNode.FunctionNameNode.Name);
-                funcGen.DeclareFunction(functionChildNode);
+                if (functionChildNode.IsPoison)
+                {
+                    _ctx.CurrentScope.DefinePoison(functionChildNode.FunctionNameNode.Name, BifyType.CreateVoid(_ctx));
+                    continue;
+                }
+                try
+                {
+                    funcGen.DeclareFunction(functionChildNode);
+                }
+                catch (BifyCompilationException)
+                {
+                    _ctx.CurrentScope.DefinePoison(functionChildNode.FunctionNameNode.Name, BifyType.CreateVoid(_ctx));
+                }
             }
         }
     }
@@ -57,28 +70,10 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
 
     private void GenerateModule(ModuleInfo module)
     {
-        string[] savedCode = Traceback.Instance.Source;
-        string savedFilePath = Traceback.Instance.FilePath;
-
-        try
+        using (_ctx.EnterModule(module.ModuleContext))
         {
-            if (module.ModuleNode.SourceCode is { Length: > 0 })
-            {
-                Traceback.Instance.Source = module.ModuleNode.SourceCode;
-            }
-
-            Traceback.Instance.FilePath = module.FullPath;
-
-            using (_ctx.EnterModule(module.ModuleContext))
-            {
-                var declarationDispatcher = new DeclarationDispatcher(_ctx);
-                declarationDispatcher.EmitModule(module.ModuleNode);
-            }
-        }
-        finally
-        {
-            Traceback.Instance.FilePath = savedFilePath;
-            Traceback.Instance.Source = savedCode;
+            var declarationDispatcher = new DeclarationDispatcher(_ctx);
+            declarationDispatcher.EmitModule(module.ModuleNode);
         }
     }
 }

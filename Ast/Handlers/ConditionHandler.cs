@@ -18,8 +18,7 @@ namespace BifyLang.Ast.Handlers
             AstNode blockNode = Builder.HandleBody("If");
             if (conditionNode == null)
             {
-                new BifySyntaxError(ErrorMessage.ConditionIsRequired()).Throw();
-                return;
+                Builder.Fail(ErrorMessage.ConditionIsRequired(), DiagnosticKind.Syntax, token);
             }
             _currentIfNode = new AstIf(token, conditionNode, blockNode);
 
@@ -27,8 +26,6 @@ namespace BifyLang.Ast.Handlers
         }
         private void HandleElseOrElseIf(Token? token)
         {
-
-            
             if (token?.Type == TokenType.ELSE && Builder.GetNextToken()?.Type == TokenType.IF)
             {
                 Builder.TokenIndex++;
@@ -36,17 +33,15 @@ namespace BifyLang.Ast.Handlers
                 AstNode blockNode = Builder.HandleBody("Else-If");
                 if (conditionNode == null)
                 {
-                    new BifySyntaxError(ErrorMessage.ConditionIsRequired()).Throw();
-                    return;
+                    Builder.Fail(ErrorMessage.ConditionIsRequired(), DiagnosticKind.Syntax, token);
                 }
                 AstElseIf elseIfNode = new AstElseIf(token, blockNode, conditionNode);
                 if (_currentIfNode.ElseNode != null)
                 {
-                    ConditionStatementValidator.ThrowElseIfAfterElseError(elseIfNode);
+                    ConditionStatementValidator.ThrowElseIfAfterElseError(Builder, elseIfNode);
                 }
                 _currentIfNode.AddElseIfNode(elseIfNode);
                 HandleElseOrElseIf(Builder.Peek());
-
             }
             else if (token?.Type == TokenType.ELSE)
             {
@@ -54,12 +49,14 @@ namespace BifyLang.Ast.Handlers
                 AstElse elseNode = new AstElse(token, blockNode);
                 if (_currentIfNode.ElseNode != null)
                 {
-                    new BifySyntaxError("An 'if' statement can only have one 'else'. Remove or merge the extra 'else' block.").Throw();
-
+                    Builder.Fail(
+                        "An 'if' statement can only have one 'else'. Remove or merge the extra 'else' block.",
+                        DiagnosticKind.Syntax,
+                        token
+                    );
                 }
                 _currentIfNode.ElseNode = elseNode;
                 HandleElseOrElseIf(Builder.Peek());
-
             }
         }
     }

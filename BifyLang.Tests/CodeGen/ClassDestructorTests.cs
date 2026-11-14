@@ -103,13 +103,13 @@ public class ClassDestructorTests : BifyTestBase
 
     [Test]
     public void ClassDestructor_MultipleDestructors_Throws() =>
-        AssertCompileError<BifyNameError>("class A { destructor() {} destructor() {} } void main() {}");
+        AssertCompileError("class A { destructor() {} destructor() {} } void main() {}", DiagnosticKind.Name);
 
     [Test]
     public void ClassDestructor_WithParameters_Throws() =>
-        AssertCompileError<BifySyntaxError>("class A { destructor(int x) {} } void main() {}");
+        AssertCompileError("class A { destructor(int x) {} } void main() {}", DiagnosticKind.Syntax);
 
     [Test]
     public void ClassDestructor_FieldNamedDestructor_Throws() =>
-        AssertCompileError<BifySyntaxError>("class A { public int destructor; } void main() {}");
+        AssertCompileError("class A { public int destructor; } void main() {}", DiagnosticKind.Syntax);
 }

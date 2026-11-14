@@ -75,7 +75,10 @@ public class HeapControl(CodeGenContext ctx)
             return;
 
         var currentBlock = _ctx.Builder.InsertBlock;
-        bool hasTerminator = currentBlock.Handle != IntPtr.Zero && currentBlock.Terminator.Handle != IntPtr.Zero;
+        if (currentBlock.Handle == IntPtr.Zero)
+            return;
+
+        bool hasTerminator = currentBlock.Terminator.Handle != IntPtr.Zero;
 
         if (hasTerminator)
         {

@@ -10,27 +10,38 @@ using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core.Class;
 
-public class ClassLayoutBuilder(CodeGenContext ctx)
+public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
-
     public void Build(ClassInfo[] classes)
     {
-        List<ClassType> classTypes = [];
-        
+        List<(ClassType? Type, ClassInfo Info)> built = [];
+
         foreach (var info in classes)
         {
             var ownerCtx = _ctx.ModulesMap[info.ModuleName].ModuleContext;
             using (_ctx.EnterModule(ownerCtx))
-                classTypes.Add(DeclareOpaque(info));
-                
+            {
+                _ctx.CurrentLine = info.ClassNode.LineNumber;
+                try
+                {
+                    built.Add((DeclareOpaque(info), info));
+                }
+                catch (BifyCompilationException)
+                {
+                    built.Add((null, info));
+                }
+            }
         }
 
-        for(int i =0; i < classes.Length; i++)
+        foreach (var (type, info) in built)
         {
-            var ownerCtx = _ctx.ModulesMap[classes[i].ModuleName].ModuleContext;
+            if (type == null) continue;
+            var ownerCtx = _ctx.ModulesMap[info.ModuleName].ModuleContext;
             using (_ctx.EnterModule(ownerCtx))
-               BuildBody(classTypes[i], classes[i]);
+            {
+                _ctx.CurrentLine = info.ClassNode.LineNumber;
+                BuildBody(type, info);
+            }
         }
     }
 
@@ -40,17 +51,17 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
         var pointerType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
 
         ClassType? parent = null;
-        string parentName = ClassDependencyResolver.ResolveParentName(info.ClassNode.ParentNode, info.ModuleName);
+        string parentName = ClassDependencyResolver.ResolveParentName(_ctx, info.ClassNode.ParentNode, info.ModuleName);
         if (!string.IsNullOrEmpty(parentName))
         {
             if (_ctx.TypeRegistry.TryGetType(parentName, out var pType) && pType is ClassType cp)
                 parent = cp;
             else
-                new BifyTypeError($"Class '{info.Name}' inherits from unknown class '{parentName}'.").Throw();
+                Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type, info.ClassNode);
         }
 
         string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
-        var classType = new ClassType(info.Name, mangledName, pointerType, structType,info.ModuleName, parent);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent);
         _ctx.TypeRegistry.Register(mangledName, classType);
         _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
         return classType;
@@ -59,12 +70,10 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
     private void BuildBody(ClassType type, ClassInfo info)
     {
         BifyDebug.Log($"{_ctx.TypeRegistry}");
-        
+
         var classType = _ctx.TypeRegistry.GetBifyType(type.FullName) as ClassType;
         if (classType == null)
-        {
             throw new Exception($"Class: '{type.FullName}' was not registred in TypeRegistry.");
-        }
 
         InheritMembers(classType);
         ProcessFields(info, classType);
@@ -97,16 +106,22 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
         foreach (var varDecl in block.ChildNodes.OfType<AstVarDecl>())
         {
+            _ctx.CurrentLine = varDecl.LineNumber;
             string name = varDecl.AssignmentNode.Left.Token.Value;
 
             if (classType.Fields.ContainsKey(name))
-                new BifyNameError($"Duplicate field '{name}' in class '{info.Name}'.").Throw();
+            {
+                Error($"Duplicate field '{name}' in class '{info.Name}'.", DiagnosticKind.Name, varDecl);
+                continue;
+            }
 
             if (classType.Methods.ContainsKey(name) || name == DestructorSynthesizer.DestructorName)
-                new BifyNameError($"Field '{name}' in class '{info.Name}' conflicts with existing method.").Throw();
+            {
+                Error($"Field '{name}' in class '{info.Name}' conflicts with existing method.", DiagnosticKind.Name, varDecl);
+                continue;
+            }
 
-            var field = ClassMemberCollector.CollectField(varDecl, _ctx, classType, nextIndex++);
-            classType.Fields.Add(name, field);
+            classType.Fields.Add(name, ClassMemberCollector.CollectFieldOrPoison(varDecl, _ctx, classType, name, nextIndex++));
         }
     }
 
@@ -119,21 +134,38 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
 
         foreach (var funcDecl in funcDecls)
         {
+            _ctx.CurrentLine = funcDecl.LineNumber;
             string name = funcDecl.FunctionNameNode.Name;
             if (name == DestructorSynthesizer.DestructorName)
                 continue;
 
             if (classType.Fields.ContainsKey(name))
-                new BifyNameError($"Method '{name}' in class '{classType.FullName}' conflicts with existing field.").Throw();
+            {
+                Error($"Method '{name}' in class '{classType.FullName}' conflicts with existing field.", DiagnosticKind.Name, funcDecl);
+                continue;
+            }
 
+            TryAddMethod(funcDecl, classType, name);
+        }
+    }
+
+    private void TryAddMethod(AstFunctionDecl funcDecl, ClassType classType, string name)
+    {
+        try
+        {
             var method = ClassMemberCollector.CollectMethod(funcDecl, _ctx, classType);
-            int vtableIndex = VTableBuilder.Apply(classType.VTable, method, classType.Parent);
+            int vtableIndex = VTableBuilder.Apply(_ctx, classType.VTable, method, funcDecl);
             method.VTableIndex = vtableIndex;
 
             if (classType.Methods.ContainsKey(name) && !method.IsOverride)
-                new BifyNameError($"Duplicate method '{name}' in class '{classType.FullName}'.").Throw();
+                Fail($"Duplicate method '{name}' in class '{classType.FullName}'.", DiagnosticKind.Name, funcDecl);
 
             classType.Methods[name] = method;
+        }
+        catch (BifyCompilationException)
+        {
+            if (!classType.Methods.ContainsKey(name))
+                classType.Methods[name] = ClassMemberCollector.CreatePoisonMethod(_ctx, name, classType);
         }
     }
 
@@ -141,14 +173,9 @@ public class ClassLayoutBuilder(CodeGenContext ctx)
     {
         var dtors = funcDecls.Where(f => f.FunctionNameNode.Name == DestructorSynthesizer.DestructorName).ToList();
         if (dtors.Count > 1)
-        {
-            new BifyNameError($"Class '{info.Name}' cannot have multiple destructors.").Throw();
-        }
+            Error($"Class '{info.Name}' cannot have multiple destructors.", DiagnosticKind.Name, dtors[1]);
 
-        var method = dtors.Count == 1
-            ? ClassMemberCollector.CollectMethod(dtors[0], _ctx, classType)
-            : DestructorSynthesizer.CreateDefault(_ctx, classType);
-
+        var method = ClassMemberCollector.CollectDestructorOrDefault(dtors.FirstOrDefault(), _ctx, classType);
         method.VTableIndex = VTableBuilder.ApplyDestructor(classType.VTable, method);
         classType.Methods[DestructorSynthesizer.DestructorName] = method;
     }

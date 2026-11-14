@@ -1,5 +1,6 @@
 #nullable enable
 using BifyLang.Ast;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using BifyLang.Tests.Infrastructure;
 
@@ -611,5 +612,66 @@ void test(int x) {
     }
 }
 ");
+    }
+
+    [Test]
+    public void Syntax_PropagatesExactColumnNumbersToAstNodes()
+    {
+        string code = """
+        void test() {
+            int alpha = 10;
+                int beta = alpha;
+        }
+        """;
+        var diagnostics = new DiagnosticBag();
+        var module = Bify.Parse(code, diagnostics);
+
+        Assert.That(diagnostics.HasErrors, Is.False);
+        var fn = (AstFunctionDecl)module.ChildNodes[0];
+        var v1 = (AstVarDecl)fn.BlockNode.ChildNodes[0];
+        var v2 = (AstVarDecl)fn.BlockNode.ChildNodes[1];
+
+        Assert.That(v1.Type.LineNumber, Is.EqualTo(2));
+        Assert.That(v1.Type.ColumnNumber, Is.EqualTo(5));
+        Assert.That(v1.AssignmentNode.Left.LineNumber, Is.EqualTo(2));
+        Assert.That(v1.AssignmentNode.Left.ColumnNumber, Is.EqualTo(9));
+        Assert.That(v1.AssignmentNode.Right.LineNumber, Is.EqualTo(2));
+        Assert.That(v1.AssignmentNode.Right.ColumnNumber, Is.EqualTo(17));
+
+        Assert.That(v2.Type.LineNumber, Is.EqualTo(3));
+        Assert.That(v2.Type.ColumnNumber, Is.EqualTo(9));
+        Assert.That(v2.AssignmentNode.Left.LineNumber, Is.EqualTo(3));
+        Assert.That(v2.AssignmentNode.Left.ColumnNumber, Is.EqualTo(13));
+        Assert.That(v2.AssignmentNode.Right.LineNumber, Is.EqualTo(3));
+        Assert.That(v2.AssignmentNode.Right.ColumnNumber, Is.EqualTo(20));
+    }
+
+    [Test]
+    public void Syntax_RecoversWithAstPoisonAndParsesFunctionBodyErrors()
+    {
+        string code = """
+        void broken(int) {
+            int y = ;
+            int z = 5;
+        }
+        void valid() {
+            int ok = ;
+        }
+        """;
+        var diagnostics = new DiagnosticBag();
+        var module = Bify.Parse(code, diagnostics, "syntax_test.bf");
+
+        Assert.That(diagnostics.Diagnostics.Count, Is.GreaterThanOrEqualTo(3));
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Location.LineNumber == 1), Is.True);
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Location.LineNumber == 2), Is.True);
+        Assert.That(diagnostics.Diagnostics.Any(d => d.Location.LineNumber == 6), Is.True);
+        Assert.That(diagnostics.Diagnostics.All(d => d.Location.FilePath == "syntax_test.bf"), Is.True);
+
+        var functions = module.ChildNodes.OfType<AstFunctionDecl>().ToList();
+        Assert.That(functions.Count, Is.EqualTo(2));
+        Assert.That(functions[0].IsPoison, Is.True);
+        Assert.That(functions[0].BlockNode.ChildNodes.Any(n => n.IsPoison), Is.True);
+        Assert.That(functions[1].IsPoison, Is.False);
+        Assert.That(functions[1].BlockNode.ChildNodes.Any(n => n.IsPoison), Is.True);
     }
 }

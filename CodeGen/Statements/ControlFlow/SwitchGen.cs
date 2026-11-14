@@ -71,7 +71,8 @@ public class SwitchGen(CodeGenContext ctx) : CodeGenBase(ctx)
                 var caseVal =
                     CoerceSwitchConstant(
                         new ExpressionDispatcher(_ctx).EmitExpression(astSwitch.Cases[i].ValueNode).Value,
-                        exprVal.Type.Type);
+                        exprVal.Type.Type,
+                        astSwitch.Cases[i].ValueNode);
 
                 switchInst.AddCase(caseVal, caseBlock);
             }
@@ -112,13 +113,13 @@ public class SwitchGen(CodeGenContext ctx) : CodeGenBase(ctx)
         }
     }
 
-    private static LLVMValueRef CoerceSwitchConstant(LLVMValueRef caseVal, LLVMTypeRef expectedType)
+    private LLVMValueRef CoerceSwitchConstant(LLVMValueRef caseVal, LLVMTypeRef expectedType, AstNode caseNode)
     {
         if (caseVal.TypeOf == expectedType)
             return caseVal;
 
         if (caseVal.IsAConstantInt.Handle == IntPtr.Zero)
-            new BifyTypeError("Case value must be a constant integer matching switch type").Throw();
+            Fail("Case value must be a constant integer matching switch type", DiagnosticKind.Type, caseNode);
 
         return LLVMValueRef.CreateConstInt(expectedType, (ulong)caseVal.ConstIntSExt, false);
     }

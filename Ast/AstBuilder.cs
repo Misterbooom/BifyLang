@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using BifyLang.Parser;
@@ -9,15 +11,25 @@ namespace BifyLang.Ast
     {
         public int TokenIndex = 0;
         public readonly List<Token> Tokens;
+        public readonly DiagnosticBag Diagnostics;
+        public readonly string FilePath;
+
         public AstNode? CurrentNode
         {
             get => _currentNode;
             set
             {
                 _currentNode = value;
-                if (_currentNode != null)
+                if (_currentNode != null && _currentNode.Token != null)
                 {
-                    _currentNode.LineNumber = Traceback.Instance.Line;
+                    if (_currentNode.LineNumber == 0)
+                    {
+                        _currentNode.LineNumber = _currentNode.Token.Line;
+                    }
+                    if (_currentNode.ColumnNumber == 0)
+                    {
+                        _currentNode.ColumnNumber = _currentNode.Token.Column;
+                    }
                 }
             }
         }
@@ -26,10 +38,40 @@ namespace BifyLang.Ast
         public List<AstNode> Nodes { get; set; } = new List<AstNode>();
 
         public AstBuilder(List<Token> tokens, bool isHandlingLine = true)
+            : this(tokens, null, "main", isHandlingLine)
         {
-            this.Tokens = tokens;
-            this.IsHandlingLine = isHandlingLine;
         }
+
+        public AstBuilder(List<Token> tokens, DiagnosticBag? diagnostics, string filePath = "main", bool isHandlingLine = true)
+        {
+            Tokens = tokens;
+            Diagnostics = diagnostics ?? new DiagnosticBag();
+            FilePath = string.IsNullOrEmpty(filePath) ? "main" : filePath;
+            IsHandlingLine = isHandlingLine;
+        }
+
+        public SourceLocation CreateLocation(Token? token = null)
+        {
+            Token? t = token ?? PeekTokenOrNull() ?? GetPreviousToken();
+            return new SourceLocation(FilePath, t?.Line ?? 0, t?.Column ?? 0);
+        }
+
+        public void Error(string msg, DiagnosticKind kind = DiagnosticKind.Syntax, Token? token = null)
+            => Diagnostics.Report(msg, kind, CreateLocation(token));
+
+        [DoesNotReturn]
+        public void Fail(string msg, DiagnosticKind kind = DiagnosticKind.Syntax, Token? token = null)
+            => Diagnostics.Fail(msg, kind, CreateLocation(token));
+
+        [DoesNotReturn]
+        public T Fail<T>(string msg, DiagnosticKind kind = DiagnosticKind.Syntax, Token? token = null)
+            => Diagnostics.Fail<T>(msg, kind, CreateLocation(token));
+
+        [DoesNotReturn]
+        public void AbortPoison() => throw new BifyCompilationException();
+
+        [DoesNotReturn]
+        public T AbortPoison<T>() => throw new BifyCompilationException();
 
         public AstNode BuildNode()
         {
@@ -40,12 +82,26 @@ namespace BifyLang.Ast
             while (TokenIndex < Tokens.Count)
             {
                 Token token = Tokens[TokenIndex];
+                if (token.Type == TokenType.POISON)
+                {
+                    AbortPoison();
+                }
                 var handler = TokenHandlerFactory.CreateHandler(token, this);
                 handler.HandleToken(token);
 
                 if (CurrentNode != null)
                 {
-                    CurrentNode.LineNumber = CurrentNode.Token.Line;
+                    if (CurrentNode.Token != null)
+                    {
+                        if (CurrentNode.LineNumber == 0)
+                        {
+                            CurrentNode.LineNumber = CurrentNode.Token.Line;
+                        }
+                        if (CurrentNode.ColumnNumber == 0)
+                        {
+                            CurrentNode.ColumnNumber = CurrentNode.Token.Column;
+                        }
+                    }
                     Nodes.Add(CurrentNode);
                     CurrentNode = null;
                 }
@@ -55,7 +111,7 @@ namespace BifyLang.Ast
                 Nodes.WriteNodes();
                 if (!IsHandlingLine)
                 {
-                    new BifySyntaxError("Invalid Syntax! Check your input for missing operators or delimiters.").Throw();
+                    Fail("Invalid Syntax! Check your input for missing operators or delimiters.", DiagnosticKind.Syntax, Nodes[1].Token);
                 }
                 else
                 {
@@ -64,6 +120,7 @@ namespace BifyLang.Ast
             }
             return Nodes.Count == 1 ? Nodes[0] : null;
         }
+
         public List<AstNode> BuildNodes()
         {
             if (Tokens == null || Tokens.Count == 0)
@@ -73,58 +130,52 @@ namespace BifyLang.Ast
             while (TokenIndex < Tokens.Count)
             {
                 Token token = Tokens[TokenIndex];
+                if (token.Type == TokenType.POISON)
+                {
+                    AbortPoison();
+                }
                 var handler = TokenHandlerFactory.CreateHandler(token, this);
                 handler.HandleToken(token);
 
                 if (CurrentNode != null)
                 {
-                    CurrentNode.LineNumber = CurrentNode.Token.Line;
+                    if (CurrentNode.Token != null)
+                    {
+                        if (CurrentNode.LineNumber == 0)
+                        {
+                            CurrentNode.LineNumber = CurrentNode.Token.Line;
+                        }
+                        if (CurrentNode.ColumnNumber == 0)
+                        {
+                            CurrentNode.ColumnNumber = CurrentNode.Token.Column;
+                        }
+                    }
                     Nodes.Add(CurrentNode);
                     CurrentNode = null;
                 }
             }
             return Nodes;
         }
-        public Token GetPreviousToken()
-        {
 
-            return TokensFormatter.GetTokenOrNull(Tokens, TokenIndex - 1);
-        }
-        public Token Peek()
-        {
-            Token token = TokenIndex < Tokens.Count ? Tokens[TokenIndex] : null;
-            Traceback.Instance.SetCurrentLine(token == null ? Traceback.Instance.Line : token.Line);
-            return token;
-        }
+        public Token GetPreviousToken() => TokensFormatter.GetTokenOrNull(Tokens, TokenIndex - 1);
 
-        public Token NextToken()
-        {
-            Token token = Tokens[TokenIndex++];
-            Traceback.Instance.SetCurrentLine(token.Line);
-            return token;
-        }
+        public Token Peek() => TokenIndex < Tokens.Count ? Tokens[TokenIndex] : null;
 
-        public Token? PeekTokenOrNull()
-        {
-            return TokenIndex >= Tokens.Count ? null : Tokens[TokenIndex];
-        }
+        public Token NextToken() => Tokens[TokenIndex++];
+
+        public Token? PeekTokenOrNull() => TokenIndex >= Tokens.Count ? null : Tokens[TokenIndex];
 
         public bool IsAtEnd() => TokenIndex >= Tokens.Count;
 
         public Token Consume(TokenType type, string message = "Unexpected token")
         {
-            if (Peek().Type == type)
+            Token? token = PeekTokenOrNull();
+            if (token != null && token.Type == type)
             {
                 return NextToken();
             }
-            else
-            {
-                new BifySyntaxError(message).Throw();
-                return null;
-
-            }
+            return Fail<Token>(message, DiagnosticKind.Syntax, token ?? GetPreviousToken());
         }
-
 
         public Token? GetNextToken()
         {
@@ -132,18 +183,19 @@ namespace BifyLang.Ast
             {
                 return null;
             }
-            Token token = Tokens[TokenIndex + 1];
-            return token;
+            return Tokens[TokenIndex + 1];
         }
+
         public void MoveToEnd()
         {
             TokenIndex = Tokens.Count;
         }
+
         public AstBlock HandleBody(string name)
         {
             if (IsAtEnd())
             {
-                throw new IndexOutOfRangeException("While handling the body, the token index goes out of range!");
+                return Fail<AstBlock>($"{name} body not found.", DiagnosticKind.Syntax, GetPreviousToken());
             }
             List<Token> bodyTokens = null;
             if (GetNextToken()?.Type == TokenType.LCUR)
@@ -152,7 +204,7 @@ namespace BifyLang.Ast
             }
             if (bodyTokens == null)
             {
-                new BifySyntaxError($"{name} body not found.").Throw();
+                return Fail<AstBlock>($"{name} body not found.", DiagnosticKind.Syntax, PeekTokenOrNull() ?? GetPreviousToken());
             }
 
             AstBlock blockNode = ParseBlock(bodyTokens);
@@ -160,13 +212,21 @@ namespace BifyLang.Ast
             return blockNode;
         }
 
-        public List<Token> GetConditionTokens() => TokensFormatter.GetTokensBetween(Tokens, ref TokenIndex, TokenType.LPAREN, TokenType.RPAREN);
+        public List<Token> GetConditionTokens() =>
+            TokensFormatter.GetTokensBetween(Tokens, ref TokenIndex, TokenType.LPAREN, TokenType.RPAREN, Diagnostics, FilePath);
 
-        public List<Token> GetBlockTokens() => TokensFormatter.GetTokensBetween(Tokens, ref TokenIndex, TokenType.LCUR, TokenType.RCUR);
+        public List<Token> GetBlockTokens() =>
+            TokensFormatter.GetTokensBetween(Tokens, ref TokenIndex, TokenType.LCUR, TokenType.RCUR, Diagnostics, FilePath);
 
-        public AstNode ParseTokens(List<Token> conditionTokens) => new AstBuilder(conditionTokens, false).BuildNode();
-        public List<AstNode> ParseTokensInNodes(List<Token> tokens) => new AstBuilder(tokens, false).BuildNodes();
-        public AstBlock ParseBlock(List<Token> blockTokens) => new AstBlock(((AstModule)new AstTree(Traceback.Instance.Source).ParseTokens(blockTokens)).ChildNodes);
+        public AstNode ParseTokens(List<Token> conditionTokens) =>
+            new AstBuilder(conditionTokens, Diagnostics, FilePath, false).BuildNode();
+
+        public List<AstNode> ParseTokensInNodes(List<Token> tokens) =>
+            new AstBuilder(tokens, Diagnostics, FilePath, false).BuildNodes();
+
+        public AstBlock ParseBlock(List<Token> blockTokens) =>
+            new AstBlock(new AstTree([], Diagnostics, FilePath).ParseTokens(blockTokens).ChildNodes);
+
         private void HandleInvalidSyntax()
         {
             if (Nodes.Count == 2)
@@ -174,11 +234,12 @@ namespace BifyLang.Ast
                 Nodes.WriteNodes();
                 if (Nodes[0].Token.Type == TokenType.POINTER || Nodes[0] is AstIdentifier)
                 {
-                    new BifySyntaxError($"Invalid variable declaration syntax. '{Nodes[0].Token.Value}' is not a type").Throw();
+                    Fail($"Invalid variable declaration syntax. '{Nodes[0].Token.Value}' is not a type", DiagnosticKind.Syntax, Nodes[0].Token);
                 }
-                new BifySyntaxError("Opa 2 node").Throw();
+                Fail("Opa 2 node", DiagnosticKind.Syntax, Nodes[1].Token);
             }
-            new BifySyntaxError("Invalid Syntax! Check your input for missing operators or delimiters.").Throw();
+            Token? errToken = Nodes.Count > 1 ? Nodes[1].Token : Nodes.FirstOrDefault()?.Token;
+            Fail("Invalid Syntax! Check your input for missing operators or delimiters.", DiagnosticKind.Syntax, errToken);
         }
     }
 }

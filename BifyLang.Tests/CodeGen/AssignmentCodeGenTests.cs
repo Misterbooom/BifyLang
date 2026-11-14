@@ -21,18 +21,18 @@ public class AssignmentCodeGenTests : BifyTestBase
     [Test]
     public void Assign_AssignToConstThrows()
     {
-        AssertCompileError<BifyTypeError>("void test() { const int c = 42; c = 100; }");
+        AssertCompileError("void test() { const int c = 42; c = 100; }", DiagnosticKind.Type);
     }
 
     [Test]
     public void Assign_AssignToUndefinedThrows()
     {
-        AssertCompileError<BifyNameError>("void test() { missingVariable = 10; }");
+        AssertCompileError("void test() { missingVariable = 10; }", DiagnosticKind.Name);
     }
 
     [Test]
     public void Assign_IncompatibleTypeThrows()
     {
-        AssertCompileError<BifyTypeError>("void test() { int x = 10; x = \"cannot assign string to int\"; }");
+        AssertCompileError("void test() { int x = 10; x = \"cannot assign string to int\"; }", DiagnosticKind.Type);
     }
 }

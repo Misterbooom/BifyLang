@@ -1,4 +1,4 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
@@ -15,7 +15,7 @@ namespace BifyLang.Ast.Handlers
             AstNode nextNode = new BinaryOperatorHandler(Builder).ParsePrimary();
             if (nextNode is not AstCall)
             {
-                new BifySyntaxError("A new expression requires an argument list.").Throw();
+                Builder.Fail("A new expression requires an argument list.", DiagnosticKind.Syntax, nextNode?.Token ?? token);
             }
             AstCall astCall = (AstCall)nextNode;
             AstNew astNew = new AstNew(token, astCall.CallableName, astCall.ArgumentsNode);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
@@ -7,59 +7,53 @@ namespace BifyLang.Ast.Validators
 {
     internal class LoopValidator
     {
-        public static void ValidateWhileStatement(AstWhile astWhile)
+        public static void ValidateWhileStatement(AstBuilder builder, AstWhile astWhile)
         {
             if (astWhile.ConditionNode == null)
             {
-                ThrowSyntaxError(ErrorMessage.ConditionIsRequired(), astWhile.Token);
+                builder.Fail(ErrorMessage.ConditionIsRequired(), DiagnosticKind.Syntax, astWhile.Token);
             }
         }
 
-        public static void ValidateForStatement(List<List<Token>> splitedTokens, AstFor astFor)
+        public static void ValidateForStatement(AstBuilder builder, List<List<Token>> splitedTokens, AstFor astFor)
         {
             if (splitedTokens.Count != 3)
             {
-                ThrowSyntaxError(ErrorMessage.InvalidForLoopStructure(), astFor.Token);
+                builder.Fail(ErrorMessage.InvalidForLoopStructure(), DiagnosticKind.Syntax, astFor.Token);
             }
 
-            ValidateTokens(splitedTokens[0], ErrorMessage.InitStatementIsRequired(), astFor.Token);
-            ValidateTokens(splitedTokens[1], ErrorMessage.ConditionIsRequired(), astFor.Token);
-            ValidateTokens(splitedTokens[2], ErrorMessage.IncrementStatementIsRequired(), astFor.Token);
+            ValidateTokens(builder, splitedTokens[0], ErrorMessage.InitStatementIsRequired(), astFor.Token);
+            ValidateTokens(builder, splitedTokens[1], ErrorMessage.ConditionIsRequired(), astFor.Token);
+            ValidateTokens(builder, splitedTokens[2], ErrorMessage.IncrementStatementIsRequired(), astFor.Token);
 
-            ValidateNode(astFor.InitNode, IsValidInitNode, ErrorMessage.InvalidInitNode(), ErrorMessage.InvalidInitNodeType(), astFor.Token);
-            ValidateNode(astFor.ConditionNode, IsValidConditionNode, ErrorMessage.InvalidConditionNode(), ErrorMessage.InvalidConditionNodeType(), astFor.Token);
-            ValidateNode(astFor.IncrementNode, IsValidIncrementNode, ErrorMessage.InvalidIncrementNode(), ErrorMessage.InvalidIncrementNodeType(), astFor.Token);
+            ValidateNode(builder, astFor.InitNode, IsValidInitNode, ErrorMessage.InvalidInitNode(), ErrorMessage.InvalidInitNodeType(), astFor.Token);
+            ValidateNode(builder, astFor.ConditionNode, IsValidConditionNode, ErrorMessage.InvalidConditionNode(), ErrorMessage.InvalidConditionNodeType(), astFor.Token);
+            ValidateNode(builder, astFor.IncrementNode, IsValidIncrementNode, ErrorMessage.InvalidIncrementNode(), ErrorMessage.InvalidIncrementNodeType(), astFor.Token);
 
             if (astFor.BlockNode == null)
             {
-                ThrowSyntaxError(ErrorMessage.InvalidForLoopStructure(), astFor.Token);
+                builder.Fail(ErrorMessage.InvalidForLoopStructure(), DiagnosticKind.Syntax, astFor.Token);
             }
         }
 
-        private static void ValidateTokens(List<Token> tokens, string errorMessage, Token token)
+        private static void ValidateTokens(AstBuilder builder, List<Token> tokens, string errorMessage, Token token)
         {
             if (tokens.Count == 0)
             {
-                ThrowSyntaxError(errorMessage, token);
+                builder.Fail(errorMessage, DiagnosticKind.Syntax, token);
             }
         }
 
-        private static void ValidateNode(AstNode? node, Func<AstNode, bool> isValid, string nullError, string typeError, Token token)
+        private static void ValidateNode(AstBuilder builder, AstNode? node, Func<AstNode, bool> isValid, string nullError, string typeError, Token token)
         {
             if (node == null)
             {
-                ThrowSyntaxError(nullError, token);
+                builder.Fail(nullError, DiagnosticKind.Syntax, token);
             }
             else if (!isValid(node))
             {
-                ThrowSyntaxError(typeError, token);
+                builder.Fail(typeError, DiagnosticKind.Syntax, node.Token ?? token);
             }
-        }
-
-        private static void ThrowSyntaxError(string message, Token token)
-        {
-            var error = new BifySyntaxError(message, "", token.Value);
-            Traceback.Instance.ThrowException(error, token.Column);
         }
 
         public static bool IsValidInitNode(AstNode node) =>

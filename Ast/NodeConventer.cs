@@ -1,12 +1,17 @@
-﻿using BifyLang.Exceptions;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast
 {
     internal class NodeConventer
     {
-        public static AstNode TokenToNode(Token token)
+        public static AstNode TokenToNode(Token token, AstBuilder builder)
         {
+            if (token.IsPoison && token.Type is not (TokenType.STRING or TokenType.CHAR))
+            {
+                return builder.AbortPoison<AstNode>();
+            }
+
             switch (token.Type)
             {
                 case TokenType.NUMBER:
@@ -14,42 +19,39 @@ namespace BifyLang.Ast
                     {
                         if (float.TryParse(token.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float parsedFloatValue))
                         {
-                            if (parsedFloatValue > float.MaxValue)
+                            if (float.IsInfinity(parsedFloatValue))
                             {
-                                Traceback.Instance.ThrowException(new BifyOverflowError($"Token value '{token.Value}' exceeds the maximum allowable value for a double."));
-                                return null;
+                                return builder.Fail<AstNode>(
+                                    $"Token value '{token.Value}' exceeds the maximum allowable value for a float.",
+                                    DiagnosticKind.Overflow,
+                                    token
+                                );
                             }
                             return new AstFloat(token, parsedFloatValue);
                         }
-                        else
-                        {
-                            Traceback.Instance.ThrowException(new BifyOverflowError($"Token value '{token.Value}' is not a valid float."));
-                            return null;
-                        }
+                        return builder.Fail<AstNode>(
+                            $"Token value '{token.Value}' is not a valid float.",
+                            DiagnosticKind.Overflow,
+                            token
+                        );
                     }
                     else
                     {
                         if (int.TryParse(token.Value, out int parsedIntValue))
                         {
-                            if (parsedIntValue > int.MaxValue)
-                            {
-                                Traceback.Instance.ThrowException(new BifyOverflowError($"Token value '{token.Value}' exceeds the maximum allowable value for a double."));
-                                return null;
-                            }
                             return new AstInteger(token, parsedIntValue);
                         }
-                        else
-                        {
-                            Traceback.Instance.ThrowException(new BifyOverflowError($"Token value '{token.Value}' is not a valid integer."));
-                            return null;
-                        }
+                        return builder.Fail<AstNode>(
+                            $"Token value '{token.Value}' is not a valid integer.",
+                            DiagnosticKind.Overflow,
+                            token
+                        );
                     }
 
-
                 case TokenType.IDENTIFIER or TokenType.CONST:
-                    return new AstIdentifier(token,token.Value);
+                    return new AstIdentifier(token, token.Value);
                 case TokenType.STRING or TokenType.CHAR:
-                    return new AstString(token, token.Value);
+                    return new AstString(token, token.Value) { IsPoison = token.IsPoison };
                 case TokenType.BREAK:
                     return new AstBreak(token);
                 case TokenType.CONTINUE:

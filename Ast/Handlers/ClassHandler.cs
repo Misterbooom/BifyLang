@@ -11,7 +11,7 @@ namespace BifyLang.Ast.Handlers
             Token identifierToken = Builder.GetNextToken();
             if (identifierToken?.Type != TokenType.IDENTIFIER)
             {
-                new BifySyntaxError($"Invalid class name: '{identifierToken?.Value ?? "null"}'.").Throw();
+                Builder.Fail($"Invalid class name: '{identifierToken?.Value ?? "null"}'.", DiagnosticKind.Syntax, identifierToken ?? token);
             }
             AstNode nameNode = new AstIdentifier(identifierToken, identifierToken.Value);
             Builder.TokenIndex += 1;
@@ -19,27 +19,43 @@ namespace BifyLang.Ast.Handlers
             AstNode parentNode = null;
             if (nextToken?.Type == TokenType.COLON)
             {
-                List<Token> parentTokens = TokensFormatter.GetTokensBetween(Builder.Tokens, ref Builder.TokenIndex, TokenType.COLON, TokenType.LCUR);
+                List<Token> parentTokens = TokensFormatter.GetTokensBetween(
+                    Builder.Tokens,
+                    ref Builder.TokenIndex,
+                    TokenType.COLON,
+                    TokenType.LCUR,
+                    Builder.Diagnostics,
+                    Builder.FilePath
+                );
                 parentNode = Builder.ParseTokens(parentTokens);
                 Builder.TokenIndex -= 1;
             }
-          
-         
-            BifyDebug.Log($"NExt otken : {nextToken.Value}");
+
+            BifyDebug.Log($"Next token : {nextToken?.Value ?? "null"}");
             AstNode bodyNode = Builder.HandleBody("Class");
             VerifyClassBody((AstBlock)bodyNode);
             Builder.CurrentNode = new AstClass(token, nameNode, bodyNode, parentNode);
         }
+
         private void VerifyClassBody(AstBlock body)
         {
             int methodsCount = 0;
             foreach (AstNode child in body.ChildNodes)
             {
-                Traceback.Instance.SetCurrentLine(child.LineNumber);
+                if (child is AstPoison)
+                {
+                    continue;
+                }
                 if (child is AstVarDecl)
                 {
                     if (methodsCount > 0)
-                        new BifySyntaxError("Class attributes must be defined before methods in the class body.").Throw();
+                    {
+                        Builder.Error(
+                            "Class attributes must be defined before methods in the class body.",
+                            DiagnosticKind.Syntax,
+                            child.Token
+                        );
+                    }
                 }
                 else if (child is AstFunctionDecl)
                 {
@@ -47,8 +63,12 @@ namespace BifyLang.Ast.Handlers
                 }
                 else
                 {
-                    new BifySyntaxError($"Invalid statement in class body. Only methods and variables are allowed. " +
-                        $"Not a {child.GetType().Name.Replace("Ast", "").ToLower()}.").Throw();
+                    Builder.Error(
+                        $"Invalid statement in class body. Only methods and variables are allowed. " +
+                        $"Not a {child.GetType().Name.Replace("Ast", "").ToLower()}.",
+                        DiagnosticKind.Syntax,
+                        child.Token
+                    );
                 }
             }
         }
