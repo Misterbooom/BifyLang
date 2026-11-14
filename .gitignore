@@ -8,3 +8,9 @@
 [Oo]bj/
 *.so
 *.user
+*.o
+*.out
+*.ir
+.*swp
+.idea/
+TestResults/

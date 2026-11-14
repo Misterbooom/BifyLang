@@ -1,14 +1,15 @@
 using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Core.Emitters;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Types.Data;
 
 namespace BifyLang.CodeGen.Declarations;
 
-public class ClassGen(CodeGenContext ctx)
+public class ClassGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void EmitClass(AstClass classNode)
     {

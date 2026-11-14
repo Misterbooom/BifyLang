@@ -1,15 +1,16 @@
 #nullable enable
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.CodeGen.Expressions;
-using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
 
-namespace BifyLang.CodeGen.Statements;
+namespace BifyLang.CodeGen.Statements.ControlFlow;
 
-public class ReturnGen(CodeGenContext ctx)
+public class ReturnGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void EmitReturn(AstReturn astReturn)
     {

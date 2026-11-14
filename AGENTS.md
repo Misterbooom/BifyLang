@@ -33,7 +33,11 @@ Never guess or improvise struct layouts or GEP indices. Follow the strict BifyLa
 - **BasicBlock Hygiene:** Always check `InsertBlock.Terminator.Handle != IntPtr.Zero` before emitting trailing `BuildBr` instructions. Never emit instructions into a terminated block.
 
 ## 4. C# & LLVMSHARP CONVENTIONS
-- Use primary constructors for CodeGen handlers: `public class FooGen(CodeGenContext ctx)`.
+- **Base Class & Primary Constructors:** CodeGen handlers, dispatchers, and emitters MUST inherit from `CodeGenBase(ctx)` using primary constructors: `public class FooGen(CodeGenContext ctx) : CodeGenBase(ctx)`. Always reference `_ctx` (not `ctx`) in method bodies to avoid duplicate primary-constructor captures (`CS9124` / `CS9107`).
+- **Naming Conventions (`CodeGen/`):**
+  - File names and namespaces MUST match the primary type declared inside (e.g., `BasicBlockExtensions.cs` for `BasicBlockExtensions`, `LlvmExtensions.cs` for `LlvmExtensions`).
+  - CodeGen handler classes use the `*Gen` suffix (e.g., `IfGen`, `BinaryOpGen`, `UnaryOpGen`), and primary emission methods follow `Emit<NodeName>` (e.g., `EmitIf`, `EmitWhile`, `EmitFor`, `EmitSwitch`, `EmitReturn`, `EmitVariableDecl`, `EmitAssignment`).
+  - Prefer unabbreviated domain terms for services and models (e.g., `ParameterResolver`, `TypeResolver`, `MemberResolver`) and consistent `Op` / `VTable` casing (e.g., `BinaryOpGen`, `UnaryOpGen`, `GenerateVTableName`).
 - Throw language-level errors via `new BifyTypeError("...").Throw()` or `return new BifyTypeError("...").Throw<T>()`. Never use C# `throw new` on `BifyError` derivatives (they do not inherit from `System.Exception`).
 
 ## 5. COMMIT MESSAGE CONVENTIONS

@@ -1,9 +1,8 @@
 #nullable enable
 using System.Collections.Generic;
-using BifyLang.CodeGen.Core;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Types;
+namespace BifyLang.CodeGen.Core.Types.Data;
 
 public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LLVMTypeRef structType, string moduleName, ClassType? parent = null) : BifyType(name, pointerType)
 {

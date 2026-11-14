@@ -1,6 +1,5 @@
 #nullable enable
 using BifyLang.Exceptions;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Infrastructure;
 

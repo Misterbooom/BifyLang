@@ -1,7 +1,6 @@
 #nullable enable
 using BifyLang.Exceptions;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.CodeGen;
 
@@ -60,6 +59,6 @@ public class VariableDeclCodeGenTests : BifyTestBase
         var typeId = new Ast.AstIdentifier(new global::BifyLang.Lexer.Token(global::BifyLang.Lexer.TokenType.IDENTIFIER, "int"), "int");
         var decl = new Ast.AstVarDecl(varId.Token, assign, typeId, flagNode: null);
 
-        Assert.DoesNotThrow(() => new BifyLang.CodeGen.Statements.VariableDeclGen(tc.Ctx).EmitVariable(decl));
+        Assert.DoesNotThrow(() => new BifyLang.CodeGen.Statements.VariableDeclGen(tc.Ctx).EmitVariableDecl(decl));
     }
 }

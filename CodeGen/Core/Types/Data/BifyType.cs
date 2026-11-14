@@ -1,9 +1,9 @@
-using BifyLang.CodeGen.Core;
-using LLVMSharp.Interop;
-
 #nullable enable
 
-namespace BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using LLVMSharp.Interop;
+
+namespace BifyLang.CodeGen.Core.Types.Data;
 
 public class BifyType
 {

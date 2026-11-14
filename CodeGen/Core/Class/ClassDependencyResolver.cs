@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using BifyLang.Ast;
 using BifyLang.Exceptions;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public class ClassDependencyResolver
 {

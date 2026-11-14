@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Service;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Runtime;
 
-public class HeapControl(CodeGenContext codeGenContext)
+public class HeapControl(CodeGenContext ctx)
 {
     public readonly struct TempScope : IDisposable
     {
@@ -24,7 +25,7 @@ public class HeapControl(CodeGenContext codeGenContext)
         }
     }
 
-    private readonly CodeGenContext _ctx = codeGenContext;
+    private readonly CodeGenContext _ctx = ctx;
     private readonly Stack<List<TypedValue>> _tempScopes = new();
 
     private (LLVMTypeRef funcType, LLVMValueRef funcValue) _gcAlloc;

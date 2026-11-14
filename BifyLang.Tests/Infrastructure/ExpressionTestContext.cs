@@ -1,6 +1,5 @@
 #nullable enable
-using System;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Expressions;
 using LLVMSharp.Interop;
 

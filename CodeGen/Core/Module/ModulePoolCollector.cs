@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Core.Module;

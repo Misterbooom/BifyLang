@@ -1,9 +1,9 @@
 #nullable enable
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Validators;
 using BifyLang.Exceptions;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Semantics;
 

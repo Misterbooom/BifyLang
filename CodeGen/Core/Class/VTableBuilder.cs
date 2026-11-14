@@ -1,10 +1,11 @@
 #nullable enable
 using System;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public static class VTableBuilder
 {
@@ -86,7 +87,7 @@ public static class VTableBuilder
         var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
         int count = vTable.Slots.Count;
         var vtableArrayType = LLVMTypeRef.CreateArray(ptrType, (uint)count);
-        var vtableGlobal = _ctx.Module.AddGlobal(vtableArrayType, NameMangler.GenerateVtable(_ctx.ModuleContext.Name, className));
+        var vtableGlobal = _ctx.Module.AddGlobal(vtableArrayType, NameMangler.GenerateVTable(_ctx.ModuleContext.Name, className));
         vtableGlobal.IsGlobalConstant = true;
         vtableGlobal.Linkage = LLVMLinkage.LLVMInternalLinkage;
         if (count > 0)

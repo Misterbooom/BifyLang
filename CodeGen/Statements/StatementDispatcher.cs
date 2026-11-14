@@ -1,17 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Expressions;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Statements.ControlFlow;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Statements;
 
-public class StatementDispatcher(CodeGenContext ctx)
+public class StatementDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private CodeGenContext _ctx = ctx;
 
     public void EmitBlock(AstBlock blockNode)
     {
@@ -51,7 +49,7 @@ public class StatementDispatcher(CodeGenContext ctx)
         switch (node)
         {
             case AstVarDecl varDecl:
-                new VariableDeclGen(_ctx).EmitVariable(varDecl);
+                new VariableDeclGen(_ctx).EmitVariableDecl(varDecl);
                 break;
             case AstReturn astReturn:
                 new ReturnGen(_ctx).EmitReturn(astReturn);
@@ -62,16 +60,16 @@ public class StatementDispatcher(CodeGenContext ctx)
                 break;
             case AstUnaryOperator astUnaryOperator:
                 using (_ctx.HeapControl.BeginTempScope())
-                    new UnaryOperatorGen(_ctx).EmitUnaryOperator(astUnaryOperator, true);
+                    new UnaryOpGen(_ctx).EmitUnaryOperator(astUnaryOperator, true);
                 break;
             case AstIf astIf:
-                new IfGen(_ctx).EmitIfStatement(astIf);
+                new IfGen(_ctx).EmitIf(astIf);
                 break;
             case AstWhile astWhile:
-                new WhileGen(_ctx).EmitWhileLoop(astWhile);
+                new WhileGen(_ctx).EmitWhile(astWhile);
                 break;
             case AstFor astFor:
-                new ForGen(_ctx).EmitForLoop(astFor);
+                new ForGen(_ctx).EmitFor(astFor);
                 break;
             case AstCall or AstNew:
                 using (_ctx.HeapControl.BeginTempScope())

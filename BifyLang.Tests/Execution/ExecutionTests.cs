@@ -1,6 +1,5 @@
 #nullable enable
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Execution;
 

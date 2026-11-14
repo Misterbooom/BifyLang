@@ -1,18 +1,17 @@
 #nullable enable
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Emitters.FlowControl;
 
-namespace BifyLang.CodeGen.Statements;
+namespace BifyLang.CodeGen.Statements.ControlFlow;
 
-public class IfGen(CodeGenContext ctx)
+public class IfGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     private void EmitBlock(AstNode blockNode) =>
         new StatementDispatcher(_ctx).EmitBlock((AstBlock)blockNode);
 
-    public void EmitIfStatement(AstIf astIf)
+    public void EmitIf(AstIf astIf)
     {
         using var branchEmitter = new BranchEmitter(_ctx, astIf.ElseIfNodes.Count, astIf.ElseNode is not null);
         

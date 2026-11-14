@@ -1,14 +1,15 @@
 using System;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Expressions;
 
 public class LiteralGen
 {
-    public static TypedValue EmitNumber(CodeGenContext ctx, AstInteger node)
+    public static TypedValue EmitInteger(CodeGenContext ctx, AstInteger node)
     {
         BifyType type = BifyType.CreateInt(ctx);
         ulong rawValue = unchecked((ulong)Convert.ToInt64(node.Value));

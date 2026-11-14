@@ -1,11 +1,13 @@
 #nullable enable
 using System;
 using System.Linq;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.CodeGen.Expressions;
-using BifyLang.CodeGen.Types;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public class ClassBuilder(CodeGenContext ctx)
 {

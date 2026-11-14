@@ -1,9 +1,10 @@
 #nullable enable
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Statements;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core.Emitters;
+namespace BifyLang.CodeGen.Core.Emitters.FlowControl;
 
 public static class LoopEmitter
 {

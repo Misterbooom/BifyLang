@@ -1,8 +1,7 @@
 #nullable enable
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.Exceptions;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.CodeGen;
 

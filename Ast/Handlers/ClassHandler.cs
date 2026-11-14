@@ -19,9 +19,9 @@ namespace BifyLang.Ast.Handlers
             AstNode parentNode = null;
             if (nextToken?.Type == TokenType.COLON)
             {
-                List<Token> parentTokens = TokensFormatter.GetTokensBetween(builder.Tokens, ref Builder.TokenIndex, TokenType.COLON, TokenType.LCUR);
+                List<Token> parentTokens = TokensFormatter.GetTokensBetween(Builder.Tokens, ref Builder.TokenIndex, TokenType.COLON, TokenType.LCUR);
                 parentNode = Builder.ParseTokens(parentTokens);
-                builder.TokenIndex -= 1;
+                Builder.TokenIndex -= 1;
             }
           
          

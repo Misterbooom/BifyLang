@@ -1,15 +1,14 @@
 #nullable enable
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Emitters.FlowControl;
 
-namespace BifyLang.CodeGen.Statements;
+namespace BifyLang.CodeGen.Statements.ControlFlow;
 
-public class WhileGen(CodeGenContext ctx)
+public class WhileGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
-    public void EmitWhileLoop(AstWhile astWhile)
+    public void EmitWhile(AstWhile astWhile)
     {
         var currentFunction = _ctx.FunctionEntry.Parent;
         var condBlock = currentFunction.AppendBasicBlock("while.cond");

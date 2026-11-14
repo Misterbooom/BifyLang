@@ -2,7 +2,6 @@
 using BifyLang.Ast;
 using BifyLang.Exceptions;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Syntax;
 

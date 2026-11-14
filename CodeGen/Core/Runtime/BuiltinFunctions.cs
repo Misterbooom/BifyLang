@@ -1,8 +1,9 @@
 using System;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Runtime;
 
 public static class BuiltinFunctions
 {

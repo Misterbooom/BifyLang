@@ -1,19 +1,19 @@
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Expressions;
 
-public class ExpressionDispatcher(CodeGenContext ctx)
+public class ExpressionDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public TypedValue EmitExpression(AstNode node)
     {
         TypedValue value = node switch
         {
-            AstInteger integer => LiteralGen.EmitNumber(_ctx, integer),
+            AstInteger integer => LiteralGen.EmitInteger(_ctx, integer),
             AstFloat floatNode => LiteralGen.EmitFloat(_ctx, floatNode),
             AstBoolean boolean => LiteralGen.EmitBool(_ctx, boolean),
             AstString str => LiteralGen.EmitString(_ctx, str),
@@ -21,7 +21,7 @@ public class ExpressionDispatcher(CodeGenContext ctx)
             AstIdentifier identifier => IdentifierGen.EmitIdentifier(_ctx, identifier),
             AstBinaryOp binaryOp => BinaryOpGen.EmitBinaryOp(_ctx, this, binaryOp),
             AstCast cast => CastGen.EmitCast(_ctx, this, cast),
-            AstUnaryOperator unaryOperator => new UnaryOperatorGen(_ctx).EmitUnaryOperator(unaryOperator),
+            AstUnaryOperator unaryOperator => new UnaryOpGen(_ctx).EmitUnaryOperator(unaryOperator),
             AstCall astCall => new CallGen(_ctx).EmitCall(astCall),
             AstNew astNew => new NewGen(_ctx).EmitNew(astNew),
             AstMemberAccess astMemberAccess => new MemberAccessGen(_ctx).EmitMemberAccess(astMemberAccess),

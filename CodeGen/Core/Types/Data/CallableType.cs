@@ -1,6 +1,6 @@
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Types;
+namespace BifyLang.CodeGen.Core.Types.Data;
 
 public class CallableType(
     string name,

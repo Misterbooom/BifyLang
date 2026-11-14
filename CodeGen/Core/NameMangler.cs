@@ -30,7 +30,7 @@ public static class NameMangler
 
         return $"{moduleName}.{funcName}";
     }
-    public static string GenerateVtable(string moduleName, string className)
+    public static string GenerateVTable(string moduleName, string className)
     {
         ArgumentException.ThrowIfNullOrEmpty(moduleName);
         ArgumentException.ThrowIfNullOrEmpty(className);

@@ -1,11 +1,10 @@
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
 
 namespace BifyLang.CodeGen.Declarations;
 
-public class ImportGen(CodeGenContext ctx)
+public class ImportGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void EmitImport(AstImport astImport)
     {

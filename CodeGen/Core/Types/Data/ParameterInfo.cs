@@ -1,5 +1,5 @@
 #nullable enable
-namespace BifyLang.CodeGen.Types;
+namespace BifyLang.CodeGen.Core.Types.Data;
 
 public record ParameterInfo(
     string Name,

@@ -324,12 +324,12 @@ namespace BifyLang.Ast
         public override string StrHelper(int level = 0, string note = "", bool isLeft = true)
         {
             string baseStr = base.StrHelper(level, note);
-            string valueStr = value?.StrHelper(level + 1, "Value: ");
+            string valueStr = Operand?.StrHelper(level + 1, "Value: ");
             return baseStr + $"{new String(' ', 4 * (level + 1))}\n{valueStr}";
         }
         public AstUnaryOperator Update(AstNode newOperand)
         {
-            return new AstUnaryOperator(this.Token, newOperand, isPrefix);
+            return new AstUnaryOperator(this.Token, newOperand, IsPrefix);
         }
     }
     public class AstFunctionDecl(Token token, AstNode typeNode, AstIdentifier functionNameNode, AstNode argumentsNode, AstBlock blockNode,AstFlag flagNode) : AstNode(token)

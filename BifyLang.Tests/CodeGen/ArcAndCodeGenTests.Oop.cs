@@ -1,6 +1,4 @@
 #nullable enable
-using NUnit.Framework;
-
 namespace BifyLang.Tests.CodeGen;
 
 public partial class ArcAndCodeGenTests

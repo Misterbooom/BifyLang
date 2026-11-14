@@ -1,4 +1,3 @@
-using System;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast

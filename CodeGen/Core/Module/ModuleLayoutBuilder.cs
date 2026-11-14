@@ -1,6 +1,8 @@
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.CodeGen.Declarations;
-using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Core.Module;
@@ -17,7 +19,7 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
             _ctx.ModulesMap[m.Name] = modType;
             _ctx.TypeRegistry.Register(m.Name, modType);
         }
-        new ClassLayoutBuilder(_ctx).BuildClassesLayout(classes);
+        new ClassLayoutBuilder(_ctx).Build(classes);
 
         foreach (var moduleInfo in modules)
         {

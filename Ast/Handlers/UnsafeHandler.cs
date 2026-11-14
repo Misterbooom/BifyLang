@@ -1,4 +1,3 @@
-using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers

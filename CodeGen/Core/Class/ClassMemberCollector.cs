@@ -2,11 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
+using BifyLang.CodeGen.Core.Validators;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public static class ClassMemberCollector
 {
@@ -42,7 +46,7 @@ public static class ClassMemberCollector
         var accessLevel = ParseAccessLevel(funcDecl.FlagNode);
         bool isVirtual = funcDecl.FlagNode?.HasFlag("virtual") ?? false;
         bool isOverride = funcDecl.FlagNode?.HasFlag("override") ?? false;
-        var parameters = ParamResolver.Resolve(funcDecl.ArgumentsNode, ctx);
+        var parameters = ParameterResolver.Resolve(funcDecl.ArgumentsNode, ctx);
 
         BifyType returnType;
         if (name == "constructor")
@@ -75,7 +79,7 @@ public static class ClassMemberCollector
         return new ClassMethod(name, signature, functionValue, accessLevel, -1, classType, funcDecl.BlockNode, isVirtual, isOverride, parameters);
     }
 
-    public static AccessLevel ParseAccessLevel(AstFlag? flag)
+    private static AccessLevel ParseAccessLevel(AstFlag? flag)
     {
         if (flag == null)
             return AccessLevel.PUBLIC;

@@ -1,9 +1,9 @@
 #nullable enable
-using System.Collections.Generic;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public static class DestructorSynthesizer
 {

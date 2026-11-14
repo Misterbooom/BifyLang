@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using BifyLang.Ast;
-using BifyLang.CodeGen;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using BifyLang.Parser;
 
-namespace BifyLang;
+namespace BifyLang.CodeGen.Core;
 
 public static class CompilationHelper
 {

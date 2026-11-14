@@ -1,12 +1,14 @@
 #nullable enable
 using System.Collections.Generic;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Validators;
 
 namespace BifyLang.CodeGen.Core.Emitters;
 
-public class MethodEmitter(CodeGenContext ctx)
+public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
     private readonly FunctionBodyEmitter _bodyEmitter = new(ctx);
 
     

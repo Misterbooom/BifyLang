@@ -1,17 +1,18 @@
 #nullable enable
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.CodeGen.Expressions;
-using BifyLang.CodeGen.Types;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Statements;
 
-public class AssignmentGen(CodeGenContext ctx)
+public class AssignmentGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
 public void EmitAssign(AstAssignmentOperator assignmentOp)
     {

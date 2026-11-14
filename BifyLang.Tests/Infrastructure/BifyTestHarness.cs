@@ -1,14 +1,10 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BifyLang.Ast;
 using BifyLang.CodeGen;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Core.Module;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using LLVMSharp.Interop;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Infrastructure;
 

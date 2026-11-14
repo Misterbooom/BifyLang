@@ -1,17 +1,16 @@
 #nullable enable
-using System;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Expressions;
 
-public class UnaryOperatorGen(CodeGenContext ctx)
+public class UnaryOpGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public TypedValue EmitUnaryOperator(AstUnaryOperator op, bool isStatement = false)
     {

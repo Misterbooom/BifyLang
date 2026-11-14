@@ -1,6 +1,6 @@
 using BifyLang.Lexer;
 
-namespace BifyLang.Ast.Handlers
+namespace BifyLang.Ast
 {
     internal abstract class TokenHandler(AstBuilder builder)
     {

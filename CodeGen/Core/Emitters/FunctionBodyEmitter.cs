@@ -1,18 +1,17 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.CodeGen.Statements;
-using BifyLang.CodeGen.Types;
-using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Emitters;
 
-public class FunctionBodyEmitter(CodeGenContext ctx)
+public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void Emit(
         LLVMValueRef function,

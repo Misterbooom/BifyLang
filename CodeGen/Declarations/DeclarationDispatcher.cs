@@ -1,12 +1,11 @@
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Declarations;
 
-public class DeclarationDispatcher(CodeGenContext ctx)
+public class DeclarationDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void EmitModule(AstModule module)
     {

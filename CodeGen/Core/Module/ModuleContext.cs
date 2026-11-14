@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 
 namespace BifyLang.CodeGen.Core.Module;
 

@@ -1,8 +1,6 @@
 #nullable enable
-using System.Linq;
 using BifyLang.Lexer;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Lexer;
 

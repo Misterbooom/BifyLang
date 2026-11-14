@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Validators;
 
 public static class FlagChecker
 {

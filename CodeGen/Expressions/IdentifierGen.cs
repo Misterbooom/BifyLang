@@ -1,7 +1,9 @@
 #nullable enable
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
@@ -45,7 +47,6 @@ public static class IdentifierGen
     {
         if (symbol.Type.Type.Kind == LLVMTypeKind.LLVMFunctionTypeKind)
         {
-            BifyDebug.Log("Loading function: " + symbol.Name);
             return new TypedValue(symbol.Pointer, symbol.Type);
         }
 

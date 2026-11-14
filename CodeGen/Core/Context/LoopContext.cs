@@ -1,7 +1,6 @@
-using System;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Context;
 
 public class LoopContext(LoopContext parent, LLVMBasicBlockRef breakBlock, LLVMBasicBlockRef continueBlock, Scope scope)
 {

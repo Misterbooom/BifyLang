@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Emitters;
 
-public static class ParamResolver
+public static class ParameterResolver
 {
     public static List<ParameterInfo> Resolve(AstNode? node, CodeGenContext ctx)
     {

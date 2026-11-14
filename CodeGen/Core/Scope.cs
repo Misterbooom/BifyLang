@@ -2,40 +2,37 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using LLVMSharp.Interop;
-using BifyLang.CodeGen.Types;
-using BifyLang.Exceptions;
 
-namespace BifyLang.CodeGen.Core
+namespace BifyLang.CodeGen.Core;
+
+public readonly struct Symbol
 {
-    public readonly struct Symbol
-    {
-        public string Name { get; }
-        public LLVMValueRef Pointer { get; } 
-        public BifyType Type { get; }         
-        public bool IsConstant { get; }      
-        public bool IsWeak { get; }
+    public string Name { get; }
+    public LLVMValueRef Pointer { get; } 
+    public BifyType Type { get; }         
+    public bool IsConstant { get; }      
+    public bool IsWeak { get; }
 
-        public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
-        {
-            Name = name;
-            Pointer = pointer;
-            Type = type;
-            IsConstant = isConstant;
-            IsWeak =  isWeak;
-        }
+    public Symbol(string name, LLVMValueRef pointer, BifyType type, bool isConstant = false, bool isWeak = false)
+    {
+        Name = name;
+        Pointer = pointer;
+        Type = type;
+        IsConstant = isConstant;
+        IsWeak =  isWeak;
     }
+}
 
-    public class Scope
-    {
-        public Scope? Parent { get; }
+public class Scope
+{
+    public Scope? Parent { get; }
 
-        public bool IsDestructor { get; set; }
-
-        private bool _isDestructor = false;
-        
-        
-        private readonly Dictionary<string, Symbol> _symbols = new();
+    public bool IsDestructor { get; set; }
+    
+    private readonly Dictionary<string, Symbol> _symbols = new();
 
         public Scope(Scope? parent = null)
         {
@@ -129,4 +126,3 @@ namespace BifyLang.CodeGen.Core
             return sb.ToString().TrimEnd();
         }
     }
-}

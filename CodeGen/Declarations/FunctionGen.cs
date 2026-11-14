@@ -2,15 +2,18 @@
 using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
+using BifyLang.CodeGen.Core.Validators;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Declarations;
 
-public class FunctionGen(CodeGenContext ctx)
+public class FunctionGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
     private readonly FunctionBodyEmitter _bodyEmitter = new(ctx);
 
     public LLVMValueRef DeclareFunction(AstFunctionDecl functionDecl)
@@ -25,7 +28,7 @@ public class FunctionGen(CodeGenContext ctx)
         }
 
         var returnType = TypeResolver.Resolve(functionDecl.TypeNode, _ctx);
-        var parameters = ParamResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
+        var parameters = ParameterResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
         var paramTypes = parameters.Select(p => p.Type.Type).ToArray();
 
         
@@ -51,7 +54,7 @@ public class FunctionGen(CodeGenContext ctx)
             new BifyTypeError($"Not all execution paths return a value in function {mangledName}").Throw();
         }
 
-        var parameters = ParamResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
+        var parameters = ParameterResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
 
         var functionValue = _ctx.Module.GetNamedFunction(mangledName);
         if (functionValue.Handle == 0)

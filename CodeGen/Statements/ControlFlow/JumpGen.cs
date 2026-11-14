@@ -2,14 +2,13 @@
 using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
 
-namespace BifyLang.CodeGen.Statements;
+namespace BifyLang.CodeGen.Statements.ControlFlow;
 
-public class JumpGen(CodeGenContext ctx)
+public class JumpGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public void EmitBreak(AstBreak _)
     {

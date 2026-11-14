@@ -1,7 +1,8 @@
-using BifyLang.Ast;
 using BifyLang.Ast.Handlers;
 using BifyLang.Exceptions;
 using BifyLang.Lexer;
+
+namespace BifyLang.Ast;
 
 internal static class TokenHandlerFactory
 {
@@ -51,4 +52,3 @@ internal class DefaultTokenHandler(AstBuilder builder) : TokenHandler(builder)
     }
 
 }
-

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using BifyLang.Exceptions;
 using BifyLang.Lexer;
 
 namespace BifyLang.Ast;

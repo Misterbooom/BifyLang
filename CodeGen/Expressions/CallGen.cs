@@ -3,17 +3,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
-using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Emitters;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
-using BifyLang.Lexer;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Expressions;
 
-public class CallGen(CodeGenContext ctx)
+public class CallGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public TypedValue EmitCall(AstCall astCall)
     {
@@ -36,12 +37,12 @@ public class CallGen(CodeGenContext ctx)
         return new TypedValue(callReturn, callableType.ReturnType);
     }
 
-    public TypedValue HandleMethodCall(AstCall astCall)
+    private TypedValue HandleMethodCall(AstCall astCall)
     {
         var targetNode = astCall.CallableName;
         if (targetNode is AstMemberAccess memberAccess)
         {
-            var left = new ExpressionDispatcher(ctx).EmitExpression(memberAccess.Left);
+            var left = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
             if (targetNode.Right is not AstIdentifier id)
                 return new BifyAttributeError($"Invalid member identifier.").Throw<TypedValue>();
 
@@ -85,7 +86,7 @@ public class CallGen(CodeGenContext ctx)
         }
     }
 
-    public TypedValue UpgradeWeakReference(TypedValue reference)
+    private TypedValue UpgradeWeakReference(TypedValue reference)
     {
         if (reference.IsWeak)
         {
@@ -97,14 +98,14 @@ public class CallGen(CodeGenContext ctx)
         return reference;
     }
 
-    public static TypedValue[] ResolveArgs(
+    private static TypedValue[] ResolveArgs(
         CodeGenContext ctx,
         AstCall astCall,
         CallableType callableType
     )
     {
         List<AstNode> flatArgs = [];
-        ParamResolver.FlattenComma(astCall.ArgumentsNode, flatArgs);
+        ParameterResolver.FlattenComma(astCall.ArgumentsNode, flatArgs);
 
         ValidateArgCount(callableType, flatArgs.Count, 0);
 

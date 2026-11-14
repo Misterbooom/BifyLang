@@ -2,7 +2,6 @@
 using BifyLang.Exceptions;
 using BifyLang.Tests.Infrastructure;
 using LLVMSharp.Interop;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.CodeGen;
 

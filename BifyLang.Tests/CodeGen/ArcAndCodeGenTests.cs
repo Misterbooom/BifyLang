@@ -1,10 +1,7 @@
 #nullable enable
-using System;
 using System.Text.RegularExpressions;
 using BifyLang.CodeGen;
 using BifyLang.Tests.Infrastructure;
-using LLVMSharp.Interop;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.CodeGen;
 

@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
+using BifyLang.CodeGen.Core.Class;
 using BifyLang.CodeGen.Core.Module;
-using BifyLang.CodeGen.Declarations;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Runtime;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Context;
 
 public class CodeGenContext : IDisposable
 {

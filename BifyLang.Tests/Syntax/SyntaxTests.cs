@@ -2,7 +2,6 @@
 using BifyLang.Ast;
 using BifyLang.Lexer;
 using BifyLang.Tests.Infrastructure;
-using NUnit.Framework;
 
 namespace BifyLang.Tests.Syntax;
 

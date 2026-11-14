@@ -1,6 +1,6 @@
 using BifyLang.Ast;
 
-namespace BifyLang.CodeGen.Core;
+namespace BifyLang.CodeGen.Core.Class;
 
 public record ClassInfo
 (

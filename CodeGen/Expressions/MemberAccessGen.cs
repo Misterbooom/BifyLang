@@ -2,15 +2,17 @@
 using System;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
-using BifyLang.CodeGen.Types;
+using BifyLang.CodeGen.Core.Class;
+using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Expressions;
 
-public class MemberAccessGen(CodeGenContext ctx)
+public class MemberAccessGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
 
     public TypedValue EmitMemberAccess(AstMemberAccess memberAccess)
     {
