@@ -1,18 +1,9 @@
-class Printer{
-    int property;
-    constructor(){
-        
-    }
-    void print(int a){
-        printf("test%d", a);
-    }
-    destructor(){
-        return;
-    }
+class Main{
+    
 }
 
 void main() {
 
-    Printer.ds f = new Printer();
-    f = null;
+    Printer f = new Printer();
+    f = null; //21
 } 
