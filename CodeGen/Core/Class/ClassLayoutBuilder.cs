@@ -131,21 +131,29 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
         var funcDecls = block.ChildNodes.OfType<AstFunctionDecl>().ToList();
 
         ProcessDestructor(info, classType, funcDecls);
-
+        bool hasConstructor = false;
         foreach (var funcDecl in funcDecls)
         {
             _ctx.CurrentLine = funcDecl.LineNumber;
             string name = funcDecl.FunctionNameNode.Name;
             if (name == DestructorSynthesizer.DestructorName)
                 continue;
+            if (name == "constuctor")
+            {
+                hasConstructor = true;
+            }
 
             if (classType.Fields.ContainsKey(name))
             {
                 Error($"Method '{name}' in class '{classType.FullName}' conflicts with existing field.", DiagnosticKind.Name, funcDecl);
                 continue;
             }
-
             TryAddMethod(funcDecl, classType, name);
+        }
+
+        if (!hasConstructor)
+        {
+            SynthesizeConstructor(classType);
         }
     }
 
@@ -169,6 +177,11 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
         }
     }
 
+    private void SynthesizeConstructor(ClassType classType)
+    {
+        var ctor = ConstructorSynthesizer.CreateDefault(_ctx, classType);
+        classType.Methods["constructor"] = ctor;
+    }
     private void ProcessDestructor(ClassInfo info, ClassType classType, List<AstFunctionDecl> funcDecls)
     {
         var dtors = funcDecls.Where(f => f.FunctionNameNode.Name == DestructorSynthesizer.DestructorName).ToList();

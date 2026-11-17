@@ -50,9 +50,9 @@ public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
 
         if (!classType.Methods.TryGetValue("constructor", out var ctor))
         {
-            if (argNodes.Count > 0)
-                Fail($"Class '{classType.Name}' has no constructor taking {argNodes.Count} argument(s)", DiagnosticKind.Type, argsNode);
-            return;
+            // if (argNodes.Count > 0)
+            //     Fail($"Class '{classType.Name}' has no constructor taking {argNodes.Count} argument(s)", DiagnosticKind.Type, argsNode);
+            throw new InvalidOperationException("Cannot find constructor in class. Probably constructor synthezation failed.");
         }
 
         if (ctor.IsPoison)

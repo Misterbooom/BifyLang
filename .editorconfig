@@ -8,10 +8,8 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# File-scoped namespaces
 csharp_style_namespace_declarations = file_scoped:suggestion
 
-# Naming conventions
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields
 dotnet_naming_rule.private_fields_underscore.style = prefix_underscore_camel_case
 dotnet_naming_rule.private_fields_underscore.severity = suggestion

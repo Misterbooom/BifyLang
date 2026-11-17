@@ -11,6 +11,8 @@
 *.o
 *.out
 *.ir
-.*swp
+*.bify
+*.kate-swp
 .idea/
+
 TestResults/
