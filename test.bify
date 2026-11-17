@@ -1,9 +1,0 @@
-class Main{
-    
-}
-
-void main() {
-
-    Printer f = new Printer();
-    f = null; //21
-} 
