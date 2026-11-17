@@ -11,10 +11,6 @@
 
 </div>
 
-## Architecture
-
-BifyLang compiles `.bify` source files through a multi-stage pipeline with unified error recovery:
-
 ```text
 Source (.bify) ──▶ Lexer ──▶ Parser / AST ──▶ LLVM 23 IR CodeGen ──▶ clang + runtime.o ──▶ Native Binary
 ```
