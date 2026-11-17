@@ -1,0 +1,9 @@
+class Printer{
+    constructor(){
+        
+    }
+      void print(int a){
+            printf("test%d", a);
+        
+    }
+}
