@@ -138,7 +138,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
             string name = funcDecl.FunctionNameNode.Name;
             if (name == DestructorSynthesizer.DestructorName)
                 continue;
-            if (name == "constuctor")
+            if (name == "constructor")
             {
                 hasConstructor = true;
             }

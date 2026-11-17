@@ -110,11 +110,11 @@ namespace BifyLang.Ast.Handlers
             AstNode baseNode = token.Type switch
             {
                 TokenType.IDENTIFIER or TokenType.CONST => new IdentifierHandler(Builder).ParseIdentifier(token, true),
-                TokenType.NUMBER => NodeConventer.TokenToNode(token, Builder),
+                TokenType.NUMBER => NodeConverter.TokenToNode(token, Builder),
                 TokenType.LPAREN => ParseParenthesizedExpression(),
                 TokenType.SUB or TokenType.MUL or TokenType.INCREMENT or TokenType.DECREMENT or TokenType.NOT => HandleUnaryOperator(token),
                 TokenType.LBRACKET => new ArrayHandler(Builder).GetArrayNode(token),
-                TokenType.STRING or TokenType.CHAR => NodeConventer.TokenToNode(token, Builder),
+                TokenType.STRING or TokenType.CHAR => NodeConverter.TokenToNode(token, Builder),
                 TokenType.NEW => new NewHandler(Builder).ParseNewExpression(token),
                 _ => Builder.Fail<AstNode>(
                     $"Unexpected token '{token.Value}' found in expression. Verify your syntax and try again.",

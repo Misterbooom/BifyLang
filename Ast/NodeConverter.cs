@@ -3,7 +3,7 @@ using BifyLang.Lexer;
 
 namespace BifyLang.Ast
 {
-    internal class NodeConventer
+    internal class NodeConverter
     {
         public static AstNode TokenToNode(Token token, AstBuilder builder)
         {

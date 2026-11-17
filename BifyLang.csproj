@@ -49,4 +49,8 @@
       <Visible>false</Visible>
     </None>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="packages\" />
+  </ItemGroup>
 </Project>
