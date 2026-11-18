@@ -73,7 +73,7 @@ namespace BifyLang.Ast
         [DoesNotReturn]
         public T AbortPoison<T>() => throw new BifyCompilationException();
 
-        public AstNode BuildNode()
+        public AstNode? BuildNode()
         {
             if (Tokens == null || Tokens.Count == 0)
             {
@@ -218,7 +218,7 @@ namespace BifyLang.Ast
         public List<Token> GetBlockTokens() =>
             TokensFormatter.GetTokensBetween(Tokens, ref TokenIndex, TokenType.LCUR, TokenType.RCUR, Diagnostics, FilePath);
 
-        public AstNode ParseTokens(List<Token> conditionTokens) =>
+        public AstNode? ParseTokens(List<Token> conditionTokens) =>
             new AstBuilder(conditionTokens, Diagnostics, FilePath, false).BuildNode();
 
         public List<AstNode> ParseTokensInNodes(List<Token> tokens) =>

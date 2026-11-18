@@ -5,47 +5,39 @@ using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
 {
-    internal class FunctionHandler(AstBuilder builder) : TokenHandler(builder)
+    internal class FunctionHandler(AstBuilder builder, DeclarationHeader declarationHeader) : TokenHandler(builder)
     {
+        private readonly DeclarationHeader _header = declarationHeader;
         public override void HandleToken(Token token)
         {
-            if (!DeclarationParser.TryParseHeader(Builder, out DeclarationHeader header) ||
-                header.Kind != DeclarationKind.Function)
+            Builder.TokenIndex = _header.EndIndex;
+            bool isPoison = _header.NameNode.IsPoison || _header.TypeNode is AstPoison || _header.TypeNode.IsPoison;
+            AstBinaryOp parameters = null;
+            if (Builder.TokenIndex < Builder.Tokens.Count && Builder.Tokens[Builder.TokenIndex].Type == TokenType.LPAREN)
             {
-                Builder.Fail(
-                    "Invalid function declaration syntax. Expected `Type name(params) { ... }`.",
-                    DiagnosticKind.Syntax,
-                    token
-                );
-                return;
+                List<List<Token>> splitedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(), TokenType.COMMA);
+                AstParam[] parametersNodes = BuildParameters(splitedTokens, ref isPoison);
+                parameters = ConnectParameters(parametersNodes);
             }
-            ParseDeclaration(header);
-        }
+            else
+            {
+                isPoison = true;
+            }
 
-        public void ParseDeclaration(DeclarationHeader header)
-        {
-            Builder.TokenIndex = header.EndIndex;
-            ParseFunction(header.NameNode.Token, header.TypeNode, header.NameNode, header.FlagNode);
-        }
+            Builder.TokenIndex = _header.BodyStartIndex - 1;
 
-        public void ParseFunction(Token token, AstNode typeNode, AstIdentifier nameNode, AstFlag flagNode)
-        {
-            bool isPoison = false;
-            List<List<Token>> splitedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(), TokenType.COMMA);
-            AstParam[] parametersNodes = BuildParameters(splitedTokens, ref isPoison);
-            AstBinaryOp parameters = ConnectParameters(parametersNodes);
             AstBlock blockNode = Builder.HandleBody("Function");
 
             try
             {
-                FunctionDeclarationValidator.Validate(Builder, nameNode.Token, parameters, blockNode, typeNode);
+                FunctionDeclarationValidator.Validate(Builder, _header.NameNode.Token, parameters, blockNode, _header.TypeNode);
             }
             catch (BifyCompilationException)
             {
                 isPoison = true;
             }
 
-            AstNode functionNode = new AstFunctionDecl(token, typeNode, nameNode, parameters, blockNode, flagNode)
+            AstNode functionNode = new AstFunctionDecl(token, _header.TypeNode, _header.NameNode, parameters, blockNode, _header.FlagNode)
             {
                 IsPoison = isPoison
             };
@@ -53,6 +45,7 @@ namespace BifyLang.Ast.Handlers
             Builder.TokenIndex++;
             Builder.Nodes.Clear();
         }
+
 
         private AstBinaryOp ConnectParameters(AstParam[] parametersNodes)
         {
@@ -81,7 +74,8 @@ namespace BifyLang.Ast.Handlers
                 int beforeCount = Builder.Diagnostics.Diagnostics.Count;
                 try
                 {
-                    AstBuilder b = new(group, Builder.Diagnostics, Builder.FilePath, true);
+                    List<Token> paramTokens = NormalizeParameterTokens(group);
+                    AstBuilder b = new(paramTokens, Builder.Diagnostics, Builder.FilePath, true);
                     AstVarDecl parametersNode = b.BuildNode() as AstVarDecl;
 
                     if (parametersNode == null)
@@ -122,6 +116,31 @@ namespace BifyLang.Ast.Handlers
                 paramIndex++;
             }
             return parameters.ToArray();
+        }
+
+        private static List<Token> NormalizeParameterTokens(List<Token> group)
+        {
+            if (group.Count == 0)
+            {
+                return group;
+            }
+
+            bool hasDeclKeyword = group.Exists(t => t.Type is TokenType.VAL or TokenType.MUT);
+            bool hasColon = group.Exists(t => t.Type == TokenType.COLON);
+            if (!hasDeclKeyword && hasColon)
+            {
+                Token first = group[0];
+                Token valToken = new(TokenType.VAL, "val")
+                {
+                    Line = first.Line,
+                    Column = first.Column
+                };
+                List<Token> normalized = [valToken];
+                normalized.AddRange(group);
+                return normalized;
+            }
+
+            return group;
         }
     }
 }

@@ -1,198 +1,274 @@
 using System.Collections.Generic;
+using BifyLang.Exceptions;
 using BifyLang.Lexer;
+using BifyLang.Parser;
 
 namespace BifyLang.Ast;
 
-internal static class DeclarationParser
+internal class DeclarationParser(AstBuilder builder)
 {
-        public static bool TryParseHeader(AstBuilder builder, out DeclarationHeader header)
+    private readonly AstBuilder _builder = builder;
+
+    public bool TryParseDeclaration(out DeclarationHeader header)
+    {
+        header = default;
+        List<Token> tokens = _builder.Tokens;
+        int i = _builder.TokenIndex;
+
+        List<AstNode> flags = CollectFlags(tokens, ref i);
+        if (i >= tokens.Count)
+            return false;
+
+        Token keyToken = tokens[i];
+        if (!IsDeclarationKeyword(keyToken.Type))
+            return false;
+
+        i++;
+
+        if (keyToken.Type is TokenType.CONSTRUCTOR or TokenType.DESTRUCTOR)
+            return TryBuildCtorOrDtor(tokens, i, keyToken, flags, out header);
+
+        DeclarationKind kind = keyToken.Type is TokenType.MUT or TokenType.VAL
+            ? DeclarationKind.Variable
+            : DeclarationKind.Function;
+
+        if (kind == DeclarationKind.Variable)
         {
-            header = null;
-            List<Token> tokens = builder.Tokens;
-            int i = builder.TokenIndex;
-            List<List<Token>> words = CollectWords(tokens, ref i);
-
-            if (i < tokens.Count && tokens[i].Type is TokenType.CONSTRUCTOR or TokenType.DESTRUCTOR)
-                return TryParseCtorHeader(tokens, ref i, words, out header);
-
-            if (words.Count == 0 || !CollectSuffixes(tokens, ref i, out var suffixes))
-                return false;
-
-            if (!ResolveNameAndType(tokens, ref i, words, suffixes, out var typeParts, out var nameToken, out int flagCount))
-                return false;
-
-            if (!DetermineKind(tokens, i, out var kind))
-                return false;
-
-            List<AstNode> flags = [];
-            for (int f = 0; f < flagCount; f++)
-                flags.Add(new AstIdentifier(words[f][0], words[f][0].Value));
-
-            header = new DeclarationHeader
-            {
-                Kind = kind,
-                FlagNode = new AstFlag(nameToken, flags),
-                TypeNode = BuildTypeNode(builder, typeParts, suffixes),
-                NameNode = new AstIdentifier(nameToken, nameToken.Value),
-                EndIndex = i
-            };
-            return true;
+            flags.Add(new AstIdentifier(keyToken, keyToken.Value));
         }
 
-        private static List<List<Token>> CollectWords(List<Token> tokens, ref int i)
+        AstIdentifier nameNode = ParseName(tokens, ref i);
+
+        AstNode typeNode = kind == DeclarationKind.Variable
+            ? ParseVariableType(tokens, ref i, keyToken, out int endIndex, out int bodyStartIndex)
+            : ParseFunctionType(tokens, ref i, keyToken, out endIndex, out bodyStartIndex);
+
+        header = new DeclarationHeader
         {
-            List<List<Token>> words = [];
-            while (i < tokens.Count && tokens[i].Type is TokenType.IDENTIFIER or TokenType.CONST)
+            Kind = kind,
+            FlagNode = CreateFlagNode(flags, keyToken),
+            NameNode = nameNode,
+            TypeNode = typeNode,
+            IsCtorOrDtor = false,
+            EndIndex = endIndex,
+            BodyStartIndex = bodyStartIndex
+        };
+        return true;
+    }
+
+    private static List<AstNode> CollectFlags(List<Token> tokens, ref int i)
+    {
+        List<AstNode> flags = [];
+        while (i < tokens.Count && tokens[i].Type is TokenType.IDENTIFIER or TokenType.CONST)
+        {
+            Token flagTok = tokens[i++];
+            flags.Add(new AstIdentifier(flagTok, flagTok.Value));
+        }
+        return flags;
+    }
+
+    private static AstFlag CreateFlagNode(List<AstNode> flags, Token fallbackToken) =>
+        new(flags.Count > 0 ? flags[0].Token : fallbackToken, flags);
+
+    private static bool IsDeclarationKeyword(TokenType type) =>
+        type is TokenType.MUT
+            or TokenType.VAL
+            or TokenType.FUNCTION
+            or TokenType.CONSTRUCTOR
+            or TokenType.DESTRUCTOR;
+
+    private bool TryBuildCtorOrDtor(
+        List<Token> tokens, int i, Token ctorToken, List<AstNode> flags, out DeclarationHeader header)
+    {
+        if (i >= tokens.Count || tokens[i].Type != TokenType.LPAREN)
+        {
+            _builder.Fail(
+                $"Expected '(' after '{ctorToken.Value}'.",
+                DiagnosticKind.Syntax,
+                i < tokens.Count ? tokens[i] : ctorToken
+            );
+        }
+
+        int closeParen = FindClosing(tokens, i, TokenType.LPAREN, TokenType.RPAREN);
+        if (closeParen < 0)
+        {
+            _builder.Fail($"Expected ')' in '{ctorToken.Value}' declaration.", DiagnosticKind.Syntax, tokens[i]);
+        }
+
+        header = new DeclarationHeader
+        {
+            Kind = DeclarationKind.Function,
+            FlagNode = CreateFlagNode(flags, ctorToken),
+            NameNode = new AstIdentifier(ctorToken, ctorToken.Value),
+            TypeNode = CreateVoidType(ctorToken),
+            IsCtorOrDtor = true,
+            EndIndex = i,
+            BodyStartIndex = closeParen + 1
+        };
+        return true;
+    }
+
+    private AstIdentifier ParseName(List<Token> tokens, ref int i)
+    {
+        if (i < tokens.Count && tokens[i].Type == TokenType.IDENTIFIER)
+        {
+            Token nameToken = tokens[i++];
+            return new AstIdentifier(nameToken, nameToken.Value);
+        }
+
+        Token? unexpected = i < tokens.Count ? tokens[i] : null;
+        _builder.Error(unexpected is null
+            ? "Expected declaration name, got EOF"
+            : $"Invalid declaration name: '{unexpected.Value}'");
+
+        Token poison = unexpected ?? new Token(TokenType.POISON, "unknown");
+        return new AstIdentifier(poison, string.Empty) { IsPoison = true };
+    }
+
+    private AstNode ParseVariableType(
+        List<Token> tokens, ref int i, Token fallbackToken, out int endIndex, out int bodyStartIndex)
+    {
+        AstNode typeNode = CreateVoidType(fallbackToken);
+
+        if (i < tokens.Count && tokens[i].Type == TokenType.COLON)
+        {
+            Token colonTok = tokens[i++];
+            List<Token> typeTokens = [];
+
+            while (i < tokens.Count && tokens[i].Type is not (TokenType.ASSIGN or TokenType.SEMICOLON))
             {
-                List<Token> parts = [tokens[i++]];
-                if (parts[0].Type == TokenType.IDENTIFIER)
-                {
-                    while (i + 1 < tokens.Count && tokens[i].Type == TokenType.DOT && tokens[i + 1].Type == TokenType.IDENTIFIER)
-                    {
-                        parts.Add(tokens[i++]);
-                        parts.Add(tokens[i++]);
-                    }
-                }
-                words.Add(parts);
+                typeTokens.Add(tokens[i++]);
             }
-            return words;
+
+            typeNode = ParseTypeTokens(typeTokens, colonTok, "Expected type after ':'.");
         }
 
-        private static bool TryParseCtorHeader(List<Token> tokens, ref int i, List<List<Token>> words, out DeclarationHeader? header)
+        endIndex = i;
+        bodyStartIndex = -1;
+        return typeNode;
+    }
+
+    private AstNode ParseFunctionType(
+        List<Token> tokens, ref int i, Token fallbackToken, out int endIndex, out int bodyStartIndex)
+    {
+        if (i < tokens.Count && tokens[i].Type == TokenType.LPAREN)
         {
-            header = null;
-            if (i >= tokens.Count || tokens[i].Type is not (TokenType.CONSTRUCTOR or TokenType.DESTRUCTOR))
-                return false;
-
-            Token ctorToken = tokens[i++];
-            if (i >= tokens.Count || tokens[i].Type != TokenType.LPAREN)
-                return false;
-
-            int close = FindClosing(tokens, i, TokenType.LPAREN, TokenType.RPAREN);
-            if (close < 0 || close + 1 >= tokens.Count || tokens[close + 1].Type != TokenType.LCUR)
-                return false;
-
-            List<AstNode> ctorFlags = [];
-            foreach (var w in words)
-                if (w.Count > 1) return false;
-                else ctorFlags.Add(new AstIdentifier(w[0], w[0].Value));
-
-            var voidTok = new Token(TokenType.IDENTIFIER, "void") { Line = ctorToken.Line, Column = ctorToken.Column };
-            header = new DeclarationHeader
-            {
-                Kind = DeclarationKind.Function,
-                FlagNode = new AstFlag(ctorToken, ctorFlags),
-                TypeNode = new AstIdentifier(voidTok, "void"),
-                NameNode = new AstIdentifier(ctorToken, ctorToken.Value),
-                EndIndex = i
-            };
-            return true;
+            endIndex = i;
+            int closeParen = FindClosing(tokens, i, TokenType.LPAREN, TokenType.RPAREN);
+            if (closeParen >= 0)
+                i = closeParen + 1;
+            else
+                i++;
+        }
+        else
+        {
+            _builder.Error(
+                "Expected '(' after function name.",
+                DiagnosticKind.Syntax,
+                i < tokens.Count ? tokens[i] : fallbackToken
+            );
+            endIndex = i;
         }
 
-        private static bool CollectSuffixes(List<Token> tokens, ref int i, out List<TypeSuffix> suffixes)
+        AstNode typeNode = CreateVoidType(fallbackToken);
+
+        if (i < tokens.Count && tokens[i].Type is TokenType.ARROW or TokenType.COLON)
         {
-            suffixes = [];
-            while (i < tokens.Count)
+            Token arrowTok = tokens[i++];
+            List<Token> typeTokens = [];
+
+            while (i < tokens.Count && tokens[i].Type != TokenType.LCUR)
             {
-                Token t = tokens[i];
-                if (t.Type is TokenType.MUL or TokenType.POINTER)
-                {
-                    suffixes.Add(new TypeSuffix(t, -1, -1));
-                    i++;
-                }
-                else if (t.Type == TokenType.LBRACKET)
-                {
-                    int close = FindClosing(tokens, i, TokenType.LBRACKET, TokenType.RBRACKET);
-                    if (close < 0) return false;
-                    suffixes.Add(new TypeSuffix(t, i, close));
-                    i = close + 1;
-                }
-                else break;
+                typeTokens.Add(tokens[i++]);
             }
-            return true;
+
+            typeNode = ParseTypeTokens(typeTokens, arrowTok, $"Expected return type after '{arrowTok.Value}'.");
         }
 
-        private static bool ResolveNameAndType(
-            List<Token> tokens, ref int i, List<List<Token>> words, List<TypeSuffix> suffixes,
-            out List<Token> typeParts, out Token nameToken, out int flagCount)
-        {
-            typeParts = [];
-            nameToken = default;
-            flagCount = 0;
+        bodyStartIndex = i;
+        return typeNode;
+    }
 
-            if (suffixes.Count > 0)
+    private AstNode ParseTypeTokens(List<Token> typeTokens, Token anchorToken, string emptyMessage)
+    {
+        if (typeTokens.Count == 0)
+        {
+            _builder.Error(emptyMessage, DiagnosticKind.Syntax, anchorToken);
+            return new AstPoison(anchorToken);
+        }
+
+        int suffixStart = 0;
+        while (suffixStart < typeTokens.Count &&
+               typeTokens[suffixStart].Type is not (TokenType.MUL or TokenType.POINTER or TokenType.LBRACKET))
+        {
+            suffixStart++;
+        }
+
+        if (suffixStart == 0)
+        {
+            _builder.Error("Invalid type annotation.", DiagnosticKind.Type, typeTokens[0]);
+            return new AstPoison(typeTokens[0]);
+        }
+
+        AstNode? typeNode = _builder.ParseTokens(typeTokens[..suffixStart]);
+        if (typeNode == null)
+        {
+            _builder.Error("Invalid type annotation.", DiagnosticKind.Type, typeTokens[0]);
+            return new AstPoison(typeTokens[0]);
+        }
+
+        int idx = suffixStart;
+        while (idx < typeTokens.Count)
+        {
+            Token tok = typeTokens[idx];
+            if (tok.Type is TokenType.MUL or TokenType.POINTER)
             {
-                if (i >= tokens.Count || tokens[i].Type != TokenType.IDENTIFIER)
-                    return false;
-                nameToken = tokens[i++];
-                typeParts = words[^1];
-                flagCount = words.Count - 1;
+                Token ptrTok = new(TokenType.POINTER, "*") { Line = tok.Line, Column = tok.Column };
+                typeNode = new AstUnaryOperator(ptrTok, typeNode, true);
+                idx++;
+            }
+            else if (tok.Type == TokenType.LBRACKET)
+            {
+                int closeIdx = FindClosing(typeTokens, idx, TokenType.LBRACKET, TokenType.RBRACKET);
+                if (closeIdx < 0)
+                {
+                    _builder.Error("Expected ']' in array type.", DiagnosticKind.Syntax, tok);
+                    return new AstPoison(tok);
+                }
+
+                List<Token> innerTokens = typeTokens[(idx + 1)..closeIdx];
+                AstNode? indexNode = innerTokens.Count > 0 ? _builder.ParseTokens(innerTokens) : null;
+                typeNode = new AstIndexOperator(indexNode, typeNode);
+                idx = closeIdx + 1;
             }
             else
             {
-                if (words.Count < 2 || words[^1].Count > 1) return false;
-                nameToken = words[^1][0];
-                typeParts = words[^2];
-                flagCount = words.Count - 2;
+                _builder.Error($"Unexpected token '{tok.Value}' in type annotation.", DiagnosticKind.Type, tok);
+                return new AstPoison(tok);
             }
-
-            for (int f = 0; f < flagCount; f++)
-                if (words[f].Count > 1) return false;
-
-            return typeParts[0].Type == TokenType.IDENTIFIER && nameToken.Type == TokenType.IDENTIFIER;
         }
 
-        private static bool DetermineKind(List<Token> tokens, int i, out DeclarationKind kind)
-        {
-            kind = DeclarationKind.Variable;
-            if (i >= tokens.Count || tokens[i].Type == TokenType.ASSIGN)
-                return true;
-
-            if (tokens[i].Type == TokenType.LPAREN)
-            {
-                int close = FindClosing(tokens, i, TokenType.LPAREN, TokenType.RPAREN);
-                if (close < 0 || close + 1 >= tokens.Count || tokens[close + 1].Type != TokenType.LCUR)
-                    return false;
-                kind = DeclarationKind.Function;
-                return true;
-            }
-            return false;
-        }
-
-        private static AstNode BuildTypeNode(AstBuilder builder, List<Token> typeParts, List<TypeSuffix> suffixes)
-        {
-            AstNode typeNode = new AstIdentifier(typeParts[0], typeParts[0].Value);
-            for (int p = 1; p + 1 < typeParts.Count; p += 2)
-                typeNode = new AstMemberAccess(typeParts[p], typeNode, new AstIdentifier(typeParts[p + 1], typeParts[p + 1].Value));
-
-            foreach (TypeSuffix suffix in suffixes)
-            {
-                if (suffix.IsPointer)
-                {
-                    Token pointerToken = new(TokenType.POINTER, "*")
-                    {
-                        Line = suffix.Token.Line, Column = suffix.Token.Column
-                    };
-                    typeNode = new AstUnaryOperator(pointerToken, typeNode, true);
-                }
-                else
-                {
-                    List<Token> sizeTokens = builder.Tokens[(suffix.OpenIndex + 1)..suffix.CloseIndex];
-                    AstNode sizeNode = sizeTokens.Count == 0 ? null : builder.ParseTokens(sizeTokens);
-                    typeNode = new AstIndexOperator(sizeNode, typeNode);
-                }
-            }
-            return typeNode;
-        }
-
-        private static int FindClosing(List<Token> tokens, int openIndex, TokenType open, TokenType close)
-        {
-            int depth = 0;
-            for (int i = openIndex; i < tokens.Count; i++)
-            {
-                if (tokens[i].Type == open) depth++;
-                else if (tokens[i].Type == close && --depth == 0) return i;
-            }
-            return -1;
-        }
+        return typeNode;
     }
+
+    private static AstIdentifier CreateVoidType(Token refToken)
+    {
+        Token voidTok = new(TokenType.IDENTIFIER, "void")
+        {
+            Line = refToken.Line,
+            Column = refToken.Column
+        };
+        return new AstIdentifier(voidTok, "void");
+    }
+
+    private static int FindClosing(List<Token> tokens, int openIndex, TokenType open, TokenType close)
+    {
+        int depth = 0;
+        for (int i = openIndex; i < tokens.Count; i++)
+        {
+            if (tokens[i].Type == open) depth++;
+            else if (tokens[i].Type == close && --depth == 0) return i;
+        }
+        return -1;
+    }
+}

@@ -32,6 +32,19 @@ public class LexerTests : BifyTestBase
     }
 
     [Test]
+    public void Lexer_TokenizesRustLikeDeclarationTokens()
+    {
+        string code = "func main()->int { val a: int = 1; mut b: int = 2; }";
+        var tokens = Bify.Lex(code);
+
+        Assert.That(tokens.Any(t => t.Type == TokenType.FUNCTION && t.Value == "func"), Is.True);
+        Assert.That(tokens.Any(t => t.Type == TokenType.ARROW && t.Value == "->"), Is.True);
+        Assert.That(tokens.Any(t => t.Type == TokenType.VAL && t.Value == "val"), Is.True);
+        Assert.That(tokens.Any(t => t.Type == TokenType.MUT && t.Value == "mut"), Is.True);
+        Assert.That(tokens.Any(t => t.Type == TokenType.IDENTIFIER && t.Value == "int"), Is.True);
+    }
+
+    [Test]
     public void Lexer_TokenizesOperatorsAndPunctuation()
     {
         string code = "== != <= >= += -= *= /= ++ -- && || { } ( ) [ ] ; , . : = + - * / < >";

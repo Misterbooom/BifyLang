@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using BifyLang.Lexer;
+
 namespace BifyLang.Ast;
 
 internal enum DeclarationKind
@@ -6,11 +9,12 @@ internal enum DeclarationKind
     Function
 }
 
-internal sealed class DeclarationHeader
-{
-    public required DeclarationKind Kind { get; init; }
-    public required AstFlag FlagNode { get; init; }
-    public required AstNode TypeNode { get; init; }
-    public required AstIdentifier NameNode { get; init; }
-    public required int EndIndex { get; init; }
-}
+internal readonly record struct DeclarationHeader(
+    DeclarationKind Kind,
+    AstFlag FlagNode,
+    AstIdentifier NameNode,
+    AstNode TypeNode,
+    int EndIndex,
+    int BodyStartIndex,
+    bool IsCtorOrDtor = false
+);

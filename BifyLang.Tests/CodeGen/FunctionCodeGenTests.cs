@@ -11,7 +11,7 @@ public class FunctionCodeGenTests : BifyTestBase
     [Test]
     public void CodeGen_VoidFunctionNoParams()
     {
-        using var m = Bify.Compile("void testFunc() {}");
+        using var m = Bify.Compile("func testFunc() {}");
         m.AssertValid();
 
         var func = m.Function("testFunc");
@@ -22,7 +22,7 @@ public class FunctionCodeGenTests : BifyTestBase
     [Test]
     public void CodeGen_VoidFunctionWithPrimitiveParams()
     {
-        using var m = Bify.Compile("void compute(int a, float b, bool c) {}");
+        using var m = Bify.Compile("func compute(a: int, b: float, c: bool) {}");
         m.AssertValid();
 
         var func = m.Function("compute");
@@ -44,7 +44,7 @@ public class FunctionCodeGenTests : BifyTestBase
     [Test]
     public void CodeGen_VoidFunctionWithPointersAndArrays()
     {
-        using var m = Bify.Compile("class CustomType {} void processData(int* ptr, float[] list, CustomType* obj) {}");
+        using var m = Bify.Compile("class CustomType {} func processData(ptr: int*, list: float[], obj: CustomType*) {}");
         m.AssertValid();
 
         var func = m.Function("processData");
@@ -58,9 +58,9 @@ public class FunctionCodeGenTests : BifyTestBase
     public void CodeGen_MultipleFunctionsInOneModule()
     {
         string code = @"
-void init() {}
-void update(float dt) {}
-void render(int* buffer, int width, int height) {}
+func init() {}
+func update(dt: float) {}
+func render(buffer: int*, width: int, height: int) {}
 ";
         using var m = Bify.Compile(code);
         m.AssertValid();
@@ -77,7 +77,7 @@ void render(int* buffer, int width, int height) {}
     [Test]
     public void CodeGen_FunctionParameterOrderPreserved()
     {
-        using var m = Bify.Compile("void checkOrder(int first, float second, bool third) {}");
+        using var m = Bify.Compile("func checkOrder(first: int, second: float, third: bool) {}");
         m.AssertValid();
 
         var func = m.Function("checkOrder");
@@ -95,12 +95,12 @@ void render(int* buffer, int width, int height) {}
     [Test]
     public void CodeGen_DuplicateParameterNameThrows()
     {
-        AssertCompileError("void badFunc(int x, float x) {}", DiagnosticKind.Name);
+        AssertCompileError("func badFunc(x: int, x: float) {}", DiagnosticKind.Name);
     }
 
     [Test]
     public void CodeGen_NonVoidWithoutReturnThrows()
     {
-        AssertCompileError("int badFunc() {}", DiagnosticKind.Type);
+        AssertCompileError("func badFunc() -> int {}", DiagnosticKind.Type);
     }
 }

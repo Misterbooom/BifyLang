@@ -2,12 +2,11 @@ using System.Collections.Generic;
 
 namespace BifyLang.Lexer
 {
-    public class TokenConfig
+    public static class TokenConfig
     {
-        public readonly static Dictionary<string, TokenType> MultiCharTokens = new()
+        public static readonly Dictionary<string, TokenType> MultiCharTokens = new()
         {
             { "if", TokenType.IF },
-
             { "else", TokenType.ELSE },
             { "while", TokenType.WHILE },
             { "for", TokenType.FOR },
@@ -39,9 +38,13 @@ namespace BifyLang.Lexer
             {"default", TokenType.DEFAULT},
             {"unsafe", TokenType.UNSAFE},
             {"import", TokenType.IMPORT},
+            {"val", TokenType.VAL},
+            {"mut", TokenType.MUT},
+            {"func", TokenType.FUNCTION},
+            {"->", TokenType.ARROW}
         };
 
-        public readonly static Dictionary<char, TokenType> SingleCharTokens = new()
+        public static readonly Dictionary<char, TokenType> SingleCharTokens = new()
         {
             { '=', TokenType.ASSIGN },
             { ';', TokenType.SEMICOLON },
@@ -65,7 +68,7 @@ namespace BifyLang.Lexer
             { '>', TokenType.GT },
             { '!', TokenType.NOT },
         };
-        public readonly static Dictionary<string, TokenType> BinaryOperators = new()
+        public static readonly Dictionary<string, TokenType> BinaryOperators = new()
         {
             { "+", TokenType.ADD },
             { "-", TokenType.SUB },
@@ -92,13 +95,13 @@ namespace BifyLang.Lexer
 
         };
 
-        public readonly static Dictionary<string, TokenType> ComparisonOperators = new()
+        public static readonly Dictionary<string, TokenType> ComparisonOperators = new()
         {
             { "==", TokenType.EQ },
             { "!=", TokenType.NEQ },
         };
 
-        public readonly static Dictionary<string, TokenType> AssignmentOperators = new()
+        public static readonly Dictionary<string, TokenType> AssignmentOperators = new()
         {
             { "=", TokenType.ASSIGN },
             { "+=", TokenType.ADDE },
@@ -109,7 +112,7 @@ namespace BifyLang.Lexer
             { "**=", TokenType.POWE },
 
         };
-        public readonly static Dictionary<string, TokenType> MultiTokenStatements = new()
+        public static readonly Dictionary<string, TokenType> MultiTokenStatements = new()
         {
             { "if", TokenType.IF },
             { "else", TokenType.ELSE },

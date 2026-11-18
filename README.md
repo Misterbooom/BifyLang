@@ -71,8 +71,8 @@ A simple program that prints a message:
 `hello.bify`:
 
 ```c
-int main() {
-    printf("Hello %s\n", "Bify");
+func main() -> int {
+    printf("Hello, World!");
     return 0;
 }
 ```
@@ -83,20 +83,20 @@ BifyLang supports inheritance and virtual method overriding. The following examp
 
 ```c
 class Animal {
-    public virtual int speak() {
+    public virtual func speak() -> int {
         return 1;
     }
 }
 
 class Dog : Animal {
-    public override int speak() {
+    public override func speak() -> int {
         return 2;
     }
 }
 
-int main() {
-    Animal a = new Dog();
-    weak Animal w = a;
+func main() -> int {
+    val a: Animal = new Dog();
+    weak val w: Animal = a;
 
     printf("%d\n", w.speak());
     return 0;

@@ -1,19 +1,5 @@
-class Animal {
-    public virtual int speak() {
-        return 1;
-    }
-}
 
-class Dog : Animal {
-    public override int speak() {
-        return 2;
-    }
-}
-
-int main() {
-    Animal a = new Dog();
-    weak Animal w = a;
-
-    printf("%d\n", w.speak());
-    return 0;
+public func main()->int {
+    val a = 33;
+    return a;
 }

@@ -26,7 +26,8 @@ public static class FlagChecker
         "private",
         "protected",
         "weak",
-        "const"
+        "mut",
+        "val"
     ];
 
     private static readonly HashSet<string> AllowedClassFlags =
@@ -37,13 +38,15 @@ public static class FlagChecker
 
     private static readonly HashSet<string> AllowedVariableFlags =
     [
-        "const",
+        "mut",
+        "val",
         "weak"
     ];
 
     private static readonly HashSet<string> AllowedParameterFlags =
     [
-        "const"
+        "mut",
+        "val"
     ];
 
     public static bool CheckFunctionFlags(

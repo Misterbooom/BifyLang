@@ -30,7 +30,13 @@ public static class ParameterResolver
             if (parameters.Any(p => p.Name == name))
                 ctx.Fail($"Duplicated parameter: '{name}'", DiagnosticKind.Name, astParam);
 
-            bool isConst = astParam.Flag is AstFlag flag && flag.HasFlag("const");
+            if (astParam.Flag is AstFlag flag &&
+                !Validators.FlagChecker.CheckParameterFlags(flag.Flags.Select(f => f.Token.Value), out var flagError))
+            {
+                ctx.Fail(flagError ?? "Invalid parameter flags.", DiagnosticKind.Syntax, astParam);
+            }
+
+            bool isConst = astParam.Flag is AstFlag paramFlag && paramFlag.HasFlag("val");
             BifyType type = TypeResolver.Resolve(astParam.Type, ctx);
             parameters.Add(new ParameterInfo(name, type, isConst));
             return;

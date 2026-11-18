@@ -7,35 +7,35 @@ namespace BifyLang.Tests.CodeGen;
 [TestFixture]
 public class UnaryCodeGenTests : BifyTestBase
 {
-    [TestCase("int x = 42; int y = -x;", TestName = "Unary_NegateInt")]
-    [TestCase("float f = 3.14; float g = -f;", TestName = "Unary_NegateFloat")]
-    [TestCase("bool a = true; bool b = !a; bool c = !false;", TestName = "Unary_LogicalNot")]
-    [TestCase("int x = 10; int y = ++x;", TestName = "Unary_PrefixIncrement")]
-    [TestCase("int x = 10; int y = x++;", TestName = "Unary_PostfixIncrement")]
-    [TestCase("int x = 10; int y = --x;", TestName = "Unary_PrefixDecrement")]
-    [TestCase("int x = 10; int y = x--;", TestName = "Unary_PostfixDecrement")]
-    [TestCase("int x = 0; x++; ++x; x--; --x;", TestName = "Unary_IncrementAsStatement")]
-    [TestCase("float f = 1.5; f++; --f;", TestName = "Unary_FloatIncrement")]
+    [TestCase("val x: int = 42; val y: int = -x;", TestName = "Unary_NegateInt")]
+    [TestCase("val f: float = 3.14; val g: float = -f;", TestName = "Unary_NegateFloat")]
+    [TestCase("val a: bool = true; val b: bool = !a; val c: bool = !false;", TestName = "Unary_LogicalNot")]
+    [TestCase("mut x: int = 10; val y: int = ++x;", TestName = "Unary_PrefixIncrement")]
+    [TestCase("mut x: int = 10; val y: int = x++;", TestName = "Unary_PostfixIncrement")]
+    [TestCase("mut x: int = 10; val y: int = --x;", TestName = "Unary_PrefixDecrement")]
+    [TestCase("mut x: int = 10; val y: int = x--;", TestName = "Unary_PostfixDecrement")]
+    [TestCase("mut x: int = 0; x++; ++x; x--; --x;", TestName = "Unary_IncrementAsStatement")]
+    [TestCase("mut f: float = 1.5; f++; --f;", TestName = "Unary_FloatIncrement")]
     public void Unary_ValidOperations(string body)
     {
-        AssertValidFunction($"void test() {{ {body} }}");
+        AssertValidFunction($"func test() {{ {body} }}");
     }
 
     [Test]
     public void Unary_MutateConstThrows()
     {
-        AssertCompileError("void test() { const int c = 5; c++; }", DiagnosticKind.Type);
+        AssertCompileError("func test() { val c: int = 5; c++; }", DiagnosticKind.Type);
     }
 
     [Test]
     public void Unary_MutateUndefinedThrows()
     {
-        AssertCompileError("void test() { missingVar++; }", DiagnosticKind.Name);
+        AssertCompileError("func test() { missingVar++; }", DiagnosticKind.Name);
     }
 
     [Test]
     public void Unary_InvalidStatementThrows()
     {
-        AssertCompileError("void test() { -5; }", DiagnosticKind.Syntax);
+        AssertCompileError("func test() { -5; }", DiagnosticKind.Syntax);
     }
 }

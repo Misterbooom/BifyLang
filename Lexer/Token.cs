@@ -103,16 +103,18 @@ namespace BifyLang.Lexer
         DEFAULT,
         UNSAFE,
         IMPORT,
-        POISON
+        POISON,
+        VAL,
+        MUT,
+        ARROW
     }
-    public class Token(TokenType type, string value, List<Token> tokens = null)
+    public class Token(TokenType type, string value)
     {
         public TokenType Type = type;
         public readonly string Value = value;
         public int Line;
         public int Column;
         public bool IsPoison { get; init; }
-        public List<Token> Tokens = tokens;
 
         public override string ToString() =>
             //if (Tokens != null)

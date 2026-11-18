@@ -17,7 +17,7 @@ public class ModuleCodeGenTests : BifyTestBase
             string moduleFile = Path.Combine(tempDir, "mod.bify");
             File.WriteAllText(moduleFile, """
             class Greeter {
-                void greet() {
+                func greet() {
                     printf("Hello from module");
                 }
             }
@@ -26,8 +26,8 @@ public class ModuleCodeGenTests : BifyTestBase
             string mainFile = Path.Combine(tempDir, "main.bify");
             File.WriteAllText(mainFile, """
             import "./mod.bify";
-            void main() {
-                mod.Greeter g = new mod.Greeter();
+            func main() {
+                val g: mod.Greeter = new mod.Greeter();
                 g.greet();
             }
             """);

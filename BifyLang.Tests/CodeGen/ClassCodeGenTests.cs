@@ -13,8 +13,8 @@ public class ClassCodeGenTests : BifyTestBase
         string code = """
         class Dummy {
         }
-        void test() {
-            Dummy d = new Dummy();
+        func test() {
+            val d: Dummy = new Dummy();
         }
         """;
         AssertValidFunction(code);
@@ -25,13 +25,13 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Point {
-            public int x = 10;
-            public int y = 20;
+            public val x: int = 10;
+            public val y: int = 20;
         }
-        void test() {
-            Point p = new Point();
-            int a = p.x;
-            int b = p.y;
+        func test() {
+            val p: Point = new Point();
+            val a: int = p.x;
+            val b: int = p.y;
         }
         """;
         AssertValidFunction(code);
@@ -42,15 +42,15 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Point {
-            public int x;
-            public int y;
-            public constructor(int a, int b) {
+            public mut x: int;
+            public mut y: int;
+            public constructor(a: int, b: int) {
                 this.x = a;
                 this.y = b;
             }
         }
-        void test() {
-            Point p = new Point(5, 15);
+        func test() {
+            val p: Point = new Point(5, 15);
         }
         """;
         AssertValidFunction(code);
@@ -61,13 +61,13 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Calculator {
-            public int add(int a, int b) {
+            public func add(a: int, b: int) -> int {
                 return a + b;
             }
         }
-        void test() {
-            Calculator c = new Calculator();
-            int res = c.add(3, 4);
+        func test() {
+            val c: Calculator = new Calculator();
+            val res: int = c.add(3, 4);
         }
         """;
         AssertValidFunction(code);
@@ -78,18 +78,18 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Counter {
-            public int count = 0;
-            public void increment() {
+            public mut count: int = 0;
+            public func increment() {
                 this.count += 1;
             }
-            public int getCount() {
+            public func getCount() -> int {
                 return this.count;
             }
         }
-        void test() {
-            Counter c = new Counter();
+        func test() {
+            val c: Counter = new Counter();
             c.increment();
-            int res = c.getCount();
+            val res: int = c.getCount();
         }
         """;
         AssertValidFunction(code);
@@ -100,15 +100,30 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Box {
-            public int val = 0;
+            public mut value: int = 0;
         }
-        void test() {
-            Box b = new Box();
-            b.val = 42;
-            b.val += 8;
+        func test() {
+            val b: Box = new Box();
+            b.value = 42;
+            b.value += 8;
         }
         """;
         AssertValidFunction(code);
+    }
+
+    [Test]
+    public void Class_AssignToValAttributeThrows()
+    {
+        string code = """
+        class Box {
+            public val value: int = 10;
+        }
+        func test() {
+            val b: Box = new Box();
+            b.value = 42;
+        }
+        """;
+        BifyAssert.CompileError(code, DiagnosticKind.Type);
     }
 
     [Test]
@@ -116,11 +131,11 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Secret {
-            private int val = 100;
+            private val value: int = 100;
         }
-        void test() {
-            Secret s = new Secret();
-            int x = s.val;
+        func test() {
+            val s: Secret = new Secret();
+            val x: int = s.value;
         }
         """;
         BifyAssert.CompileError(code, DiagnosticKind.Attribute);
@@ -131,13 +146,13 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Secret {
-            private int get() {
+            private func get() -> int {
                 return 100;
             }
         }
-        void test() {
-            Secret s = new Secret();
-            int x = s.get();
+        func test() {
+            val s: Secret = new Secret();
+            val x: int = s.get();
         }
         """;
         BifyAssert.CompileError(code, DiagnosticKind.Attribute);
@@ -148,16 +163,16 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class MathHelper {
-            public int square(int x) {
+            public func square(x: int) -> int {
                 return x * x;
             }
-            public int sumOfSquares(int a, int b) {
+            public func sumOfSquares(a: int, b: int) -> int {
                 return this.square(a) + this.square(b);
             }
         }
-        void test() {
-            MathHelper m = new MathHelper();
-            int res = m.sumOfSquares(3, 4);
+        func test() {
+            val m: MathHelper = new MathHelper();
+            val res: int = m.sumOfSquares(3, 4);
         }
         """;
         AssertValidFunction(code);
@@ -168,17 +183,17 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Storage {
-            public int value;
-            public constructor(int v) {
+            public mut value: int;
+            public constructor(v: int) {
                 value = v;
             }
-            public int getValue() {
+            public func getValue() -> int {
                 return value;
             }
         }
-        void test() {
-            Storage s = new Storage(99);
-            int res = s.getValue();
+        func test() {
+            val s: Storage = new Storage(99);
+            val res: int = s.getValue();
         }
         """;
         AssertValidFunction(code);
@@ -189,15 +204,15 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Animal {
-            public int legs = 4;
+            public val legs: int = 4;
         }
         class Dog : Animal {
-            public int barkCount = 0;
+            public val barkCount: int = 0;
         }
-        void test() {
-            Dog d = new Dog();
-            int l = d.legs;
-            int b = d.barkCount;
+        func test() {
+            val d: Dog = new Dog();
+            val l: int = d.legs;
+            val b: int = d.barkCount;
         }
         """;
         AssertValidFunction(code);
@@ -208,15 +223,15 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Animal {
-            public int getLegs() {
+            public func getLegs() -> int {
                 return 4;
             }
         }
         class Dog : Animal {
         }
-        void test() {
-            Dog d = new Dog();
-            int l = d.getLegs();
+        func test() {
+            val d: Dog = new Dog();
+            val l: int = d.getLegs();
         }
         """;
         AssertValidFunction(code);
@@ -227,18 +242,18 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Base {
-            public virtual int value() {
+            public virtual func value() -> int {
                 return 1;
             }
         }
         class Derived : Base {
-            public override int value() {
+            public override func value() -> int {
                 return 2;
             }
         }
-        void test() {
-            Derived d = new Derived();
-            int v = d.value();
+        func test() {
+            val d: Derived = new Derived();
+            val v: int = d.value();
         }
         """;
         AssertValidFunction(code);
@@ -249,18 +264,18 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Base {
-            public virtual int value() {
+            public virtual func value() -> int {
                 return 1;
             }
         }
         class Derived : Base {
-            public override int value() {
+            public override func value() -> int {
                 return 2;
             }
         }
-        void test() {
-            Base b = new Derived();
-            int v = b.value();
+        func test() {
+            val b: Base = new Derived();
+            val v: int = b.value();
         }
         """;
         AssertValidFunction(code);
@@ -271,25 +286,25 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class A {
-            public virtual int f() {
+            public virtual func f() -> int {
                 return 10;
             }
         }
         class B : A {
-            public int g() {
+            public func g() -> int {
                 return 20;
             }
         }
         class C : B {
-            public override int f() {
+            public override func f() -> int {
                 return 30;
             }
         }
-        void test() {
-            A a = new C();
-            int x = a.f();
-            B b = new C();
-            int y = b.g();
+        func test() {
+            val a: A = new C();
+            val x: int = a.f();
+            val b: B = new C();
+            val y: int = b.g();
         }
         """;
         AssertValidFunction(code);
@@ -300,19 +315,19 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Parent {
-            protected int secret = 42;
-            protected int getSecret() {
+            protected val secret: int = 42;
+            protected func getSecret() -> int {
                 return this.secret;
             }
         }
         class Child : Parent {
-            public int testSecret() {
+            public func testSecret() -> int {
                 return this.getSecret();
             }
         }
-        void test() {
-            Child c = new Child();
-            int s = c.testSecret();
+        func test() {
+            val c: Child = new Child();
+            val s: int = c.testSecret();
         }
         """;
         AssertValidFunction(code);
@@ -323,13 +338,13 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Parent {
-            protected int secret = 42;
+            protected val secret: int = 42;
         }
         class Child : Parent {
         }
-        void test() {
-            Child c = new Child();
-            int x = c.secret;
+        func test() {
+            val c: Child = new Child();
+            val x: int = c.secret;
         }
         """;
         BifyAssert.CompileError(code, DiagnosticKind.Attribute);
@@ -341,7 +356,7 @@ public class ClassCodeGenTests : BifyTestBase
         string code = """
         class Child : NonExistent {
         }
-        void test() {
+        func test() {
         }
         """;
         BifyAssert.CompileError(code, DiagnosticKind.Type);
@@ -352,19 +367,19 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Base {
-            public int f() {
+            public func f() -> int {
                 return 1;
             }
         }
         class Derived : Base {
-            public int g() {
+            public func g() -> int {
                 return 2;
             }
         }
-        void test() {
-            Derived d = new Derived();
-            int a = d.f();
-            int b = d.g();
+        func test() {
+            val d: Derived = new Derived();
+            val a: int = d.f();
+            val b: int = d.g();
         }
         """;
         AssertValidFunction(code);
@@ -375,12 +390,12 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Node {
-            public int value = 42;
+            public val value: int = 42;
         }
-        void test() {
-            Node a = new Node();
-            Node b = a;
-            Node c;
+        func test() {
+            val a: Node = new Node();
+            val b: Node = a;
+            mut c: Node;
             c = b;
         }
         """;
@@ -392,12 +407,12 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Node {
-            public int value = 1;
+            public val value: int = 1;
         }
-        void test() {
+        func test() {
             if (true) {
-                Node local = new Node();
-                int v = local.value;
+                val local: Node = new Node();
+                val v: int = local.value;
             }
         }
         """;
@@ -409,15 +424,15 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Node {
-            public int value = 10;
+            public val value: int = 10;
         }
-        Node createNode() {
-            Node n = new Node();
+        func createNode() -> Node {
+            val n: Node = new Node();
             return n;
         }
-        void test() {
-            Node res = createNode();
-            int v = res.value;
+        func test() {
+            val res: Node = createNode();
+            val v: int = res.value;
         }
         """;
         AssertValidFunction(code);
@@ -428,13 +443,13 @@ public class ClassCodeGenTests : BifyTestBase
     {
         string code = """
         class Node {
-            public int val = 5;
+            public val value: int = 5;
         }
-        void test() {
-            Node strongRef = new Node();
-            weak Node weakRef = strongRef;
-            Node recovered = weakRef;
-            int v = recovered.val;
+        func test() {
+            val strongRef: Node = new Node();
+            weak val weakRef: Node = strongRef;
+            val recovered: Node = weakRef;
+            val v: int = recovered.value;
         }
         """;
         AssertValidFunction(code);

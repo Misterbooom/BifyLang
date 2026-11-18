@@ -26,10 +26,19 @@ internal static class TokenHandlerFactory
         }
 
         if (builder.IsHandlingLine && builder.TokenIndex == 0 && builder.Nodes.Count == 0 &&
-            DeclarationParser.TryParseHeader(builder, out DeclarationHeader header))
+            new DeclarationParser(builder).TryParseDeclaration(out var declarationHeader))
         {
-            return new DeclarationHandler(builder, header);
+            if (declarationHeader.Kind == DeclarationKind.Variable)
+            {
+                return new VariableDeclarationHandler(builder, declarationHeader);
+            }
+            else
+            {
+                return new FunctionHandler(builder, declarationHeader);
+            }
+
         }
+
 
         return token.Type switch
         {
