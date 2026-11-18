@@ -13,25 +13,25 @@ public partial class ArcAndCodeGenTests : BifyTestBase
             constructor() {}
         }
         class Base {
-            public Leaf leaf;
+            public val leaf: Leaf;
             constructor() {}
-            public virtual int getX() {
+            public virtual func getX() -> int {
                 return 0;
             }
         }
         class Dummy : Base {
-            public int a = 5;
-            public Base child;
-            weak Base wchild;
+            public mut a: int = 5;
+            public val child: Base;
+            weak val wchild: Base;
             constructor() {}
-            public override int getX() {
+            public override func getX() -> int {
                 return a;
             }
-            public Base getBase() {
+            public func getBase() -> Base {
                 return new Base();
             }
-            public Base getLocal() {
-                Base b = new Base();
+            public func getLocal() -> Base {
+                val b: Base = new Base();
                 return b;
             }
         }

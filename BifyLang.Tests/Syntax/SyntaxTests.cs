@@ -25,10 +25,10 @@ public class SyntaxTests : BifyTestBase
     public void VarDecl_PrimitiveTypes()
     {
         string code = @"
-void test() {
-    int a = 5;
-    float b = 3.14;
-    string c = ""hello"";
+func test() {
+    val a: int = 5;
+    mut b: float = 3.14;
+    val c: string = ""hello"";
 }
 ";
         var module = Bify.Parse(code);
@@ -43,7 +43,9 @@ void test() {
         AssertIdentifier(v1.Type, "int");
         AssertIdentifier(v1.AssignmentNode.Left, "a");
         AssertInteger(v1.AssignmentNode.Right, 5);
+        Assert.That(v1.Flag.HasFlag("val"), Is.True);
         AssertIdentifier(v2.Type, "float");
+        Assert.That(v2.Flag.HasFlag("mut"), Is.True);
         AssertIdentifier(v3.Type, "string");
     }
 
@@ -51,10 +53,10 @@ void test() {
     public void VarDecl_UnknownTypes()
     {
         string code = @"
-void test() {
-    MyCustomType x = new MyCustomType();
-    Vector3 pos = getOrigin();
-    UnregisteredType z = x;
+func test() {
+    val x: MyCustomType = new MyCustomType();
+    val pos: Vector3 = getOrigin();
+    val z: UnregisteredType = x;
 }
 ";
         var module = Bify.Parse(code);
@@ -76,11 +78,11 @@ void test() {
     public void VarDecl_Uninitialized()
     {
         string code = @"
-void test() {
-    int a;
-    CustomType b;
-    CustomType* p;
-    int[5] arr;
+func test() {
+    mut a: int;
+    mut b: CustomType;
+    mut p: CustomType*;
+    mut arr: int[5];
 }
 ";
         var module = Bify.Parse(code);
@@ -112,10 +114,10 @@ void test() {
     public void VarDecl_PointerTypes()
     {
         string code = @"
-void test() {
-    int* p = null;
-    Foo** pp;
-    Bar*** ppp;
+func test() {
+    val p: int* = null;
+    mut pp: Foo**;
+    mut ppp: Bar***;
 }
 ";
         var module = Bify.Parse(code);
@@ -141,10 +143,10 @@ void test() {
     public void VarDecl_ArrayTypes()
     {
         string code = @"
-void test() {
-    int[] a = [1, 2, 3];
-    int[10] b;
-    CustomClass[] c;
+func test() {
+    val a: int[] = [1, 2, 3];
+    mut b: int[10];
+    mut c: CustomClass[];
 }
 ";
         var module = Bify.Parse(code);
@@ -171,9 +173,9 @@ void test() {
     public void VarDecl_PointerAndArrayCombinations()
     {
         string code = @"
-void test() {
-    Foo*[3] ptrArr;
-    int[][5] matrix;
+func test() {
+    mut ptrArr: Foo*[3];
+    mut matrix: int[][5];
 }
 ";
         var module = Bify.Parse(code);
@@ -196,10 +198,10 @@ void test() {
     public void VarDecl_Modifiers()
     {
         string code = @"
-void test() {
-    const int MAX = 100;
-    public Foo instance = null;
-    private const float PI = 3.14;
+func test() {
+    val MAX: int = 100;
+    public mut instance: Foo = null;
+    private val PI: float = 3.14;
 }
 ";
         var module = Bify.Parse(code);
@@ -210,18 +212,18 @@ void test() {
         var v2 = (AstVarDecl)fn.BlockNode.ChildNodes[1];
         var v3 = (AstVarDecl)fn.BlockNode.ChildNodes[2];
 
-        Assert.That(v1.Flag.HasFlag("const"), Is.True);
-        Assert.That(v2.Flag.HasFlag("public"), Is.True);
-        Assert.That(v3.Flag.HasFlag("private") && v3.Flag.HasFlag("const"), Is.True);
+        Assert.That(v1.Flag.HasFlag("val"), Is.True);
+        Assert.That(v2.Flag.HasFlag("public") && v2.Flag.HasFlag("mut"), Is.True);
+        Assert.That(v3.Flag.HasFlag("private") && v3.Flag.HasFlag("val"), Is.True);
     }
 
     [Test]
-    public void VarDecl_VarKeyword()
+    public void VarDecl_InferredType()
     {
         string code = @"
-void test() {
-    var x = 1;
-    var y = x * 2;
+func test() {
+    val x = 1;
+    mut y = x * 2;
 }
 ";
         var module = Bify.Parse(code);
@@ -231,8 +233,8 @@ void test() {
         var v1 = (AstVarDecl)fn.BlockNode.ChildNodes[0];
         var v2 = (AstVarDecl)fn.BlockNode.ChildNodes[1];
 
-        AssertIdentifier(v1.Type, "var");
-        AssertIdentifier(v2.Type, "var");
+        AssertIdentifier(v1.Type, "void");
+        AssertIdentifier(v2.Type, "void");
         Assert.That(v2.AssignmentNode.Right, Is.InstanceOf<AstBinaryOp>());
     }
 
@@ -240,7 +242,7 @@ void test() {
     public void FuncDecl_PrimitiveReturn()
     {
         string code = @"
-int add(int a, int b) {
+func add(a: int, b: int) -> int {
     return a + b;
 }
 ";
@@ -258,7 +260,7 @@ int add(int a, int b) {
     public void FuncDecl_UnknownReturn()
     {
         string code = @"
-CustomResult process(Request req, Options opt) {
+func process(req: Request, opt: Options) -> CustomResult {
     return res;
 }
 ";
@@ -272,7 +274,7 @@ CustomResult process(Request req, Options opt) {
     public void FuncDecl_VoidNoParams()
     {
         string code = @"
-void run() {
+func run() {
 }
 ";
         var module = Bify.Parse(code);
@@ -283,14 +285,31 @@ void run() {
     }
 
     [Test]
+    public void FuncDecl_ColonReturnAndOmittedVoidReturn()
+    {
+        string code = @"
+func f() : int { return 1; }
+func g() { }
+";
+        var module = Bify.Parse(code);
+        Assert.That(module.ChildNodes.Count, Is.EqualTo(2));
+
+        var fn1 = (AstFunctionDecl)module.ChildNodes[0];
+        var fn2 = (AstFunctionDecl)module.ChildNodes[1];
+
+        AssertIdentifier(fn1.TypeNode, "int");
+        AssertIdentifier(fn2.TypeNode, "void");
+    }
+
+    [Test]
     public void FuncDecl_PointerAndArrayReturn()
     {
         string code = @"
-Node* findNode(Tree* tree, int key) {
+func findNode(tree: Tree*, key: int) -> Node* {
     return null;
 }
 
-int[] getBuffer() {
+func getBuffer() -> int[] {
     return buf;
 }
 ";
@@ -314,10 +333,10 @@ int[] getBuffer() {
     public void FuncDecl_Modifiers()
     {
         string code = @"
-public void execute() {
+public func execute() {
 }
 
-private int calculate() {
+private func calculate() -> int {
     return 0;
 }
 ";
@@ -335,7 +354,7 @@ private int calculate() {
     public void FuncDecl_MultipleParameters()
     {
         string code = @"
-void render(int width, Texture* tex, float[] coords, const int flags) {
+func render(width: int, tex: Texture*, coords: float[], flags: int) {
 }
 ";
         var module = Bify.Parse(code);
@@ -346,11 +365,25 @@ void render(int width, Texture* tex, float[] coords, const int flags) {
     }
 
     [Test]
+    public void FuncDecl_ParameterMutabilityVariants()
+    {
+        string code = @"
+func mix(a: int, val b: int, mut c: int) {
+}
+";
+        var diagnostics = new DiagnosticBag();
+        var module = Bify.Parse(code, diagnostics);
+        Assert.That(diagnostics.HasErrors, Is.False);
+        var fn = (AstFunctionDecl)module.ChildNodes[0];
+        Assert.That(fn.ArgumentsNode, Is.InstanceOf<AstBinaryOp>());
+    }
+
+    [Test]
     public void Class_ConstructorsWithModifiers()
     {
         string code = @"
 class Player {
-    public constructor(int id) {
+    public constructor(id: int) {
         this.id = id;
     }
     private constructor() {
@@ -380,15 +413,15 @@ class Player {
     {
         string code = @"
 class Item {
-    public int id = 0;
-    CustomData data;
+    public mut id: int = 0;
+    mut data: CustomData;
 
-    public constructor(int id, CustomData d) {
+    public constructor(id: int, d: CustomData) {
         this.id = id;
         this.data = d;
     }
 
-    public CustomData* getData() {
+    public func getData() -> CustomData* {
         return data;
     }
 }
@@ -410,8 +443,8 @@ class Item {
     public void ForLoop_UnknownTypeDecl()
     {
         string code = @"
-void test() {
-    for (CustomIterator* it = start; it != end; it++) {
+func test() {
+    for (mut it: CustomIterator* = start; it != end; it++) {
         it.step();
     }
 }
@@ -434,7 +467,7 @@ void test() {
     public void WhileAndIfStatements()
     {
         string code = @"
-void test() {
+func test() {
     while (x > 0) {
         if (x == 1) {
             break;
@@ -460,7 +493,7 @@ void test() {
     public void AssignmentsAndExpressions()
     {
         string code = @"
-void test() {
+func test() {
     a = b * c;
     arr[0] = 42;
     this.field = value;
@@ -481,16 +514,16 @@ void test() {
     public void Switch_BasicCasesAndDefault()
     {
         string code = @"
-void test(int x) {
+func test(x: int) {
     switch (x) {
         case 1:
-            int a = 10;
+            val a: int = 10;
             break;
         case 2:
-            int b = 20;
+            val b: int = 20;
             break;
         default:
-            int c = 0;
+            val c: int = 0;
             break;
     }
 }
@@ -512,13 +545,13 @@ void test(int x) {
     public void Switch_BracedCases()
     {
         string code = @"
-void test(int x) {
+func test(x: int) {
     switch (x) {
         case 1: {
-            int a = 10;
+            val a: int = 10;
         }
         default: {
-            int b = 0;
+            val b: int = 0;
         }
     }
 }
@@ -535,8 +568,8 @@ void test(int x) {
     public void Negative_InvalidVariableName()
     {
         BifyAssert.AnySyntaxError(@"
-void test() {
-    int 123 = 5;
+func test() {
+    val 123: int = 5;
 }
 ");
     }
@@ -545,8 +578,47 @@ void test() {
     public void Negative_EmptyValueAssigned()
     {
         BifyAssert.AnySyntaxError(@"
-void test() {
-    int a = ;
+func test() {
+    val a: int = ;
+}
+");
+    }
+
+    [Test]
+    public void Negative_VarDecl_EmptyTypeAfterColon()
+    {
+        BifyAssert.AnySyntaxError(@"
+func test() {
+    val a: = 5;
+}
+");
+    }
+
+    [Test]
+    public void Negative_FuncDecl_EmptyReturnTypeAfterArrow()
+    {
+        BifyAssert.AnySyntaxError(@"
+func test() -> {
+}
+");
+    }
+
+    [Test]
+    public void Negative_FuncDecl_MissingParens()
+    {
+        BifyAssert.AnySyntaxError(@"
+func test -> int {
+}
+");
+    }
+
+    [Test]
+    public void Negative_Constructor_MissingParens()
+    {
+        BifyAssert.AnySyntaxError(@"
+class A {
+    constructor {
+    }
 }
 ");
     }
@@ -555,7 +627,7 @@ void test() {
     public void Negative_InvalidStatementBinaryOp()
     {
         BifyAssert.AnySyntaxError(@"
-void test() {
+func test() {
     a + b;
 }
 ");
@@ -566,9 +638,9 @@ void test() {
     {
         BifyAssert.AnySyntaxError(@"
 class Bad {
-    void method() {
+    func method() {
     }
-    int field = 1;
+    val field: int = 1;
 }
 ");
     }
@@ -577,7 +649,7 @@ class Bad {
     public void Negative_Switch_MissingExpression()
     {
         BifyAssert.AnySyntaxError(@"
-void test() {
+func test() {
     switch () {
         case 1:
             break;
@@ -590,7 +662,7 @@ void test() {
     public void Negative_Switch_DuplicateDefault()
     {
         BifyAssert.AnySyntaxError(@"
-void test(int x) {
+func test(x: int) {
     switch (x) {
         default:
             break;
@@ -605,7 +677,7 @@ void test(int x) {
     public void Negative_Switch_MissingColon()
     {
         BifyAssert.AnySyntaxError(@"
-void test(int x) {
+func test(x: int) {
     switch (x) {
         case 1
             break;
@@ -618,9 +690,9 @@ void test(int x) {
     public void Syntax_PropagatesExactColumnNumbersToAstNodes()
     {
         string code = """
-        void test() {
-            int alpha = 10;
-                int beta = alpha;
+        func test() {
+            val alpha: int = 10;
+                mut beta: int = alpha;
         }
         """;
         var diagnostics = new DiagnosticBag();
@@ -632,30 +704,30 @@ void test(int x) {
         var v2 = (AstVarDecl)fn.BlockNode.ChildNodes[1];
 
         Assert.That(v1.Type.LineNumber, Is.EqualTo(2));
-        Assert.That(v1.Type.ColumnNumber, Is.EqualTo(5));
+        Assert.That(v1.Type.ColumnNumber, Is.EqualTo(16));
         Assert.That(v1.AssignmentNode.Left.LineNumber, Is.EqualTo(2));
         Assert.That(v1.AssignmentNode.Left.ColumnNumber, Is.EqualTo(9));
         Assert.That(v1.AssignmentNode.Right.LineNumber, Is.EqualTo(2));
-        Assert.That(v1.AssignmentNode.Right.ColumnNumber, Is.EqualTo(17));
+        Assert.That(v1.AssignmentNode.Right.ColumnNumber, Is.EqualTo(22));
 
         Assert.That(v2.Type.LineNumber, Is.EqualTo(3));
-        Assert.That(v2.Type.ColumnNumber, Is.EqualTo(9));
+        Assert.That(v2.Type.ColumnNumber, Is.EqualTo(19));
         Assert.That(v2.AssignmentNode.Left.LineNumber, Is.EqualTo(3));
         Assert.That(v2.AssignmentNode.Left.ColumnNumber, Is.EqualTo(13));
         Assert.That(v2.AssignmentNode.Right.LineNumber, Is.EqualTo(3));
-        Assert.That(v2.AssignmentNode.Right.ColumnNumber, Is.EqualTo(20));
+        Assert.That(v2.AssignmentNode.Right.ColumnNumber, Is.EqualTo(25));
     }
 
     [Test]
     public void Syntax_RecoversWithAstPoisonAndParsesFunctionBodyErrors()
     {
         string code = """
-        void broken(int) {
-            int y = ;
-            int z = 5;
+        func broken(int) {
+            val y: int = ;
+            val z: int = 5;
         }
-        void valid() {
-            int ok = ;
+        func valid() {
+            val ok: int = ;
         }
         """;
         var diagnostics = new DiagnosticBag();

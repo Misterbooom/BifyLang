@@ -10,48 +10,48 @@ public class CallCodeGenTests : BifyTestBase
     [Test]
     public void Call_VoidNoArgs()
     {
-        AssertValidFunction("void foo() {} void test() { foo(); }");
+        AssertValidFunction("func foo() {} func test() { foo(); }");
     }
 
     [Test]
     public void Call_WithArgs()
     {
-        AssertValidFunction("int add(int a, int b) { return a + b; } void test() { int res = add(10, 20); }");
+        AssertValidFunction("func add(a: int, b: int) -> int { return a + b; } func test() { val res: int = add(10, 20); }");
     }
 
     [Test]
     public void Call_ImplicitArgCast()
     {
-        AssertValidFunction("float scale(float x) { return x; } void test() { float res = scale(42); }");
+        AssertValidFunction("func scale(x: float) -> float { return x; } func test() { val res: float = scale(42); }");
     }
 
     [Test]
     public void Call_MultipleParametersOrder()
     {
-        AssertValidFunction("int sub(int a, int b) { return a - b; } void test() { int res = sub(10, 3); }");
+        AssertValidFunction("func sub(a: int, b: int) -> int { return a - b; } func test() { val res: int = sub(10, 3); }");
     }
 
     [Test]
     public void Call_NestedCalls()
     {
-        AssertValidFunction("int inc(int x) { return x + 1; } void test() { int res = inc(inc(5)); }");
+        AssertValidFunction("func inc(x: int) -> int { return x + 1; } func test() { val res: int = inc(inc(5)); }");
     }
 
     [Test]
     public void Call_AsStatement()
     {
-        AssertValidFunction("void log(int val) {} void test() { log(42); }");
+        AssertValidFunction("func log(v: int) {} func test() { log(42); }");
     }
 
     [Test]
     public void Call_ArgCountMismatchThrows()
     {
-        AssertCompileError("void foo(int a, int b) {} void test() { foo(1); }", DiagnosticKind.Type);
+        AssertCompileError("func foo(a: int, b: int) {} func test() { foo(1); }", DiagnosticKind.Type);
     }
 
     [Test]
     public void Call_UndefinedFunctionThrows()
     {
-        AssertCompileError("void test() { undefinedFunc(); }", DiagnosticKind.Name);
+        AssertCompileError("func test() { undefinedFunc(); }", DiagnosticKind.Name);
     }
 }

@@ -7,8 +7,8 @@ public partial class ArcAndCodeGenTests
     public void LocalObject_EmitsSingleAllocAndRelease()
     {
         string code = CommonClasses + """
-        void main() {
-            Plain p = new Plain();
+        func main() {
+            val p: Plain = new Plain();
         }
         """;
         var ir = CompileToIr(code);
@@ -26,8 +26,8 @@ public partial class ArcAndCodeGenTests
     public void UnconsumedTemporary_ReleasedImmediately(string discardStmt)
     {
         string code = CommonClasses + $$"""
-        void main() {
-            Dummy d = new Dummy();
+        func main() {
+            val d: Dummy = new Dummy();
             {{discardStmt}}
             printf("marker");
         }
@@ -42,9 +42,9 @@ public partial class ArcAndCodeGenTests
     public void Reassignment_RetainsNewBeforeReleasingOld()
     {
         string code = CommonClasses + """
-        void main() {
-            Dummy d = new Dummy();
-            Dummy d2 = new Dummy();
+        func main() {
+            mut d: Dummy = new Dummy();
+            val d2: Dummy = new Dummy();
             d = d2;
         }
         """;
@@ -64,9 +64,9 @@ public partial class ArcAndCodeGenTests
     public void WeakReference_LifecycleAndLifoCleanup()
     {
         string code = CommonClasses + """
-        void main() {
-            Dummy d = new Dummy();
-            weak Dummy w = d;
+        func main() {
+            val d: Dummy = new Dummy();
+            weak val w: Dummy = d;
         }
         """;
         var ir = CompileToIr(code);
@@ -88,9 +88,9 @@ public partial class ArcAndCodeGenTests
     public void WeakMemberAccess_UpgradesAndReleasesTemp()
     {
         string code = CommonClasses + """
-        void main() {
-            Dummy d = new Dummy();
-            weak Dummy w = d;
+        func main() {
+            val d: Dummy = new Dummy();
+            weak val w: Dummy = d;
             w.a = 4;
             w.getBase();
         }
@@ -113,7 +113,7 @@ public partial class ArcAndCodeGenTests
     [Test]
     public void ReturnNewObject_NoRedundantRetainRelease()
     {
-        string code = CommonClasses + "void main() {}";
+        string code = CommonClasses + "func main() {}";
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.Dummy_getBase");
 
@@ -126,7 +126,7 @@ public partial class ArcAndCodeGenTests
     [Test]
     public void ReturnLocalVariable_RetainsBeforeScopeCleanup()
     {
-        string code = CommonClasses + "void main() {}";
+        string code = CommonClasses + "func main() {}";
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.Dummy_getLocal");
 
@@ -144,10 +144,10 @@ public partial class ArcAndCodeGenTests
     public void LoopBreakAndContinue_UnwindsInnerScope()
     {
         string code = CommonClasses + """
-        void main() {
-            int i = 0;
+        func main() {
+            mut i: int = 0;
             while (i < 10) {
-                Base b = new Base();
+                val b: Base = new Base();
                 if (i == 5) {
                     break;
                 }
@@ -175,11 +175,11 @@ public partial class ArcAndCodeGenTests
     {
         string code = CommonClasses + """
         class Holder {
-            public Base b = new Base();
+            public val b: Base = new Base();
             constructor() {}
         }
-        void main() {
-            Holder h = new Holder();
+        func main() {
+            val h: Holder = new Holder();
         }
         """;
         var ir = CompileToIr(code);

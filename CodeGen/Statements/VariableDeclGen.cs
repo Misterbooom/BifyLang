@@ -40,7 +40,7 @@ public class VariableDeclGen(CodeGenContext ctx) : CodeGenBase(ctx)
                 var alloca = _ctx.BuildEntryAlloca(varType.Type, varName);
 
                 bool isWeak = varDecl.Flag?.HasFlag("weak") == true;
-                bool isConst = varDecl.Flag?.HasFlag("const") == true;
+                bool isConst = varDecl.Flag?.Token.Value == "val";
 
                 StoreInitialValue(alloca, varType, initialValue, isWeak);
                 _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
@@ -57,7 +57,7 @@ public class VariableDeclGen(CodeGenContext ctx) : CodeGenBase(ctx)
     private (BifyType VarType, TypedValue? InitialValue) ResolveVariableType(AstVarDecl varDecl)
     {
         var expressionDispatcher = new ExpressionDispatcher(_ctx);
-        if (varDecl.Type is AstIdentifier id && id.Name == "var")
+        if (varDecl.Type is AstIdentifier id && id.Name == "void")
         {
             if (varDecl.AssignmentNode.Right == null)
                 Fail("Implicitly-typed variables ('var') must be initialized.", DiagnosticKind.Type, varDecl);

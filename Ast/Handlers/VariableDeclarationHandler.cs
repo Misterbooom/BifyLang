@@ -5,27 +5,13 @@ using BifyLang.Lexer;
 
 namespace BifyLang.Ast.Handlers
 {
-    internal class VariableDeclarationHandler(AstBuilder builder) : TokenHandler(builder)
+    internal class VariableDeclarationHandler(AstBuilder builder, DeclarationHeader header) : TokenHandler(builder)
     {
+        private readonly  DeclarationHeader _header = header;
         public override void HandleToken(Token token)
         {
-            if (!DeclarationParser.TryParseHeader(Builder, out DeclarationHeader header) ||
-                header.Kind != DeclarationKind.Variable)
-            {
-                Builder.Fail(
-                    "Invalid variable declaration syntax. Expected `Type name` or `Type name = value`.",
-                    DiagnosticKind.Syntax,
-                    token
-                );
-                return;
-            }
-            ParseDeclaration(header);
-        }
-
-        public void ParseDeclaration(DeclarationHeader header)
-        {
-            Builder.TokenIndex = header.EndIndex;
-            Token nameToken = header.NameNode.Token;
+            Builder.TokenIndex = _header.EndIndex;
+            Token nameToken = _header.NameNode.Token;
 
             Token assignToken = new(TokenType.ASSIGN, "=") { Line = nameToken.Line, Column = nameToken.Column };
             AstNode valueNode = null;
@@ -66,11 +52,11 @@ namespace BifyLang.Ast.Handlers
                 {
                     VariableDeclarationValidator.Validate(
                         Builder,
-                        header.NameNode,
-                        header.TypeNode,
+                        _header.NameNode,
+                        _header.TypeNode,
                         valueNode,
                         valueTokens,
-                        header.FlagNode,
+                        _header.FlagNode,
                         assignToken
                     );
                 }
@@ -81,9 +67,9 @@ namespace BifyLang.Ast.Handlers
                 }
             }
 
-            AstAssignment astAssignment = new(assignToken, header.NameNode, valueNode);
+            AstAssignment astAssignment = new(assignToken, _header.NameNode, valueNode);
             Builder.Nodes.Clear();
-            Builder.CurrentNode = new AstVarDecl(assignToken, astAssignment, header.TypeNode, header.FlagNode)
+            Builder.CurrentNode = new AstVarDecl(assignToken, astAssignment, _header.TypeNode, _header.FlagNode)
             {
                 IsPoison = isPoison
             };

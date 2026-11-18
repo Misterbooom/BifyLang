@@ -13,13 +13,13 @@ public class ClassLayoutTests : BifyTestBase
     {
         string code = """
         class Base {
-            public int x;
-            public float y;
+            public val x: int;
+            public val y: float;
         }
         class Derived : Base {
-            public bool z;
+            public val z: bool;
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -48,14 +48,14 @@ public class ClassLayoutTests : BifyTestBase
     {
         string code = """
         class Animal {
-            public virtual int speak() { return 1; }
-            public int walk() { return 0; }
+            public virtual func speak() -> int { return 1; }
+            public func walk() -> int { return 0; }
         }
         class Dog : Animal {
-            public override int speak() { return 2; }
-            public virtual void bark() {}
+            public override func speak() -> int { return 2; }
+            public virtual func bark() {}
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -89,12 +89,12 @@ public class ClassLayoutTests : BifyTestBase
     {
         string code = """
         class NodeA {
-            public NodeB next;
+            public val next: NodeB;
         }
         class NodeB {
-            public NodeA prev;
+            public val prev: NodeA;
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -109,25 +109,25 @@ public class ClassLayoutTests : BifyTestBase
 
     [Test]
     public void ClassLayout_OverrideWithoutBaseMethod_Throws() =>
-        AssertCompileError("class Foo { public override void bar() {} } void main() {}", DiagnosticKind.Type);
+        AssertCompileError("class Foo { public override func bar() {} } func main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_VirtualMethodAlreadyExists_Throws() =>
-        AssertCompileError("class A { public virtual void bar() {} } class B : A { public virtual void bar() {} } void main() {}", DiagnosticKind.Type);
+        AssertCompileError("class A { public virtual func bar() {} } class B : A { public virtual func bar() {} } func main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_HidingVirtualWithoutOverride_Throws() =>
-        AssertCompileError("class A { public virtual void bar() {} } class B : A { public void bar() {} } void main() {}", DiagnosticKind.Type);
+        AssertCompileError("class A { public virtual func bar() {} } class B : A { public func bar() {} } func main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_OverrideSignatureMismatch_Throws() =>
-        AssertCompileError("class A { public virtual int bar(int x) { return x; } } class B : A { public override float bar(int x) { return 0.0; } } void main() {}", DiagnosticKind.Type);
+        AssertCompileError("class A { public virtual func bar(x: int) -> int { return x; } } class B : A { public override func bar(x: int) -> float { return 0.0; } } func main() {}", DiagnosticKind.Type);
 
     [Test]
     public void ClassLayout_DuplicateField_Throws() =>
-        AssertCompileError("class A { public int x; } class B : A { public int x; } void main() {}", DiagnosticKind.Name);
+        AssertCompileError("class A { public val x: int; } class B : A { public val x: int; } func main() {}", DiagnosticKind.Name);
 
     [Test]
     public void ClassLayout_ConstructorCannotBeVirtual_Throws() =>
-        AssertCompileError("class A { public virtual constructor() {} } void main() {}", DiagnosticKind.Type);
+        AssertCompileError("class A { public virtual constructor() {} } func main() {}", DiagnosticKind.Type);
 }

@@ -11,7 +11,7 @@ public class ExecutionTests : BifyTestBase
     public void E2E_HelloWorldPrintf()
     {
         AssertExecution("""
-        int main() {
+        func main() -> int {
             printf("Hello %s\n", "Bify");
             return 0;
         }
@@ -22,10 +22,10 @@ public class ExecutionTests : BifyTestBase
     public void E2E_ArithmeticAndVariables()
     {
         AssertExecution("""
-        int main() {
-            int a = 10;
-            int b = 25;
-            int sum = a + b;
+        func main() -> int {
+            val a: int = 10;
+            val b: int = 25;
+            val sum: int = a + b;
             printf("%d\n", sum);
             return 0;
         }
@@ -36,9 +36,9 @@ public class ExecutionTests : BifyTestBase
     public void E2E_ForLoopSum()
     {
         AssertExecution("""
-        int main() {
-            int sum = 0;
-            for (int i = 0; i < 100; i++) {
+        func main() -> int {
+            mut sum: int = 0;
+            for (mut i: int = 0; i < 100; i++) {
                 sum += i;
             }
             printf("%d\n", sum);
@@ -51,21 +51,21 @@ public class ExecutionTests : BifyTestBase
     public void E2E_PascalCoefficients()
     {
         AssertExecution("""
-        int pascal(int row, int col) {
-            int result = 1;
-            int i = 1;
+        func pascal(row: int, col: int) -> int {
+            mut result: int = 1;
+            mut i: int = 1;
             while (i <= col) {
-                int num = (row - i) + 1;
+                val num: int = (row - i) + 1;
                 result = (result * num) / i;
                 i++;
             }
             return result;
         }
 
-        int main() {
-            int p0 = pascal(4, 0);
-            int p2 = pascal(4, 2);
-            int p4 = pascal(4, 4);
+        func main() -> int {
+            val p0: int = pascal(4, 0);
+            val p2: int = pascal(4, 2);
+            val p4: int = pascal(4, 4);
             printf("%d %d %d\n", p0, p2, p4);
             return 0;
         }
@@ -76,7 +76,7 @@ public class ExecutionTests : BifyTestBase
     public void E2E_SwitchBranching()
     {
         AssertExecution("""
-        int evaluate(int x) {
+        func evaluate(x: int) -> int {
             switch (x) {
                 case 1: { return 100; }
                 case 2: { return 200; }
@@ -84,10 +84,10 @@ public class ExecutionTests : BifyTestBase
             }
         }
 
-        int main() {
-            int r1 = evaluate(1);
-            int r2 = evaluate(2);
-            int r3 = evaluate(5);
+        func main() -> int {
+            val r1: int = evaluate(1);
+            val r2: int = evaluate(2);
+            val r3: int = evaluate(5);
             printf("%d %d %d\n", r1, r2, r3);
             return 0;
         }
@@ -99,18 +99,18 @@ public class ExecutionTests : BifyTestBase
     {
         AssertExecution("""
         class Calculator {
-            public int multiplier;
-            public constructor(int m) {
+            public mut multiplier: int;
+            public constructor(m: int) {
                 this.multiplier = m;
             }
-            public int multiply(int x) {
+            public func multiply(x: int) -> int {
                 return x * this.multiplier;
             }
         }
 
-        int main() {
-            Calculator calc = new Calculator(7);
-            int res = calc.multiply(6);
+        func main() -> int {
+            val calc: Calculator = new Calculator(7);
+            val res: int = calc.multiply(6);
             printf("%d\n", res);
             return 0;
         }
@@ -122,20 +122,20 @@ public class ExecutionTests : BifyTestBase
     {
         AssertExecution("""
         class Animal {
-            public virtual int speak() {
+            public virtual func speak() -> int {
                 return 1;
             }
         }
 
         class Dog : Animal {
-            public override int speak() {
+            public override func speak() -> int {
                 return 2;
             }
         }
 
-        int main() {
-            Animal a = new Dog();
-            int sound = a.speak();
+        func main() -> int {
+            val a: Animal = new Dog();
+            val sound: int = a.speak();
             printf("%d\n", sound);
             return 0;
         }
@@ -147,19 +147,19 @@ public class ExecutionTests : BifyTestBase
     {
         AssertExecution("""
         class Node {
-            public int value;
-            public constructor(int v) {
+            public mut value: int;
+            public constructor(v: int) {
                 this.value = v;
             }
-            public int getValue() {
+            public func getValue() -> int {
                 return this.value;
             }
         }
 
-        int main() {
-            Node strong = new Node(99);
-            weak Node w = strong;
-            Node recovered = w;
+        func main() -> int {
+            val strong: Node = new Node(99);
+            weak val w: Node = strong;
+            val recovered: Node = w;
             printf("%d %d\n", recovered.value, w.getValue());
             return 0;
         }

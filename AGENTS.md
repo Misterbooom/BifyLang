@@ -66,11 +66,11 @@ Target **LLVM 20+ / 23+ with Opaque Pointers (`ptr`)**. Typed pointers (`i8*`, `
     - **CodeGen (`Symbol.IsPoison`, `ClassField.IsPoison`, `ClassMethod.IsPoison`):** Guard `VariableDeclGen`, `ModuleLayoutBuilder`, `FunctionGen`, `ClassMemberCollector`, `Scope.ReleaseLocals` (`DefinePoison` skips ARC cleanup), and dispatchers against `AstPoison` / `.IsPoison`; call `AbortPoison` when referencing poisoned symbols or members to suppress cascading errors (`Variable '...' is not defined`). Isolate failures at `StatementDispatcher.EmitStatementSafely`, `DeclarationDispatcher.EmitModule`, and `ClassGen.EmitClass`.
 
 ## 6. COMMIT MESSAGE CONVENTIONS
-- Use a concise bulleted list where each line begins with `-` followed immediately by a capitalized past-tense verb (e.g., `-Added ...`, `-Refactored ...`, `-Fixed ...`, `-Moved ...`, `-Updated ...`).
-- Keep commits brief (2–4 bullet lines summarizing the main capability or subsystem changes).
+- Use Conventional Commits format: `<type>(<scope>): <description>` (or `<type>: <description>` when no single scope applies).
+- Common types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`. Common scopes: `lexer`, `ast`, `codegen`, `runtime`, `tests`, `docs`.
+- Write the description in lowercase imperative mood, without a trailing period. For multi-part commits, list one `<type>(<scope>): <description>` per line.
 - Example:
   ```
-  -Added CodeGenBase and refactored CodeGen classes to inherit from it
-  -Standardized CodeGen namespaces, file names, and method naming
-  -Cleaned up BifyLang.csproj, .gitignore, .editorconfig, and compiler warnings
+  feat(ast): add Rust-like declarations (mut, val, func)
+  fix(codegen): correct type inheritance from variable values and mutable variable recognition
   ```

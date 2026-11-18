@@ -13,8 +13,8 @@ public class NewAndClassBuilderTests : BifyTestBase
     {
         string code = """
         class Dummy {}
-        void test() {
-            Dummy d = new Dummy();
+        func test() {
+            val d: Dummy = new Dummy();
         }
         """;
 
@@ -30,12 +30,12 @@ public class NewAndClassBuilderTests : BifyTestBase
     {
         string code = """
         class Config {
-            public int port = 8080;
-            public float ratio = 1.5;
-            public bool active = true;
+            public val port: int = 8080;
+            public val ratio: float = 1.5;
+            public val active: bool = true;
         }
-        void test() {
-            Config c = new Config();
+        func test() {
+            val c: Config = new Config();
         }
         """;
 
@@ -48,11 +48,11 @@ public class NewAndClassBuilderTests : BifyTestBase
     {
         string code = """
         class Node {
-            public int value;
-            public Node next;
+            public val value: int;
+            public val next: Node;
         }
-        void test() {
-            Node n = new Node();
+        func test() {
+            val n: Node = new Node();
         }
         """;
 
@@ -65,12 +65,12 @@ public class NewAndClassBuilderTests : BifyTestBase
     {
         string code = """
         class Service {
-            public int port;
-            public constructor(int p) {
+            public val port: int;
+            public constructor(p: int) {
             }
         }
-        void test() {
-            Service s = new Service(9000);
+        func test() {
+            val s: Service = new Service(9000);
         }
         """;
 
@@ -83,13 +83,13 @@ public class NewAndClassBuilderTests : BifyTestBase
     {
         string code = """
         class Base {
-            public int a = 1;
+            public val a: int = 1;
         }
         class Derived : Base {
-            public int b = 2;
+            public val b: int = 2;
         }
-        void test() {
-            Derived d = new Derived();
+        func test() {
+            val d: Derived = new Derived();
         }
         """;
 
@@ -99,16 +99,16 @@ public class NewAndClassBuilderTests : BifyTestBase
 
     [Test]
     public void New_NonClassType_Throws() =>
-        AssertCompileError("void test() { int x = new int(); }", DiagnosticKind.Type);
+        AssertCompileError("func test() { val x: int = new int(); }", DiagnosticKind.Type);
 
     [Test]
     public void New_ConstructorArgumentMismatch_Throws() =>
         AssertCompileError("""
         class Point {
-            public constructor(int a, int b) {}
+            public constructor(a: int, b: int) {}
         }
-        void test() {
-            Point p = new Point(10);
+        func test() {
+            val p: Point = new Point(10);
         }
         """, DiagnosticKind.Type);
 
@@ -116,8 +116,8 @@ public class NewAndClassBuilderTests : BifyTestBase
     public void New_ArgumentsPassedToClassWithoutConstructor_Throws() =>
         AssertCompileError("""
         class Empty {}
-        void test() {
-            Empty e = new Empty(1, 2);
+        func test() {
+            val e: Empty = new Empty(1, 2);
         }
         """, DiagnosticKind.Type);
 }

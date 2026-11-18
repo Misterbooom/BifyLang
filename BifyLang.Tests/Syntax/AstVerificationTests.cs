@@ -13,27 +13,27 @@ public class AstVerificationTests : BifyTestBase
     {
         string testCode = @"
 class Entity {
-    public int id = 1;
-    UnknownType data;
-    public constructor(int id, UnknownType* ptr) {
+    public mut id: int = 1;
+    mut data: UnknownType;
+    public constructor(id: int, ptr: UnknownType*) {
         this.id = id;
     }
-    public UnknownType* getData() {
+    public func getData() -> UnknownType* {
         return data;
     }
 }
 
-int calculate(int x, CustomClass* ptr, int[] list) {
-    int localVal = 42;
-    CustomClass obj;
-    CustomClass* p = ptr;
-    int** dblPtr;
-    int[10] buffer;
-    CustomClass*[5] classPtrs;
-    const int limit = 100;
-    var product = x * localVal;
+func calculate(x: int, ptr: CustomClass*, list: int[]) -> int {
+    mut localVal: int = 42;
+    val obj: CustomClass;
+    val p: CustomClass* = ptr;
+    val dblPtr: int**;
+    mut buffer: int[10];
+    val classPtrs: CustomClass*[5];
+    val limit: int = 100;
+    val product = x * localVal;
 
-    for (CustomClass* it = p; it != null; it++) {
+    for (mut it: CustomClass* = p; it != null; it++) {
         localVal = localVal + 1;
     }
 
@@ -42,8 +42,8 @@ int calculate(int x, CustomClass* ptr, int[] list) {
     return localVal;
 }
 
-void main() {
-    Entity ent = new Entity(1, null);
+func main() {
+    val ent: Entity = new Entity(1, null);
 }
 ";
 
@@ -120,20 +120,20 @@ import ""./another/file.bify"";
     [Test]
     public void AstModuleSourceCodeRememberedTest()
     {
-        string testCode = "int a = 10;\nint b = 20;";
+        string testCode = "val a: int = 10;\nval b: int = 20;";
         var module = Bify.Parse(testCode);
 
         Assert.That(module.SourceCode, Is.Not.Null);
         Assert.That(module.SourceCode.Length, Is.EqualTo(2));
-        Assert.That(module.SourceCode[0], Is.EqualTo("int a = 10;"));
-        Assert.That(module.SourceCode[1], Is.EqualTo("int b = 20;"));
+        Assert.That(module.SourceCode[0], Is.EqualTo("val a: int = 10;"));
+        Assert.That(module.SourceCode[1], Is.EqualTo("val b: int = 20;"));
         Assert.That(module.SourceLines, Is.EqualTo(module.SourceCode));
     }
 
     [Test]
     public void DottedTypeDeclarationAndNewTest()
     {
-        string testCode = "testModule.Printer pr = new testModule.Printer();";
+        string testCode = "val pr: testModule.Printer = new testModule.Printer();";
         var module = Bify.Parse(testCode);
 
         Assert.That(module.ChildNodes.Count, Is.EqualTo(1));

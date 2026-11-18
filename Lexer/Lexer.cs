@@ -50,9 +50,7 @@ namespace BifyLang.Lexer
                 int tokenStart = _position;
                 int tokenColumn = (tokenStart - _lineStartOffset) + 1;
 
-                int tempPos = _position;
                 KeyValuePair<string, TokenType> multichar = GenerateMultiChar();
-                _position = tempPos;
 
                 if (currentChar == '(')
                 {
@@ -204,7 +202,6 @@ namespace BifyLang.Lexer
         public KeyValuePair<string, TokenType> GenerateMultiChar()
         {
             KeyValuePair<string, TokenType>? longestMatch = null;
-            int startPosition = _position;
 
             foreach (KeyValuePair<string, TokenType> kvp in TokenConfig.MultiCharTokens)
             {
@@ -223,8 +220,6 @@ namespace BifyLang.Lexer
 
             if (longestMatch != null)
             {
-                string match = longestMatch.Value.Key;
-                _position += longestMatch.Value.Key.Length - 1;
                 return longestMatch.Value;
             }
 

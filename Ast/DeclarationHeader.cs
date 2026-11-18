@@ -9,12 +9,12 @@ internal enum DeclarationKind
     Function
 }
 
-public readonly record struct HeaderMatch(
+internal readonly record struct DeclarationHeader(
     DeclarationKind Kind,
-    List<Token> Flags,
-    List<Token> TypeParts,
-    List<TypeSuffix> Suffixes,
-    Token NameToken,
+    AstFlag FlagNode,
+    AstIdentifier NameNode,
+    AstNode TypeNode,
     int EndIndex,
+    int BodyStartIndex,
     bool IsCtorOrDtor = false
 );

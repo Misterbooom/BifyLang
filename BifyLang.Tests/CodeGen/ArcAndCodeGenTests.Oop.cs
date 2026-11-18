@@ -8,7 +8,7 @@ public partial class ArcAndCodeGenTests
     [Test]
     public void Destructor_ReleasesClassFieldsAndCallsParentDestructor()
     {
-        string code = CommonClasses + "void main() {}";
+        string code = CommonClasses + "func main() {}";
         var ir = CompileToIr(code);
         var dummyDtor = ExtractFunctionIr(ir, "main.Dummy_destructor");
         var baseDtor = ExtractFunctionIr(ir, "main.Base_destructor");
@@ -33,7 +33,7 @@ public partial class ArcAndCodeGenTests
     [Test]
     public void VTable_GlobalsContainDestructorAndOverrides()
     {
-        string code = CommonClasses + "void main() {}";
+        string code = CommonClasses + "func main() {}";
         var ir = CompileToIr(code);
 
         // Base vtable: slot 0 = destructor, slot 1 = getX
@@ -50,11 +50,11 @@ public partial class ArcAndCodeGenTests
     public void VirtualCall_DispatchesThroughVTable()
     {
         string code = CommonClasses + """
-        int test() {
-            Dummy d = new Dummy();
+        func test() -> int {
+            val d: Dummy = new Dummy();
             return d.getX();
         }
-        void main() {}
+        func main() {}
         """;
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.test");
@@ -76,11 +76,11 @@ public partial class ArcAndCodeGenTests
     public void NonVirtualCall_IsDirect()
     {
         string code = CommonClasses + """
-        void test() {
-            Dummy d = new Dummy();
+        func test() {
+            val d: Dummy = new Dummy();
             d.getBase();
         }
-        void main() {}
+        func main() {}
         """;
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.test");
@@ -93,9 +93,9 @@ public partial class ArcAndCodeGenTests
     public void NewInstance_PassesClassVTableToGcAlloc()
     {
         string code = CommonClasses + """
-        void main() {
-            Base b = new Base();
-            Dummy d = new Dummy();
+        func main() {
+            val b: Base = new Base();
+            val d: Dummy = new Dummy();
         }
         """;
         var ir = CompileToIr(code);
@@ -109,12 +109,12 @@ public partial class ArcAndCodeGenTests
     public void ExplicitCast_DowncastUpdatesCompileTimeClassTypeWithoutPointerCast()
     {
         string code = CommonClasses + """
-        int test() {
-            Base b = new Dummy();
-            Dummy d = (Dummy)b;
+        func test() -> int {
+            val b: Base = new Dummy();
+            val d: Dummy = (Dummy)b;
             return d.a;
         }
-        void main() {}
+        func main() {}
         """;
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.test");
@@ -126,9 +126,9 @@ public partial class ArcAndCodeGenTests
     public void ExplicitCast_UnrelatedClassesThrowCastError()
     {
         string code = CommonClasses + """
-        void main() {
-            Leaf l = new Leaf();
-            Dummy d = (Dummy)l;
+        func main() {
+            val l: Leaf = new Leaf();
+            val d: Dummy = (Dummy)l;
         }
         """;
         AssertCompileError(code, DiagnosticKind.Cast);
@@ -139,11 +139,11 @@ public partial class ArcAndCodeGenTests
     {
         string code = """
         class MathHelper {
-            public float asFloat(int x) {
+            public func asFloat(x: int) -> float {
                 return x;
             }
         }
-        void main() {}
+        func main() {}
         """;
         var ir = CompileToIr(code);
         var fn = ExtractFunctionIr(ir, "main.MathHelper_asFloat");

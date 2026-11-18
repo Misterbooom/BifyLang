@@ -587,7 +587,7 @@ namespace BifyLang.Ast
             return baseStr  + bodyStr;
         }
 }
-    public class AstFlag(Token token,List<AstNode> flags): AstNode(token)
+    public class AstFlag(Token token, List<AstNode> flags): AstNode(token)
     {
         public readonly List<AstNode> Flags = flags;
         public bool HasFlag(string name)

@@ -13,9 +13,9 @@ public class ClassDestructorTests : BifyTestBase
     {
         string code = """
         class Item {
-            public int id;
+            public val id: int;
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -36,7 +36,7 @@ public class ClassDestructorTests : BifyTestBase
             destructor() {
             }
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -60,7 +60,7 @@ public class ClassDestructorTests : BifyTestBase
         class DerivedResource : BaseResource {
             destructor() {}
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -79,11 +79,11 @@ public class ClassDestructorTests : BifyTestBase
     {
         string code = """
         class Service {
-            public virtual void start() {}
+            public virtual func start() {}
             destructor() {}
-            public virtual void stop() {}
+            public virtual func stop() {}
         }
-        void main() {}
+        func main() {}
         """;
 
         using var m = Bify.Compile(code);
@@ -103,13 +103,13 @@ public class ClassDestructorTests : BifyTestBase
 
     [Test]
     public void ClassDestructor_MultipleDestructors_Throws() =>
-        AssertCompileError("class A { destructor() {} destructor() {} } void main() {}", DiagnosticKind.Name);
+        AssertCompileError("class A { destructor() {} destructor() {} } func main() {}", DiagnosticKind.Name);
 
     [Test]
     public void ClassDestructor_WithParameters_Throws() =>
-        AssertCompileError("class A { destructor(int x) {} } void main() {}", DiagnosticKind.Syntax);
+        AssertCompileError("class A { destructor(x: int) {} } func main() {}", DiagnosticKind.Syntax);
 
     [Test]
     public void ClassDestructor_FieldNamedDestructor_Throws() =>
-        AssertCompileError("class A { public int destructor; } void main() {}", DiagnosticKind.Syntax);
+        AssertCompileError("class A { public val destructor: int; } func main() {}", DiagnosticKind.Syntax);
 }

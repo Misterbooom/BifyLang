@@ -25,7 +25,7 @@ public static class ClassMemberCollector
         var accessLevel = ParseAccessLevel(varDecl.Flag);
         var type = TypeResolver.Resolve(varDecl.Type, ctx);
         var value = varDecl.AssignmentNode.Right;
-        bool isConst = varDecl.Flag?.HasFlag("const") ?? false;
+        bool isConst = varDecl.Flag?.HasFlag("val") ?? false;
         bool isWeak = varDecl.Flag?.HasFlag("weak") ?? false;
 
         return new ClassField(name, type, value, accessLevel, index, isConst, isWeak, classType);
