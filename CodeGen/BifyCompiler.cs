@@ -101,7 +101,6 @@ public class BifyCompiler
 
         for (var fn = module.FirstFunction; fn.Handle != IntPtr.Zero; fn = fn.NextFunction)
         {
-            BifyDebug.Log(fn.Name);
             var parts = fn.Name.Split('.');
 
             if (fn.Name == "main" || (parts.Length == 2 && parts[1] == "main"))
@@ -165,10 +164,8 @@ public class BifyCompiler
 
         try
         {
-            BifyDebug.Log($"Generating object file: {tempObjFile}");
             GenerateObjectFile(tempObjFile, module);
 
-            BifyDebug.Log($"Linking object file: {tempObjFile}");
             LinkLibraries(tempObjFile, outputFilePath);
         }
         finally
@@ -214,8 +211,6 @@ public class BifyCompiler
 
     private static void RunExecutable(string executablePath)
     {
-        BifyDebug.Log($"Running executable: {executablePath}");
-
         var processInfo = new ProcessStartInfo
         {
             FileName = Path.GetFullPath(executablePath),
@@ -227,11 +222,6 @@ public class BifyCompiler
             ?? throw new InvalidOperationException($"Failed to start executable: {executablePath}");
 
         process.WaitForExit();
-
-        if (process.ExitCode != 0)
-        {
-            BifyDebug.Log($"Process exited with non-zero code: {process.ExitCode}");
-        }
     }
 
     private static string ResolveRuntimePath()

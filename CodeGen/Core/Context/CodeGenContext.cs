@@ -183,7 +183,6 @@ public class CodeGenContext : IDisposable
         ModuleInfo[] allModuleInfos = [.. pool, rootInfo];
         var dependency = new ClassDependencyResolver(this);
         var allClasses = dependency.Resolve(allModuleInfos.Select(m => m.ModuleNode));
-        BifyDebug.Log(dependency.ToString());
         new ModuleLayoutBuilder(this).Build(allModuleInfos, allClasses);
         return Module;
     }

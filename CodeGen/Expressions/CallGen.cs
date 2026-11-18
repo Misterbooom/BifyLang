@@ -26,7 +26,6 @@ public class CallGen(CodeGenContext ctx) : CodeGenBase(ctx)
             return Fail<TypedValue>("Can't call  " + astCall.CallableName.Token.Value, DiagnosticKind.Type, astCall);
 
         var args = ResolveArgs(astCall, callableType);
-        BifyDebug.Log(target.ToString());
 
         var callReturn = _ctx.Builder.BuildCall2(callableType.Type, target.Value, args.Select(i => i.Value).ToArray());
         return new TypedValue(callReturn, callableType.ReturnType);

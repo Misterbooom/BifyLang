@@ -25,11 +25,6 @@ public class ModulePoolCollector(CodeGenContext ctx) : CodeGenBase(ctx)
             CollectRecursive(rootModule, rootFullPath);
         }
 
-        BifyDebug.Log($"Modules collected: {_modulePool.Count}");
-        foreach (var moduleInfo in _modulePool)
-        {
-            BifyDebug.Log($"Module: {moduleInfo.Name}");
-        }
         return [.. _modulePool];
     }
 
@@ -42,7 +37,6 @@ public class ModulePoolCollector(CodeGenContext ctx) : CodeGenBase(ctx)
                 continue;
 
             _ctx.CurrentLine = child.LineNumber;
-            BifyDebug.Log($"{seenNonImport}:{child.GetType().Name}");
 
             if (child is AstImport importNode)
             {

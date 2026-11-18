@@ -14,23 +14,21 @@ public static class CompilationHelper
     public static AstModule ParseToAst(string filePath, DiagnosticBag? diagnostics = null)
     {
         DiagnosticBag bag = diagnostics ?? new DiagnosticBag();
+        BifyDebug.SetLogFile("bify.log");
         string code = File.ReadAllText(filePath);
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         MyLexer lexer = new(code, bag, filePath);
         List<Token> tokens = lexer.Tokenize();
-        tokens.WriteTokens();
         stopwatch.Stop();
-        Console.WriteLine($"Tokenization completed in {stopwatch.ElapsedMilliseconds} ms.");
+        BifyDebug.Log($"Tokenization completed in {stopwatch.ElapsedMilliseconds} ms.{Environment.NewLine}{tokens.TokensToString()}");
 
         string[] codeByLine = code.Split('\n');
         stopwatch.Restart();
         AstTree astParser = new(codeByLine, bag, filePath);
         AstNode node = astParser.ParseTokens(tokens);
         stopwatch.Stop();
-        Console.WriteLine($"AST parsing completed in {stopwatch.ElapsedMilliseconds} ms.");
-
-        BifyDebug.Log(node.ToString());
+        BifyDebug.Log($"AST parsing completed in {stopwatch.ElapsedMilliseconds} ms.{Environment.NewLine}{node}");
 
         return (AstModule)node;
     }

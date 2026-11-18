@@ -25,7 +25,6 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
         {
             using (_ctx.EnterModule(moduleInfo.ModuleContext))
             {
-                BifyDebug.Log("Module: " + moduleInfo.Name);
                 DeclareFunctions(moduleInfo.ModuleNode, moduleInfo.ModuleContext);
             }
         }
@@ -42,7 +41,6 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
             if (moduleChildNode is AstFunctionDecl functionChildNode)
             {
                 _ctx.CurrentLine = functionChildNode.LineNumber;
-                BifyDebug.Log("Declaring function: " + functionChildNode.FunctionNameNode.Name);
                 if (functionChildNode.IsPoison)
                 {
                     _ctx.CurrentScope.DefinePoison(functionChildNode.FunctionNameNode.Name, BifyType.CreateVoid(_ctx));

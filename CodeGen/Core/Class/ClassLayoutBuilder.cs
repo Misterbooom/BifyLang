@@ -69,8 +69,6 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
 
     private void BuildBody(ClassType type, ClassInfo info)
     {
-        BifyDebug.Log($"{_ctx.TypeRegistry}");
-
         var classType = _ctx.TypeRegistry.GetBifyType(type.FullName) as ClassType;
         if (classType == null)
             throw new Exception($"Class: '{type.FullName}' was not registred in TypeRegistry.");

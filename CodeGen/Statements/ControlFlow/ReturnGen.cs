@@ -45,7 +45,6 @@ public class ReturnGen(CodeGenContext ctx) : CodeGenBase(ctx)
         _ctx.ReleaseScopesUpTo(null);
         if (_ctx.CurrentScope.IsDestructor)
         {
-            BifyDebug.Log("Going to dtor cleanup");
             var cleanup = _ctx.FunctionEntry.Parent.GetBasicBlock("dtorCleanup");
             _ctx.Builder.BuildBr(cleanup);
             

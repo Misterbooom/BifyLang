@@ -31,7 +31,6 @@ namespace BifyLang.Ast.Handlers
                 Builder.TokenIndex -= 1;
             }
 
-            BifyDebug.Log($"Next token : {nextToken?.Value ?? "null"}");
             AstNode bodyNode = Builder.HandleBody("Class");
             VerifyClassBody((AstBlock)bodyNode);
             Builder.CurrentNode = new AstClass(token, nameNode, bodyNode, parentNode);

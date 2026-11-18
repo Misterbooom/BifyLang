@@ -44,7 +44,6 @@ public class VariableDeclGen(CodeGenContext ctx) : CodeGenBase(ctx)
 
                 StoreInitialValue(alloca, varType, initialValue, isWeak);
                 _ctx.CurrentScope.Define(varName, alloca, varType, isConst, isWeak);
-                BifyDebug.Log(_ctx.CurrentScope.ToString());
             }
         }
         catch (BifyCompilationException)

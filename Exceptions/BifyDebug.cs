@@ -7,13 +7,28 @@ namespace BifyLang.Exceptions
 {
     internal class BifyDebug
     {
+        private static readonly object _lock = new();
+        private static string _logFilePath = "bify.log";
+
+        public static void SetLogFile(string logFilePath, bool reset = true)
+        {
+            lock (_lock)
+            {
+                _logFilePath = string.IsNullOrWhiteSpace(logFilePath) ? "bify.log" : logFilePath;
+                if (reset)
+                {
+                    File.WriteAllText(_logFilePath, string.Empty);
+                }
+            }
+        }
+
         public static void Log(
             string message,
             [CallerMemberName] string callerName = "",
             [CallerFilePath] string callerFilePath = "",
             [CallerLineNumber] int callerLineNumber = 0)
         {
-            LogInternal("INFO", message, callerName, callerFilePath, callerLineNumber, "white");
+            LogInternal("INFO", message, callerName, callerFilePath, callerLineNumber);
         }
 
         public static void LogWarning(
@@ -22,7 +37,7 @@ namespace BifyLang.Exceptions
             [CallerFilePath] string callerFilePath = "",
             [CallerLineNumber] int callerLineNumber = 0)
         {
-            LogInternal("WARNING", message, callerName, callerFilePath, callerLineNumber, "yellow");
+            LogInternal("WARNING", message, callerName, callerFilePath, callerLineNumber);
         }
 
         public static void LogError(
@@ -31,7 +46,7 @@ namespace BifyLang.Exceptions
             [CallerFilePath] string callerFilePath = "",
             [CallerLineNumber] int callerLineNumber = 0)
         {
-            LogInternal("ERROR", message, callerName, callerFilePath, callerLineNumber, "red");
+            LogInternal("ERROR", message, callerName, callerFilePath, callerLineNumber);
         }
 
         public static void LogException(
@@ -40,7 +55,7 @@ namespace BifyLang.Exceptions
             [CallerFilePath] string callerFilePath = "",
             [CallerLineNumber] int callerLineNumber = 0)
         {
-            LogInternal("EXCEPTION", exception.ToString(), callerName, callerFilePath, callerLineNumber, "maroon");
+            LogInternal("EXCEPTION", exception.ToString(), callerName, callerFilePath, callerLineNumber);
         }
 
         public static void Assert(
@@ -52,7 +67,7 @@ namespace BifyLang.Exceptions
         {
             if (!condition)
             {
-                LogInternal("ASSERT", message, callerName, callerFilePath, callerLineNumber, "magenta");
+                LogInternal("ASSERT", message, callerName, callerFilePath, callerLineNumber);
                 throw new InvalidOperationException(message);
             }
         }
@@ -62,23 +77,16 @@ namespace BifyLang.Exceptions
             string? message,
             string? callerName,
             string callerFilePath,
-            int callerLineNumber,
-            string color)
+            int callerLineNumber)
         {
             string fileName = Path.GetFileName(callerFilePath);
             string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            string logMessage = $"[{callerName ?? string.Empty}] [{level}] [{time}] {message ?? string.Empty} - {fileName}:{callerLineNumber}";
 
-            callerName = Markup.Escape(callerName ?? string.Empty);
-            message = Markup.Escape(message ?? string.Empty);
-            fileName = Markup.Escape(fileName ?? string.Empty);
-
-            string logMessage = 
-                "[[[grey]" + callerName + "[/]]] " +
-                "[[[" + color + "]" + level + "[/]]] " +
-                "[[" + time + "]] " + 
-                message + " - [dim]" + fileName + ":" + callerLineNumber + "[/]";
-
-            AnsiConsole.MarkupLine(logMessage);
+            lock (_lock)
+            {
+                File.AppendAllText(_logFilePath, logMessage + Environment.NewLine);
+            }
         }
     }
 }
