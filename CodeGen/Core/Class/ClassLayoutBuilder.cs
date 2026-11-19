@@ -70,15 +70,11 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : LayoutBuilder(ctx)
                     info.ClassNode);
         }
 
-        string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
-        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent)
-        {
-            MinType = info.MinType,
-            MaxType = info.MaxType
-        };
+        string mangledName = NameMangler.GenerateTypeName(info.ModuleName, info.Name);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent);
 
     _ctx.TypeRegistry.Register(mangledName, classType);
-        _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
+        _ctx.ModuleContext.TypesInfo[mangledName] = classType;
         return classType;
     }
 
