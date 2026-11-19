@@ -7,11 +7,19 @@ using BifyLang.Exceptions;
 
 namespace BifyLang.CodeGen.Core.Module;
 
-public class ModuleLayoutBuilder(CodeGenContext ctx)
+public class ModuleLayoutBuilder:LayoutBuilder
 {
-    private readonly CodeGenContext _ctx = ctx;
+    private readonly LayoutBuilder[] _builders;
+    public ModuleLayoutBuilder(CodeGenContext ctx) : base(ctx)
+    {
+        _builders = [
+            new StructLayoutBuilder(_ctx),
+            new ClassLayoutBuilder(_ctx),
+            new FunctionLayoutBuilder(_ctx),
+        ];
+    }
 
-    public void Build(ModuleInfo[] modules, ClassInfo[] classes)
+    public override void Declare(ModuleInfo[] modules)
     {
         foreach (var m in modules)
         {
@@ -19,44 +27,23 @@ public class ModuleLayoutBuilder(CodeGenContext ctx)
             _ctx.ModulesMap[m.Name] = modType;
             _ctx.TypeRegistry.Register(m.Name, modType);
         }
-        new ClassLayoutBuilder(_ctx).Build(classes);
-
-        foreach (var moduleInfo in modules)
+        foreach (var builder in _builders)
         {
-            using (_ctx.EnterModule(moduleInfo.ModuleContext))
-            {
-                DeclareFunctions(moduleInfo.ModuleNode, moduleInfo.ModuleContext);
-            }
+            builder.Declare(modules);
         }
+    }
 
+    public override void Build(ModuleInfo[] modules)
+    {
+        Declare(modules);
+        foreach (var builder in _builders)
+        {
+            builder.Build(modules);
+        }
         BuildModuleLayout(modules);
     }
 
-    private void DeclareFunctions(AstModule module, ModuleContext moduleContext)
-    {
-        var funcGen = new FunctionGen(_ctx);
 
-        foreach (var moduleChildNode in module.ChildNodes)
-        {
-            if (moduleChildNode is AstFunctionDecl functionChildNode)
-            {
-                _ctx.CurrentLine = functionChildNode.LineNumber;
-                if (functionChildNode.IsPoison)
-                {
-                    _ctx.CurrentScope.DefinePoison(functionChildNode.FunctionNameNode.Name, BifyType.CreateVoid(_ctx));
-                    continue;
-                }
-                try
-                {
-                    funcGen.DeclareFunction(functionChildNode);
-                }
-                catch (BifyCompilationException)
-                {
-                    _ctx.CurrentScope.DefinePoison(functionChildNode.FunctionNameNode.Name, BifyType.CreateVoid(_ctx));
-                }
-            }
-        }
-    }
 
     private void BuildModuleLayout(ModuleInfo[] modules)
     {

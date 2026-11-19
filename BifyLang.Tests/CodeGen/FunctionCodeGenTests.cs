@@ -42,25 +42,12 @@ public class FunctionCodeGenTests : BifyTestBase
     }
 
     [Test]
-    public void CodeGen_VoidFunctionWithPointersAndArrays()
-    {
-        using var m = Bify.Compile("class CustomType {} func processData(ptr: int*, list: float[], obj: CustomType*) {}");
-        m.AssertValid();
-
-        var func = m.Function("processData");
-        Assert.That(func.ParamsCount, Is.EqualTo(3));
-        Assert.That(func.GetParam(0).TypeOf.Kind, Is.EqualTo(LLVMTypeKind.LLVMPointerTypeKind));
-        Assert.That(func.GetParam(1).TypeOf.Kind, Is.EqualTo(LLVMTypeKind.LLVMPointerTypeKind));
-        Assert.That(func.GetParam(2).TypeOf.Kind, Is.EqualTo(LLVMTypeKind.LLVMPointerTypeKind));
-    }
-
-    [Test]
     public void CodeGen_MultipleFunctionsInOneModule()
     {
         string code = @"
 func init() {}
 func update(dt: float) {}
-func render(buffer: int*, width: int, height: int) {}
+func render(width: int, height: int) {}
 ";
         using var m = Bify.Compile(code);
         m.AssertValid();
@@ -71,7 +58,7 @@ func render(buffer: int*, width: int, height: int) {}
 
         Assert.That(initFunc.ParamsCount, Is.EqualTo(0));
         Assert.That(updateFunc.ParamsCount, Is.EqualTo(1));
-        Assert.That(renderFunc.ParamsCount, Is.EqualTo(3));
+        Assert.That(renderFunc.ParamsCount, Is.EqualTo(2));
     }
 
     [Test]

@@ -15,7 +15,7 @@ public class ReturnGen(CodeGenContext ctx) : CodeGenBase(ctx)
     public void EmitReturn(AstReturn astReturn)
     {
         TypedValue? returnValue = null;
-        
+
         if (astReturn.ArgumentsNode != null)
         {
             var expr = new ExpressionDispatcher(_ctx);
@@ -23,7 +23,7 @@ public class ReturnGen(CodeGenContext ctx) : CodeGenBase(ctx)
             {
                 returnValue = TypeCaster.ImplicitCast(_ctx, expr.EmitExpression(astReturn.ArgumentsNode),
                     _ctx.FunctionReturnType);
-                if (returnValue.Value.Type is ClassType)
+                if (returnValue.Value.IsReference)
                 {
                     bool wasTemp = _ctx.HeapControl.ConsumeTemp(returnValue.Value.Value);
                     if (returnValue.Value.IsWeak)
@@ -47,7 +47,7 @@ public class ReturnGen(CodeGenContext ctx) : CodeGenBase(ctx)
         {
             var cleanup = _ctx.FunctionEntry.Parent.GetBasicBlock("dtorCleanup");
             _ctx.Builder.BuildBr(cleanup);
-            
+
             return;
         }
         if (!returnValue.HasValue)

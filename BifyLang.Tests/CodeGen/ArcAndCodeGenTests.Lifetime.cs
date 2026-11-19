@@ -192,4 +192,28 @@ public partial class ArcAndCodeGenTests
         Assert.That(Count(ctor, "@gc_retainStrong("), Is.EqualTo(0));
         Assert.That(Count(ctor, "@gc_alloc("), Is.EqualTo(1));
     }
+
+    [Test]
+    public void TypeHierarchy_ReferenceAndStructInvariants()
+    {
+        using var ctx = new BifyLang.CodeGen.Core.Context.CodeGenContext();
+        var intType = BifyLang.CodeGen.Core.Types.Data.BifyType.CreateInt(ctx);
+        var nullType = BifyLang.CodeGen.Core.Types.Data.BifyType.CreateNull(ctx);
+        var structLlvm = ctx.Context.CreateNamedStruct("Vec2");
+        var structType = new BifyLang.CodeGen.Core.Types.Data.StructType("Vec2", "main.Vec2", structLlvm, "main");
+        var ptrType = LLVMSharp.Interop.LLVMTypeRef.CreatePointer(ctx.Context.Int8Type, 0);
+        var classType = new BifyLang.CodeGen.Core.Types.Data.ClassType("Node", "main.Node", ptrType, structLlvm, "main");
+
+        Assert.That(intType.IsReference, Is.False);
+        Assert.That(nullType.IsReference, Is.False);
+        Assert.That(structType.IsReference, Is.False);
+        Assert.That(classType.IsReference, Is.True);
+        Assert.That(classType, Is.InstanceOf<BifyLang.CodeGen.Core.Types.Data.ReferenceType>());
+
+        Assert.That(classType.IsArcAssignableFrom(classType), Is.True);
+        Assert.That(classType.IsArcAssignableFrom(nullType), Is.True);
+        Assert.That(classType.IsArcAssignableFrom(intType), Is.False);
+        Assert.That(structType.IsArcAssignableFrom(structType), Is.False);
+        Assert.That(structType.IsArcAssignableFrom(nullType), Is.False);
+    }
 }

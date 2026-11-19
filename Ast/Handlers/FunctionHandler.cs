@@ -98,7 +98,7 @@ namespace BifyLang.Ast.Handlers
                         isPoison = true;
                     }
 
-                    AstParam param = new(parametersNode.Type, parametersNode.AssignmentNode.Left, parametersNode.Flag);
+                    AstParam param = new(parametersNode.Type, parametersNode.AssignmentNode.Left, parametersNode.AssignmentNode.Right, parametersNode.Flag);
                     parameters.Add(param);
                 }
                 catch (BifyCompilationException)

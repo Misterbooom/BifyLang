@@ -9,11 +9,16 @@ using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core.Class;
 
-public class ClassBuilder(CodeGenContext ctx)
+public class ClassBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-    private readonly CodeGenContext _ctx = ctx;
+    public unsafe LLVMValueRef BuildInstance(ICompositeType compositeType) => compositeType switch
+    {
+        ClassType classType => BuildClassInstance(classType),
+        StructType structType => BuildStructInstance(structType),
+        _ => throw new NotSupportedException($"Unsupported composite type: {compositeType.GetType().Name}")
+    };
 
-    public unsafe LLVMValueRef BuildInstance(ClassType classType)
+    private unsafe LLVMValueRef BuildClassInstance(ClassType classType)
     {
         var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
         var vtableGlobal = classType.VTableGlobal.Handle != IntPtr.Zero
@@ -23,28 +28,31 @@ public class ClassBuilder(CodeGenContext ctx)
         var vptrCast = _ctx.Builder.BuildBitCast(vtableGlobal, ptrType, "vptr_cast");
         var sizeVal = LLVM.SizeOf(classType.StructType);
         var rawPtr = _ctx.HeapControl.BuildAlloc(sizeVal, vptrCast);
-        var instancePtr = _ctx.Builder.BuildBitCast(rawPtr, classType.Type, $"{classType.Name}_inst");
-
-        return instancePtr;
+        return _ctx.Builder.BuildBitCast(rawPtr, classType.Type, $"{classType.Name}_inst");
     }
 
-    public static void InitFields(CodeGenContext ctx, ClassType classType, LLVMValueRef instancePtr)
+    private LLVMValueRef BuildStructInstance(StructType structType)
     {
-        foreach (var field in classType.Fields.Values.OrderBy(f => f.Index))
+        return _ctx.BuildEntryAlloca(structType.Type, $"{structType.Name}_inst");
+    }
+
+    public static void InitFields(CodeGenContext ctx, ICompositeType compositeType, LLVMValueRef instancePtr)
+    {
+        foreach (var field in compositeType.Fields.Values.OrderBy(f => f.Index))
         {
             if (field.IsPoison)
                 continue;
 
-            var fieldPtr = MemberResolver.ResolveFieldPtr(ctx, classType, instancePtr, field);
+            var fieldPtr = MemberResolver.ResolveFieldPtr(ctx, compositeType, instancePtr, field);
 
             if (field.ValueNode != null)
             {
                 using (ctx.HeapControl.BeginTempScope())
                 {
-                    
                     var initVal = new ExpressionDispatcher(ctx).EmitExpression(field.ValueNode);
                     initVal = TypeCaster.ImplicitCast(ctx, initVal, field.Type);
-                    if (field.Type is ClassType)
+
+                    if (field.Type.IsReference)
                         ctx.HeapControl.BuildArcStoreInit(fieldPtr, initVal, field.IsWeak);
                     else
                         ctx.Builder.BuildStore(initVal.Value, fieldPtr);

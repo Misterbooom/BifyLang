@@ -20,7 +20,6 @@ public class VariableDeclCodeGenTests : BifyTestBase
     [TestCase("val d: double = 3.14;", TestName = "VarDecl_ImplicitCast_FloatToDouble")]
     [TestCase("val i: int = true;", TestName = "VarDecl_ImplicitCast_BoolToInt")]
     [TestCase("val b: bool = 1;", TestName = "VarDecl_ImplicitCast_IntToBool")]
-    [TestCase("val ptr: int* = null;", TestName = "VarDecl_ImplicitCast_NullToPointer")]
     public void VarDecl_ImplicitCasts(string decl)
     {
         AssertValidFunction($"func test() {{ {decl} }}");

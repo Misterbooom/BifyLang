@@ -27,43 +27,71 @@ public class CallGen(CodeGenContext ctx) : CodeGenBase(ctx)
 
         var args = ResolveArgs(astCall, callableType);
 
-        var callReturn = _ctx.Builder.BuildCall2(callableType.Type, target.Value, args.Select(i => i.Value).ToArray());
+        var callReturn = _ctx.Builder.BuildCall2(callableType.Type, target.Value, args.Select(i => i.Value.Value).ToArray());
         return new TypedValue(callReturn, callableType.ReturnType);
     }
 
     private TypedValue HandleMethodCall(AstCall astCall)
     {
         if (astCall.CallableName is not AstMemberAccess memberAccess)
-            throw new Exception("Target node is not member accesss");
+            throw new Exception("Target node is not member access");
 
-        var left = new ExpressionDispatcher(_ctx).EmitExpression(memberAccess.Left);
         if (memberAccess.Right is not AstIdentifier id)
             return Fail<TypedValue>("Invalid member identifier.", DiagnosticKind.Attribute, astCall);
 
-        if (left.Type is not ClassType classType)
-            return Fail<TypedValue>($"Cannot call member on non-class type '{left.Type.Name}'", DiagnosticKind.Type, astCall);
+        var (thisPtr, compositeType) = ResolveReceiver(memberAccess.Left, astCall);
 
-        if (!classType.Methods.TryGetValue(id.Name, out var method))
+        if (!compositeType.Methods.TryGetValue(id.Name, out var method))
             return Fail<TypedValue>($"Method '{id.Name}' does not exist", DiagnosticKind.Attribute, astCall);
 
         if (method.IsPoison)
             return AbortPoison<TypedValue>();
 
-        MemberResolver.CheckAccess(_ctx, method.DeclaringClass, method.AccessLevel, method.Name);
-        var thisReference = UpgradeWeakReference(left);
-        var callee = ResolveMethodCallee(classType, thisReference, method);
+        MemberResolver.CheckAccess(_ctx, method.DeclaringType, method.AccessLevel, method.Name);
+        var callee = ResolveMethodCallee(compositeType, thisPtr, method);
         var args = ResolveArgs(astCall, method.Signature);
 
-        var callReturn = _ctx.Builder.BuildCall2(method.Signature.Type, callee, [thisReference.Value, .. args.Select(i => i.Value)]);
+        LLVMValueRef[] rawArgs = [thisPtr, .. args.Select(i => i.Value.Value)];
+        var callReturn = _ctx.Builder.BuildCall2(method.Signature.Type, callee, rawArgs);
         return new TypedValue(callReturn, method.Signature.ReturnType);
     }
-
-    private LLVMValueRef ResolveMethodCallee(ClassType classType, TypedValue thisReference, ClassMethod method)
+    private (LLVMValueRef ThisPtr, ICompositeType CompositeType) ResolveReceiver(AstNode leftNode, AstCall astCall)
     {
-        if (method.VTableIndex >= 0)
+        var lvalueResolver = new LValueResolver(_ctx);
+        if (lvalueResolver.TryResolveLValue(leftNode, out var lvalue))
+        {
+            if (lvalue.Type is StructType structType)
+                return (lvalue.Pointer, structType);
+            if (lvalue.Type is ClassType classType)
+            {
+                var loaded = _ctx.Builder.BuildLoad2(classType.Type, lvalue.Pointer, "this_ptr");
+                var upgraded = UpgradeWeakReference(new TypedValue(loaded, classType, lvalue.IsWeak));
+                return (upgraded.Value, classType);
+            }
+            return Fail<(LLVMValueRef, ICompositeType)>(
+                $"Cannot call member on non-composite type '{lvalue.Type.Name}'", DiagnosticKind.Type, astCall);
+        }
+        var left = new ExpressionDispatcher(_ctx).EmitExpression(leftNode);
+        if (left.Type is StructType rvalueStruct)
+        {
+            var tmpPtr = _ctx.BuildEntryAlloca(rvalueStruct.LlvmStructType, "tmp_struct_this");
+            _ctx.Builder.BuildStore(left.Value, tmpPtr);
+            return (tmpPtr, rvalueStruct);
+        }
+        if (left.Type is ClassType rvalueClass)
+        {
+            var upgraded = UpgradeWeakReference(left);
+            return (upgraded.Value, rvalueClass);
+        }
+        return Fail<(LLVMValueRef, ICompositeType)>(
+            $"Cannot call member on non-composite type '{left.Type.Name}'", DiagnosticKind.Type, astCall);
+    }
+    private LLVMValueRef ResolveMethodCallee(ICompositeType compositeType, LLVMValueRef thisReference, ClassMethod method)
+    {
+        if (method.VTableIndex >= 0 && compositeType is ClassType)
         {
             var ptrType = LLVMTypeRef.CreatePointer(_ctx.Context.Int8Type, 0);
-            var vptrSlot = _ctx.Builder.BuildStructGEP2(classType.StructType, thisReference.Value, 0, "vptr_slot");
+            var vptrSlot = _ctx.Builder.BuildStructGEP2(compositeType.LlvmStructType, thisReference, 0, "vptr_slot");
             var vtable = _ctx.Builder.BuildLoad2(ptrType, vptrSlot, "vtable");
             LLVMValueRef[] indices = [LLVMValueRef.CreateConstInt(_ctx.Context.Int32Type, (ulong)method.VTableIndex, false)];
             var slotPtr = _ctx.Builder.BuildGEP2(ptrType, vtable, indices, "slot_ptr");
@@ -89,46 +117,12 @@ public class CallGen(CodeGenContext ctx) : CodeGenBase(ctx)
         return reference;
     }
 
-    private TypedValue[] ResolveArgs(AstCall astCall, CallableType callableType)
-    {
-        List<AstNode> flatArgs = [];
-        ParameterResolver.FlattenComma(astCall.ArgumentsNode, flatArgs);
-
-        ValidateArgCount(callableType, flatArgs.Count, 0, astCall);
-
-        var args = new TypedValue[flatArgs.Count];
-        var dispatcher = new ExpressionDispatcher(_ctx);
-        for (int i = 0; i < flatArgs.Count; i++)
-            args[i] = ResolveSingleArg(dispatcher, flatArgs[i], callableType, i);
-
-        return args;
-    }
-
-    private void ValidateArgCount(CallableType callable, int provided, int offset, AstCall astCall)
-    {
-        int expected = callable.ParametersType.Length - offset;
-        bool valid = callable.Type.IsFunctionVarArg
-            ? provided >= expected
-            : provided == expected;
-
-        if (!valid)
-        {
-            string prefix = callable.Type.IsFunctionVarArg ? "at least " : "";
-            Fail($"Function expects {prefix}{expected} arguments, but got {provided}", DiagnosticKind.Type, astCall);
-        }
-    }
-
-    private TypedValue ResolveSingleArg(ExpressionDispatcher dispatcher, AstNode argNode, CallableType callable, int paramIndex)
-    {
-        var val = dispatcher.EmitExpression(argNode);
-
-        if (paramIndex >= callable.ParametersType.Length)
-            return val;
-
-        var param = callable.ParametersType[paramIndex];
-        if (!TypeCaster.CanImplicitCast(val.Type, param.Type))
-            Fail($"Argument '{param.Name}' expects type '{param.Type}', but got '{val.Type}'", DiagnosticKind.Type, argNode);
-
-        return TypeCaster.ImplicitCast(_ctx, val, param.Type);
-    }
+    private ArgumentInfo[] ResolveArgs(AstCall astCall, CallableType callableType) =>
+        ArgumentResolver.Resolve(
+            _ctx,
+            astCall.Arguments,
+            callableType.ParametersType,
+            astCall,
+            "Function",
+            callableType.Type.IsFunctionVarArg);
 }

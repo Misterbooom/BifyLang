@@ -21,7 +21,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         bool isMethod = false,
         bool isConstructor = false,
         bool isDestructor = false,
-        ClassType? declaringClass = null)
+        ICompositeType? declaringClass = null)
     {
         LLVMBasicBlockRef? dtorCleanup = null;
 
@@ -35,7 +35,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         using (_ctx.EnterScope())
         {
             _ctx.CurrentScope.FunctionName = function.Name;
-            BindParameters(function, parameters, isMethod);
+            BindParameters(function, parameters, isMethod, declaringClass);
             _ctx.CurrentScope.IsDestructor = isDestructor;
             if (isConstructor && declaringClass != null)
             {
@@ -56,7 +56,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         }
         if (isDestructor && declaringClass != null)
         {
-            EmitDestructorFieldCleanups(function, declaringClass);
+            EmitDestructorFieldCleanups(function, declaringClass as ClassType);
         }
         else if (_ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
         {
@@ -84,7 +84,7 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         var thisVal = function.GetParam(0);
         foreach (var field in declaringClass.Fields.Values)
         {
-            if (field.IsPoison || field.Type is not ClassType || field.DeclaringClass.FullName != declaringClass.FullName)
+            if (field.IsPoison || !field.Type.IsReference || field.DeclaringType.FullName != declaringClass.FullName)
                 continue;
 
             var fieldPtr = MemberResolver.ResolveFieldPtr(_ctx, declaringClass, thisVal, field);
@@ -113,24 +113,34 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         _ctx.Builder.BuildCall2(dtorType, parentDtor, [thisVal]);
     }
 
-    private void BindParameters(LLVMValueRef function, IReadOnlyList<ParameterInfo> parameters, bool isMethod)
+    private void BindParameters(LLVMValueRef function, IReadOnlyList<ParameterInfo> parameters, bool isMethod, ICompositeType? declaringClass)
     {
         for (uint i = 0; i < parameters.Count; i++)
         {
             var param = parameters[(int)i];
-            var alloca = _ctx.Builder.BuildAlloca(param.Type.Type, param.Name);
+            LLVMValueRef ptr;
             var paramVal = function.GetParam(i);
-            _ctx.Builder.BuildStore(paramVal, alloca);
+            paramVal.Name = param.Name;
+            if (declaringClass is StructType  && i ==0  && isMethod)
+            {
 
+                ptr = paramVal;
+            }
+            else
+            {
+                var alloca = _ctx.Builder.BuildAlloca(param.Type.Type, param.Name);
+                _ctx.Builder.BuildStore(paramVal, alloca);
+                ptr = alloca;
+            }
 
             bool isThisParam = isMethod && i == 0;
 
-            if (param.Type is ClassType && !isThisParam)
+            if (param.Type.IsReference && !isThisParam)
             {
                 _ctx.HeapControl.BuildRetainStrong(paramVal);
             }
 
-            _ctx.CurrentScope.Define(param.Name, alloca, param.Type, param.IsConst);
+            _ctx.CurrentScope.Define(param.Name, ptr, param.Type, param.IsConst);
         }
     }
 }

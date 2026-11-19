@@ -23,7 +23,7 @@ public static class ConstructorSynthesizer
             ctx.Module.AddFunction(mangledName,funcType),
             accessLevel: AccessLevel.PUBLIC,
             vtableIndex: 0,
-            declaringClass: classType,
+            declaringType: classType,
             body: null,
             isVirtual: true,
             isOverride: false,

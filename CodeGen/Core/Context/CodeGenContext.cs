@@ -23,16 +23,16 @@ public class CodeGenContext : IDisposable
     public ModuleContext ModuleContext;
     public Scope CurrentScope
     {
-        get { return ModuleContext.CurrentScope; }
-        private set { ModuleContext.CurrentScope = value; }
+        get => ModuleContext.CurrentScope;
+        private set => ModuleContext.CurrentScope = value;
     }
     public TypeRegistry TypeRegistry { get; private set; }
     public LoopContext LoopContext = new LoopContext(null, null, null, null);
     public BifyType FunctionReturnType;
-    public HeapControl HeapControl;
-    public DiagnosticBag Diagnostics;
+    public readonly HeapControl HeapControl;
+    public readonly DiagnosticBag Diagnostics;
     public int CurrentLine;
-    public Dictionary<string, ModuleType> ModulesMap = [];
+    public readonly Dictionary<string, ModuleType> ModulesMap = [];
 
     public CodeGenContext(DiagnosticBag? diagnostics = null)
     {
@@ -178,12 +178,10 @@ public class CodeGenContext : IDisposable
     public LLVMModuleRef GenerateModule(AstModule rootModule)
     {
         var rootContext = new ModuleContext(this, rootModule.Name, rootModule.ModulePath);
-        var rootInfo = new ModuleInfo(rootModule.Name, rootModule.ModulePath, rootModule, rootContext);
+        var rootInfo = new ModuleInfo(rootModule.Name,  rootModule.ModulePath, rootModule, rootContext);
         var pool = new ModulePoolCollector(this).Collect(rootModule);
         ModuleInfo[] allModuleInfos = [.. pool, rootInfo];
-        var dependency = new ClassDependencyResolver(this);
-        var allClasses = dependency.Resolve(allModuleInfos.Select(m => m.ModuleNode));
-        new ModuleLayoutBuilder(this).Build(allModuleInfos, allClasses);
+        new ModuleLayoutBuilder(this).Build(allModuleInfos);
         return Module;
     }
 

@@ -234,12 +234,12 @@ namespace BifyLang.Ast
                 Nodes.WriteNodes();
                 if (Nodes[0].Token.Type == TokenType.POINTER || Nodes[0] is AstIdentifier)
                 {
-                    Fail($"Invalid variable declaration syntax. '{Nodes[0].Token.Value}' is not a type", DiagnosticKind.Syntax, Nodes[0].Token);
+                    Fail($"Invalid syntax.", DiagnosticKind.Syntax, Nodes[0].Token);
                 }
                 Fail("Opa 2 node", DiagnosticKind.Syntax, Nodes[1].Token);
             }
             Token? errToken = Nodes.Count > 1 ? Nodes[1].Token : Nodes.FirstOrDefault()?.Token;
-            Fail("Invalid Syntax! Check your input for missing operators or delimiters.", DiagnosticKind.Syntax, errToken);
+            Fail("Invalid Syntax.", DiagnosticKind.Syntax, errToken);
         }
     }
 }

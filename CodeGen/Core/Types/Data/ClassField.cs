@@ -20,7 +20,7 @@ public struct ClassField(
     int index = -1,
     bool isConst = false,
     bool isWeak = false,
-    ClassType declaringClass = null!,
+    ICompositeType declaringType = null!,
     bool isPoison = false)
 {
     public readonly string Name = name;
@@ -28,11 +28,11 @@ public struct ClassField(
     public LLVMValueRef Value = default;
     public readonly int Index = index;
     public readonly AccessLevel AccessLevel = accessLevel;
-    public readonly ClassType DeclaringClass = declaringClass;
-    public AstNode? ValueNode = value;
-    public bool IsConst = isConst;
-    public bool IsWeak = isWeak;
-    public bool IsPoison = isPoison;
+    public readonly ICompositeType DeclaringType = declaringType;
+    public readonly AstNode? ValueNode = value;
+    public readonly bool IsConst = isConst;
+    public readonly bool IsWeak = isWeak;
+    public readonly bool IsPoison = isPoison;
 }
 
 public struct ClassMethod(
@@ -41,7 +41,7 @@ public struct ClassMethod(
     LLVMValueRef functionValue,
     AccessLevel accessLevel,
     int vtableIndex = -1,
-    ClassType declaringClass = null!,
+    ICompositeType declaringType = null!,
     AstNode? body = null,
     bool isVirtual = false,
     bool isOverride = false,
@@ -53,10 +53,10 @@ public struct ClassMethod(
     public LLVMValueRef FunctionValue = functionValue;
     public int VTableIndex = vtableIndex;
     public readonly AccessLevel AccessLevel = accessLevel;
-    public readonly ClassType DeclaringClass = declaringClass;
+    public readonly ICompositeType DeclaringType = declaringType;
     public readonly AstNode? Body = body;
-    public bool IsVirtual = isVirtual;
-    public bool IsOverride = isOverride;
-    public List<ParameterInfo> Parameters = parameters ?? [];
-    public bool IsPoison = isPoison;
+    public readonly bool IsVirtual = isVirtual;
+    public readonly bool IsOverride = isOverride;
+    public readonly List<ParameterInfo> Parameters = parameters ?? [];
+    public readonly bool IsPoison = isPoison;
 }

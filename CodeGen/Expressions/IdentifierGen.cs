@@ -3,6 +3,7 @@ using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Core.Class;
 using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.CodeGen.Core.Types.Service;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
@@ -53,7 +54,6 @@ public static class IdentifierGen
         {
             return new TypedValue(symbol.Pointer, symbol.Type);
         }
-
         var loaded = ctx.Builder.BuildLoad2(symbol.Type.Type, symbol.Pointer, symbol.Name);
         return new TypedValue(loaded, symbol.Type, symbol.IsWeak);
     }

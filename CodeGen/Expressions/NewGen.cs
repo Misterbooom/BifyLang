@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core;
 using BifyLang.CodeGen.Core.Class;
@@ -15,54 +16,110 @@ namespace BifyLang.CodeGen.Expressions;
 
 public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
-
     public TypedValue EmitNew(AstNew astNew)
     {
-        var classType = ResolveClassType(astNew.ValueNode);
-        var instancePtr = new ClassBuilder(_ctx).BuildInstance(classType);
 
-        InvokeConstructor(classType, instancePtr, astNew.ArgumentsNode);
-        return new TypedValue(instancePtr, classType);
+        var type = ResolveType(astNew.ValueNode);
+
+        return type switch
+        {
+            ClassType classType => EmitClassNew(classType, astNew.Arguments, astNew.ValueNode),
+            StructType structType => EmitStructNew(structType, astNew.Arguments, astNew.ValueNode),
+            _ => Fail<TypedValue>($"Type '{type.Name}' cannot be instantiated.", DiagnosticKind.Type,
+                astNew.ValueNode)
+        };
+
+
     }
 
-    private ClassType ResolveClassType(AstNode valueNode)
+    private TypedValue EmitClassNew(ClassType type, AstNode[] argsNode, AstNode callSite)
+    {
+        var instancePtr = new ClassBuilder(_ctx).BuildInstance(type);
+        InvokeConstructor(type, instancePtr, argsNode, callSite);
+
+        return new TypedValue(instancePtr, type);
+    }
+
+    private TypedValue EmitStructNew(StructType type, AstNode[] argsNode, AstNode callSite)
+    {
+        var instancePtr = new ClassBuilder(_ctx).BuildInstance(type);
+        InvokeStructConstructor(type, instancePtr, argsNode, callSite);
+        var loaded = _ctx.Builder.BuildLoad2(type.LlvmStructType, instancePtr, type.Name + "_loaded");
+        return new TypedValue(loaded, type);
+    }
+
+    private void InvokeStructConstructor(StructType type, LLVMValueRef instancePtr, AstNode[] argNodes, AstNode callSite)
+    {
+        var resolvedArgs = ArgumentResolver.Resolve(
+            _ctx, argNodes, FieldsToParameters(type.Fields), callSite,
+            $"Constructor '{type.Name}'");
+        if (resolvedArgs.Any(i => i != null && i.isPositional ))
+        {
+            Fail("Struct initialization requires named arguments.",DiagnosticKind.Syntax, callSite);
+        }
+        var pairs = type.Fields.GroupJoin(
+            resolvedArgs,
+            field => field.Key,
+            arg => arg?.Name,
+            (field, matchedArgs) => (StructField: field.Value, ArgumentInfo: matchedArgs.FirstOrDefault())
+        );
+        foreach (var (structField, argumentInfo) in pairs)
+        {
+            MemberResolver.CheckAccess(_ctx, type, structField.AccessLevel, structField.Name);
+            var ptr = MemberResolver.ResolveFieldPtr(_ctx, type, instancePtr, structField);
+            _ctx.Builder.BuildStore(argumentInfo!.Value.Value, ptr);
+
+        }
+
+
+    }
+
+    private ParameterInfo[] FieldsToParameters(Dictionary<string, ClassField> fields)
+    {
+        List<ParameterInfo> parameters = [];
+        foreach (var (name, field) in fields)
+        {
+            var param = new ParameterInfo(field.Name, field.Type, field.IsConst, field.ValueNode);
+            parameters.Add(param);
+        }
+
+        return parameters.ToArray();
+    }
+
+    private ICompositeType ResolveType(AstNode valueNode)
     {
         string? rawName = valueNode switch
         {
-            AstIdentifier id => NameMangler.GenerateClassName(_ctx.ModuleContext.Name, id.Name),
-            AstMemberAccess { Left: AstIdentifier mod, Right: AstIdentifier cls } => NameMangler.GenerateClassName(mod.Name, cls.Name),
+            AstIdentifier id => NameMangler.GenerateTypeName(_ctx.ModuleContext.Name, id.Name),
+            AstMemberAccess { Left: AstIdentifier mod, Right: AstIdentifier target } => NameMangler.GenerateTypeName(
+                mod.Name, target.Name),
             _ => null
         };
 
         if (rawName == null)
-            return Fail<ClassType>("Expected class identifier after 'new'", DiagnosticKind.Syntax, valueNode);
+            return Fail<ICompositeType>("Expected type identifier after 'new'", DiagnosticKind.Syntax, valueNode);
 
-        if (TypeResolver.Resolve(valueNode, _ctx) is not ClassType classType)
-            return Fail<ClassType>($"'{rawName}' is not a class", DiagnosticKind.Type, valueNode);
+        if (TypeResolver.Resolve(valueNode, _ctx) is not ICompositeType type)
+            return Fail<ICompositeType>($"Type '{rawName}' cannot be instantiated.", DiagnosticKind.Type, valueNode);
 
-        return classType;
+        return type;
     }
 
-    private void InvokeConstructor(ClassType classType, LLVMValueRef instancePtr, AstNode? argsNode)
+    private void InvokeConstructor(ClassType type, LLVMValueRef instancePtr, AstNode[] argNodes, AstNode callSite)
     {
-        List<AstNode> argNodes = [];
-        ParameterResolver.FlattenComma(argsNode, argNodes);
-
-        if (!classType.Methods.TryGetValue("constructor", out var ctor))
+        if (!type.Methods.TryGetValue("constructor", out var ctor))
         {
-            // if (argNodes.Count > 0)
-            //     Fail($"Class '{classType.Name}' has no constructor taking {argNodes.Count} argument(s)", DiagnosticKind.Type, argsNode);
-            throw new InvalidOperationException("Cannot find constructor in class. Probably constructor synthezation failed.");
+            throw new InvalidOperationException(
+                "Cannot find constructor in class");
         }
 
         if (ctor.IsPoison)
             AbortPoison();
 
-        if (argNodes.Count != ctor.Parameters.Count)
-            Fail($"Constructor '{classType.Name}' expects {ctor.Parameters.Count} argument(s), got {argNodes.Count}", DiagnosticKind.Type, argsNode);
-
+        var resolvedArgs =
+            ArgumentResolver.Resolve(_ctx, argNodes, ctor.Parameters, callSite, $"Constructor '{type.Name}'");
         var func = ResolveConstructorFn(ctor);
-        var args = EmitConstructorArgs(instancePtr, ctor.Parameters, argNodes);
+        LLVMValueRef[] args = [instancePtr, .. resolvedArgs.Select(a => a.Value.Value)];
         _ctx.Builder.BuildCall2(ctor.Signature.Type, func, args);
     }
 
@@ -71,26 +128,11 @@ public class NewGen(CodeGenContext ctx) : CodeGenBase(ctx)
         if (ctor.FunctionValue.Handle != IntPtr.Zero)
             return ctor.FunctionValue;
 
-        string symbol = ctor.Signature is CallableType c ? c.FullName : $"{ctor.DeclaringClass.FullName}_constructor";
+        string symbol = ctor.Signature is CallableType c ? c.FullName : $"{ctor.DeclaringType.FullName}_constructor";
         var func = _ctx.Module.GetNamedFunction(symbol);
         if (func.Handle == IntPtr.Zero)
             Fail($"Constructor '{symbol}' is not defined", DiagnosticKind.Name);
 
         return func;
-    }
-
-    private LLVMValueRef[] EmitConstructorArgs(LLVMValueRef instancePtr, List<ParameterInfo> parameters, List<AstNode> argNodes)
-    {
-        var dispatcher = new ExpressionDispatcher(_ctx);
-        var args = new LLVMValueRef[argNodes.Count + 1];
-        args[0] = instancePtr;
-
-        for (int i = 0; i < argNodes.Count; i++)
-        {
-            var val = dispatcher.EmitExpression(argNodes[i]);
-            args[i + 1] = TypeCaster.ImplicitCast(_ctx, val, parameters[i].Type).Value;
-        }
-
-        return args;
     }
 }

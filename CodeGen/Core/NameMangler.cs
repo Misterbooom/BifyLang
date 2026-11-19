@@ -3,7 +3,7 @@ using System;
 namespace BifyLang.CodeGen.Core;
 public static class NameMangler
 {
-    public static string GenerateClassName(string moduleName, string className)
+    public static string GenerateTypeName(string moduleName, string className)
     {
         ArgumentException.ThrowIfNullOrEmpty(moduleName);
         ArgumentException.ThrowIfNullOrEmpty(className);

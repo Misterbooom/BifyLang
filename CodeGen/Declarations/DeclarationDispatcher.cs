@@ -37,6 +37,9 @@ public class DeclarationDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
             case AstImport astImport:
                 new ImportGen(_ctx).EmitImport(astImport);
                 break;
+            case AstStruct astStruct:
+                new StructGen(_ctx).EmitStruct(astStruct);
+                break;
             default:
                 Fail("Only function and class declarations are allowed at the top level", DiagnosticKind.Syntax, node);
                 break;

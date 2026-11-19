@@ -18,7 +18,7 @@ namespace BifyLang.Ast.Handlers
                 Builder.Fail("A new expression requires an argument list.", DiagnosticKind.Syntax, nextNode?.Token ?? token);
             }
             AstCall astCall = (AstCall)nextNode;
-            AstNew astNew = new AstNew(token, astCall.CallableName, astCall.ArgumentsNode);
+            AstNew astNew = new AstNew(token, astCall.CallableName, astCall.Arguments);
             return astNew;
 
         }

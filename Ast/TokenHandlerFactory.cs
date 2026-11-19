@@ -25,18 +25,24 @@ internal static class TokenHandlerFactory
             }
         }
 
-        if (builder.IsHandlingLine && builder.TokenIndex == 0 && builder.Nodes.Count == 0 &&
-            new DeclarationParser(builder).TryParseDeclaration(out var declarationHeader))
+        if (builder.IsHandlingLine && builder.TokenIndex == 0 && builder.Nodes.Count == 0)
         {
-            if (declarationHeader.Kind == DeclarationKind.Variable)
+            if (token.Type == TokenType.IDENTIFIER && token.Value == "struct")
             {
-                return new VariableDeclarationHandler(builder, declarationHeader);
-            }
-            else
-            {
-                return new FunctionHandler(builder, declarationHeader);
+                return new ClassHandler(builder);
             }
 
+            if (new DeclarationParser(builder).TryParseDeclaration(out var declarationHeader))
+            {
+                if (declarationHeader.Kind == DeclarationKind.Variable)
+                {
+                    return new VariableDeclarationHandler(builder, declarationHeader);
+                }
+                else
+                {
+                    return new FunctionHandler(builder, declarationHeader);
+                }
+            }
         }
 
 

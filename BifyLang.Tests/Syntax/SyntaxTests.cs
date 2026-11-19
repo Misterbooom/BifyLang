@@ -746,4 +746,73 @@ func test(x: int) {
         Assert.That(functions[1].IsPoison, Is.False);
         Assert.That(functions[1].BlockNode.ChildNodes.Any(n => n.IsPoison), Is.True);
     }
+
+    [Test]
+    public void Struct_WithInterfaceFieldsAndMethod()
+    {
+        string code = @"
+struct Vector2:Interface {
+    val x:float;
+    val y:float;
+    func method()->type{}
+}
+";
+        var module = Bify.Parse(code);
+        Assert.That(module.ChildNodes.Count, Is.EqualTo(1));
+        Assert.That(module.ChildNodes[0], Is.InstanceOf<AstStruct>());
+        Assert.That(module.ChildNodes[0], Is.Not.InstanceOf<AstClass>());
+
+        var s = (AstStruct)module.ChildNodes[0];
+        AssertIdentifier(s.NameNode, "Vector2");
+        AssertIdentifier(s.ParentNode, "Interface");
+
+        var body = (AstBlock)s.BodyNode;
+        Assert.That(body.ChildNodes.Count, Is.EqualTo(3));
+
+        var xField = (AstVarDecl)body.ChildNodes[0];
+        var yField = (AstVarDecl)body.ChildNodes[1];
+        var method = (AstFunctionDecl)body.ChildNodes[2];
+
+        AssertIdentifier(xField.AssignmentNode.Left, "x");
+        AssertIdentifier(xField.Type, "float");
+        AssertIdentifier(yField.AssignmentNode.Left, "y");
+        AssertIdentifier(yField.Type, "float");
+        Assert.That(method.FunctionNameNode.Name, Is.EqualTo("method"));
+        AssertIdentifier(method.TypeNode, "type");
+    }
+
+    [Test]
+    public void Struct_WithoutInterfaceAndMultipleInterfaces()
+    {
+        string code = @"
+struct Point {
+    val x: float;
+}
+struct Vector3 : I1, I2 {
+    mut z: float;
+}
+";
+        var module = Bify.Parse(code);
+        Assert.That(module.ChildNodes.Count, Is.EqualTo(2));
+
+        var s1 = (AstStruct)module.ChildNodes[0];
+        AssertIdentifier(s1.NameNode, "Point");
+        Assert.That(s1.ParentNode, Is.Null);
+
+        var s2 = (AstStruct)module.ChildNodes[1];
+        AssertIdentifier(s2.NameNode, "Vector3");
+        Assert.That(s2.ParentNode, Is.InstanceOf<AstBinaryOp>());
+        var parentList = (AstBinaryOp)s2.ParentNode;
+        Assert.That(parentList.Token.Type, Is.EqualTo(TokenType.COMMA));
+        AssertIdentifier(parentList.Left, "I1");
+        AssertIdentifier(parentList.Right, "I2");
+    }
+
+    [Test]
+    public void Struct_InvalidBodyAndName_ReportsDiagnostics()
+    {
+        BifyAssert.ParseError("struct 123 {}", DiagnosticKind.Syntax);
+        BifyAssert.ParseError("struct Bad { func m() {} val x: int; }", DiagnosticKind.Syntax);
+        BifyAssert.ParseError("struct Bad { return 1; }", DiagnosticKind.Syntax);
+    }
 }

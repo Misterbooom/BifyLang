@@ -20,20 +20,21 @@ public class TypeResolver
             {
                 return type;
             }
-
-            if (ctx.TypeRegistry.TryGetType(NameMangler.GenerateClassName(ctx.ModuleContext.Name, id.Name), out type))
+            BifyDebug.Log(ctx.TypeRegistry.ToString());
+            if (ctx.TypeRegistry.TryGetType(NameMangler.GenerateTypeName(ctx.ModuleContext.Name, id.Name), out type))
             {
                 return type;
             }
+            BifyDebug.Log(NameMangler.GenerateTypeName(ctx.ModuleContext.Name, id.Name));
             return ctx.Fail<BifyType>("Cannot resolve type " + id.Name, DiagnosticKind.Name, typeNode);
         }
         return typeNode switch
         {
             AstMemberAccess memberAccess => ResolveMemberType(memberAccess, ctx),
-            AstUnaryOperator unary when unary.Token.Type is TokenType.POINTER or TokenType.MUL =>
-                ResolvePointer(unary, ctx),
-            AstIndexOperator indexOp =>
-                ResolveArray(indexOp, ctx),
+            // AstUnaryOperator unary when unary.Token.Type is TokenType.POINTER or TokenType.MUL =>
+            //     ResolvePointer(unary, ctx),
+            // AstIndexOperator indexOp =>
+            //     ResolveArray(indexOp, ctx),
             _ => ctx.Fail<BifyType>($"{typeNode.GetType()} is not a known type.", DiagnosticKind.Unknown, typeNode)
         };
     }
@@ -42,7 +43,7 @@ public class TypeResolver
     {
         if (memberAccess.Left is AstIdentifier modId && memberAccess.Right is AstIdentifier typeId)
         {
-            string mangled = NameMangler.GenerateClassName(modId.Name, typeId.Name);
+            string mangled = NameMangler.GenerateTypeName(modId.Name, typeId.Name);
             if (ctx.TypeRegistry.TryGetType(mangled, out var type))
                 return type;
             return ctx.Fail<BifyType>($"Cannot resolve type '{modId.Name}.{typeId.Name}'.", DiagnosticKind.Name, memberAccess);
@@ -50,20 +51,20 @@ public class TypeResolver
         return ctx.Fail<BifyType>("Invalid type expression.", DiagnosticKind.Unknown, memberAccess);
     }
 
-    private static BifyType ResolvePointer(AstUnaryOperator unary, CodeGenContext ctx)
-    {
-        var baseType = Resolve(unary.Operand, ctx);
-        string baseName = baseType is ClassType cls ? cls.FullName : baseType.Name;
-        return ctx.TypeRegistry.GetBifyType($"{baseName}*");
-    }
-
-    private static BifyType ResolveArray(AstIndexOperator indexOp, CodeGenContext ctx)
-    {
-        var elemType = Resolve(indexOp.TargetNode, ctx);
-        string elemName = elemType is ClassType cls ? cls.FullName : elemType.Name;
-        string arrName = indexOp.IndexNode is AstInteger num
-            ? $"{elemName}[{num.Value}]"
-            : $"{elemName}[]";
-        return ctx.TypeRegistry.GetBifyType(arrName);
-    }
+    // private static BifyType ResolvePointer(AstUnaryOperator unary, CodeGenContext ctx)
+    // {
+    //     var baseType = Resolve(unary.Operand, ctx);
+    //     string baseName = baseType is ClassType cls ? cls.FullName : baseType.Name;
+    //     return ctx.TypeRegistry.GetBifyType($"{baseName}*");
+    // }
+    //
+    // private static BifyType ResolveArray(AstIndexOperator indexOp, CodeGenContext ctx)
+    // {
+    //     var elemType = Resolve(indexOp.TargetNode, ctx);
+    //     string elemName = elemType is ClassType cls ? cls.FullName : elemType.Name;
+    //     string arrName = indexOp.IndexNode is AstInteger num
+    //         ? $"{elemName}[{num.Value}]"
+    //         : $"{elemName}[]";
+    //     return ctx.TypeRegistry.GetBifyType(arrName);
+    // }
 }

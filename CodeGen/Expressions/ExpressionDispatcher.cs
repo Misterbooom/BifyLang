@@ -33,7 +33,7 @@ public class ExpressionDispatcher(CodeGenContext ctx) : CodeGenBase(ctx)
             
             _ => Fail<TypedValue>($"'{node.Token.Value}' is not an expression", DiagnosticKind.Syntax, node),
         };
-        if (value.Type is ClassType && node is AstCall or AstNew)
+        if (value.IsReference && node is AstCall or AstNew)
         {
             _ctx.HeapControl.TrackTemp(value);
         }

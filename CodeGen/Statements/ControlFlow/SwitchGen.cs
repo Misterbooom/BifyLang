@@ -48,7 +48,7 @@ public class SwitchGen(CodeGenContext ctx) : CodeGenBase(ctx)
         using (_ctx.HeapControl.BeginTempScope())
         {
             exprVal = new ExpressionDispatcher(_ctx).EmitExpression(exprNode);
-            if (exprVal.Type is ClassType && _ctx.HeapControl.ConsumeTemp(exprVal.Value))
+            if (exprVal.IsReference && _ctx.HeapControl.ConsumeTemp(exprVal.Value))
             {
                 var alloca = _ctx.BuildEntryAlloca(exprVal.Type.Type, "switch_subj");
                 _ctx.Builder.BuildStore(exprVal.Value, alloca);
