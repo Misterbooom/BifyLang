@@ -11,7 +11,7 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 {
     private readonly FunctionBodyEmitter _bodyEmitter = new(ctx);
 
-    
+
     public void EmitMethod(ClassMethod classMethod)
     {
         var parameters = new List<ParameterInfo>
@@ -24,8 +24,6 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         bool isDestructor = classMethod.Name == DestructorSynthesizer.DestructorName;
         bool isConstructor = classMethod.Name == "constructor";
 
-        if (!isConstructor && !isDestructor)
-            _ = new FunctionPathChecker(returnType, classMethod.Body, _ctx);
 
         _bodyEmitter.Emit(
             classMethod.FunctionValue,

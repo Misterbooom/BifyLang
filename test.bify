@@ -1,4 +1,10 @@
+class Object{
 
+}
+class Entity:Object{
+    
+}
+class NoParent {}
 public func main()->int {
     val a = 33;
     return a;

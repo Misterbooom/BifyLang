@@ -1,4 +1,5 @@
 #nullable enable
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Core.Types.Data;
@@ -10,25 +11,29 @@ namespace BifyLang.CodeGen.Core.Validators;
 
 public class FunctionPathChecker
 {
-    public readonly bool AllPathsReturn = false;
+    public bool AllPathsReturn { get; }
+
     private readonly BifyType _functionType;
     private readonly CodeGenContext? _ctx;
+    private readonly bool _isVoid;
 
-    public FunctionPathChecker(BifyType functionType, AstNode? node, CodeGenContext? ctx = null)
+    public FunctionPathChecker(BifyType functionType, AstNode? node, AstNode nameNode,CodeGenContext? ctx = null)
     {
         _functionType = functionType;
         _ctx = ctx;
+        _isVoid = _functionType.Type.Kind == LLVMTypeKind.LLVMVoidTypeKind;
+
         if (node == null) return;
 
         AllPathsReturn = Check(node);
-        if (_functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind && !AllPathsReturn)
+        if (!_isVoid && !AllPathsReturn)
         {
-            _ctx?.Fail($"Not all execution paths return a value for {_functionType.Name}", DiagnosticKind.Type, node);
+            _ctx?.Fail($"Not all execution paths return a value for {_functionType.Name}", DiagnosticKind.Type, nameNode);
         }
     }
 
     public FunctionPathChecker(AstFunctionDecl functionDecl, CodeGenContext ctx)
-        : this(TypeResolver.Resolve(functionDecl.TypeNode, ctx), functionDecl.BlockNode, ctx)
+        : this(TypeResolver.Resolve(functionDecl.TypeNode, ctx), functionDecl.BlockNode,functionDecl.FunctionNameNode, ctx)
     {
     }
 
@@ -36,125 +41,123 @@ public class FunctionPathChecker
     {
         if (node == null) return false;
 
-        if (_ctx != null && node.Token != null && node.Token.Line > 0)
+        if (_ctx != null && node.Token is { Line: > 0 })
             _ctx.CurrentLine = node.Token.Line;
 
         return node switch
         {
+            AstLine line => Check(line.Child),
             AstReturn astReturn => CheckReturn(astReturn),
             AstBlock astBlock => CheckBlock(astBlock),
             AstIf astIf => CheckIf(astIf),
-            AstWhile astWhile => CheckWhile(astWhile),
-            AstFor astFor => CheckFor(astFor),
+            AstWhile astWhile => CheckLoop(astWhile.ConditionNode, astWhile.BlockNode, allowNullCondition: false),
+            AstFor astFor => CheckLoop(astFor.ConditionNode, astFor.BlockNode, allowNullCondition: true),
             AstSwitch astSwitch => CheckSwitch(astSwitch),
-            AstLine astLine => Check(astLine.Child),
             _ => false
         };
     }
 
     private bool CheckReturn(AstReturn astReturn)
     {
-        if (astReturn.ArgumentsNode == null && _functionType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
+        bool hasArgs = astReturn.ArgumentsNode != null;
+
+        if (!hasArgs && !_isVoid)
         {
             _ctx?.Fail($"Expected '{_functionType.Name}' but got 'void'", DiagnosticKind.Type, astReturn);
         }
+        else if (hasArgs && _isVoid)
+        {
+            _ctx?.Fail("Cannot return a value from a 'void' function", DiagnosticKind.Type, astReturn);
+        }
+
         return true;
     }
 
     private bool CheckBlock(AstBlock astBlock)
     {
+        bool blockReturns = false;
+
         foreach (var child in astBlock.ChildNodes)
         {
-            var stmt = child is AstLine line ? line.Child : child;
-            if (Check(stmt))
-                return true;
+            blockReturns |= Check(child);
         }
-        return false;
+
+        return blockReturns;
     }
 
     private bool CheckIf(AstIf astIf)
     {
-        if (astIf.ElseNode?.BlockNode == null)
-            return false;
-
-        if (!Check(astIf.BlockNode))
-            return false;
+        bool allReturn = Check(astIf.BlockNode);
 
         foreach (var elseIf in astIf.ElseIfNodes)
         {
-            if (!Check(elseIf.BlockNode))
-                return false;
+            allReturn &= Check(elseIf.BlockNode);
         }
 
-        return Check(astIf.ElseNode.BlockNode);
+        if (astIf.ElseNode?.BlockNode == null)
+            return false;
+
+        return Check(astIf.ElseNode.BlockNode) && allReturn;
     }
 
-    private bool CheckWhile(AstWhile astWhile)
+    private bool CheckLoop(AstNode? conditionNode, AstNode? blockNode, bool allowNullCondition)
     {
-        if (IsInfiniteCondition(astWhile.ConditionNode, allowNull: false) && !HasBreak(astWhile.BlockNode))
-            return Check(astWhile.BlockNode);
+        Check(blockNode);
 
-        return false;
-    }
-
-    private bool CheckFor(AstFor astFor)
-    {
-        if (IsInfiniteCondition(astFor.ConditionNode, allowNull: true) && !HasBreak(astFor.BlockNode))
-            return Check(astFor.BlockNode);
-
-        return false;
-    }
-
-    private static bool IsInfiniteCondition(AstNode? conditionNode, bool allowNull)
-    {
-        if (conditionNode == null)
-            return allowNull;
-
-        return conditionNode is AstIdentifier { Name: "true" or "1" } ||
-               conditionNode is AstBoolean { Value: true } ||
-               conditionNode is AstInteger { Value: not 0 };
+        return IsInfiniteCondition(conditionNode, allowNullCondition) && !HasBreak(blockNode);
     }
 
     private bool CheckSwitch(AstSwitch astSwitch)
     {
-        if (astSwitch.DefaultNode == null)
-            return false;
-
-        if (!Check(astSwitch.DefaultNode.BlockNode))
-            return false;
+        bool allCasesReturn = true;
 
         foreach (var c in astSwitch.Cases)
         {
-            if (!Check(c.BlockNode))
-                return false;
+            bool caseReturns = Check(c.BlockNode);
+            bool caseBreaks = HasBreak(c.BlockNode);
+            allCasesReturn &= caseReturns && !caseBreaks;
         }
 
-        return true;
+        if (astSwitch.DefaultNode == null)
+            return false;
+
+        bool defaultReturns = Check(astSwitch.DefaultNode.BlockNode) && !HasBreak(astSwitch.DefaultNode.BlockNode);
+        return allCasesReturn && defaultReturns;
     }
 
-    private static bool HasBreak(AstNode? node)
+    private static bool IsInfiniteCondition(AstNode? conditionNode, bool allowNull) =>
+        conditionNode switch
+        {
+            null => allowNull,
+            AstIdentifier { Name: "true" or "1" } => true,
+            AstBoolean { Value: true } => true,
+            AstInteger { Value: not 0 } => true,
+            _ => false
+        };
+
+    private static bool HasBreak(AstNode? node) =>
+        node switch
+        {
+            null or AstWhile or AstFor or AstSwitch => false,
+            AstBreak => true,
+            AstLine line => HasBreak(line.Child),
+            AstBlock block => BlockHasReachableBreak(block),
+            AstIf ifNode => HasBreak(ifNode.BlockNode)
+                            || ifNode.ElseIfNodes.Any(e => HasBreak(e.BlockNode))
+                            || HasBreak(ifNode.ElseNode?.BlockNode),
+            _ => false
+        };
+
+    private static bool BlockHasReachableBreak(AstBlock block)
     {
-        if (node == null) return false;
-        if (node is AstBreak) return true;
-
-        if (node is AstBlock block)
+        foreach (var child in block.ChildNodes)
         {
-            foreach (var child in block.ChildNodes)
-            {
-                var stmt = child is AstLine line ? line.Child : child;
-                if (HasBreak(stmt)) return true;
-            }
+            var stmt = child is AstLine line ? line.Child : child;
+            if (stmt is AstReturn)
+                return false;
+            if (HasBreak(stmt))
+                return true;
         }
-        else if (node is AstIf ifNode)
-        {
-            if (HasBreak(ifNode.BlockNode)) return true;
-            foreach (var elseIf in ifNode.ElseIfNodes)
-                if (HasBreak(elseIf.BlockNode)) return true;
-            if (ifNode.ElseNode != null && HasBreak(ifNode.ElseNode.BlockNode)) return true;
-        }
-
-        if (node is AstWhile or AstFor or AstSwitch) return false;
-
         return false;
     }
 }
