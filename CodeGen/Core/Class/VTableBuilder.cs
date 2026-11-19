@@ -62,7 +62,7 @@ public static class VTableBuilder
         if (parentMethod.Signature.Type != overrideMethod.Signature.Type)
         {
             ctx.Fail(
-                $"Override method '{overrideMethod.Name}' signature does not match base method '{parentMethod.DeclaringClass}.{parentMethod.Name}'.",
+                $"Override method '{overrideMethod.Name}' signature does not match base method '{parentMethod.DeclaringType}.{parentMethod.Name}'.",
                 DiagnosticKind.Type,
                 node);
         }

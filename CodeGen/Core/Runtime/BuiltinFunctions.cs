@@ -28,7 +28,7 @@ public static class BuiltinFunctions
             var callableType = new CallableType(
                 name: "printf",
                 fullName: "printf",
-                parametersType: [new ParameterInfo("format", charPtrType, false)],
+                parametersType: [new ParameterInfo("format", charPtrType, false, null)],
                 returnType: intType,
                 functionType: fnType);
 

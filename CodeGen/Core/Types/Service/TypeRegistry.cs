@@ -29,6 +29,10 @@ public class TypeRegistry
         _types[name] = type;
     }
 
+    public void RegisterPoison(string name)
+    {
+        _types[name] = new BifyType(name, null){IsPoison = true};
+    }
     public bool TryGetType(string name, out BifyType type) =>
         _types.TryGetValue(name, out type);
 
@@ -37,7 +41,7 @@ public class TypeRegistry
         if (TryGetType(name, out var existing))
             return existing;
 
-     
+
 
         if (name.EndsWith("*"))
         {
@@ -76,8 +80,8 @@ public class TypeRegistry
         {
             foreach (var (name, bifyType) in _types)
             {
-                var llvmTypeStr = bifyType.Type.Handle != System.IntPtr.Zero 
-                    ? bifyType.Type.PrintToString() 
+                var llvmTypeStr = bifyType.Type.Handle != System.IntPtr.Zero
+                    ? bifyType.Type.PrintToString()
                     : "null";
                 sb.AppendLine($"  - {name}: {bifyType.GetType().Name} (LLVM: {llvmTypeStr}, 0x{bifyType.Type.Handle:X})");
             }

@@ -1,5 +1,33 @@
+struct Vector2{
+    mut x:int;
+    val y:int;
+    val z:int = 1;
+    func sum() -> int{
+        return x + y;
+    }
+}
+
+class Foo{
+    constructor(){
+        
+    }
+    public func greet(){
+        printf("Hello World!");
+    }
+}
+
+public func mutate(mut vector:Vector2, a:int = 2) -> Vector2{
+    vector.x = 1;
+    return vector;
+}
+public func buildFoo() -> Foo{
+    return new Foo();
+}
 
 public func main()->int {
-    val a = 33;
-    return a;
+    val vector = new Vector2(x:1, y:2);
+    val a = mutate(vector).x;
+    printf("a:%d", a);
+    
+    return 0;
 }

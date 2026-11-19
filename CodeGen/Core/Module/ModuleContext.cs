@@ -10,17 +10,17 @@ public class ModuleContext
     public readonly string Name;
     public readonly string FullPath;
     public Scope CurrentScope = new Scope(parent: null);
-    public Dictionary<string, ClassType> ClassesInfo = new Dictionary<string, ClassType>();
+    public readonly Dictionary<string, ICompositeType> TypesInfo = new Dictionary<string, ICompositeType>();
 
     public ModuleContext(CodeGenContext ctx, string name, string fullpath)
     {
-        
+
         _ctx = ctx;
         Name = name;
         FullPath = fullpath;
-        
+
     }
- 
+
 
 
 

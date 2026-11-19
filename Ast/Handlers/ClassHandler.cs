@@ -8,10 +8,14 @@ namespace BifyLang.Ast.Handlers
     {
         public override void HandleToken(Token token)
         {
+            bool isStruct = token.Value == "struct";
+            string kindLower = isStruct ? "struct" : "class";
+            string kindTitle = isStruct ? "Struct" : "Class";
+
             Token identifierToken = Builder.GetNextToken();
             if (identifierToken?.Type != TokenType.IDENTIFIER)
             {
-                Builder.Fail($"Invalid class name: '{identifierToken?.Value ?? "null"}'.", DiagnosticKind.Syntax, identifierToken ?? token);
+                Builder.Fail($"Invalid {kindLower} name: '{identifierToken?.Value ?? "null"}'.", DiagnosticKind.Syntax, identifierToken ?? token);
             }
             AstNode nameNode = new AstIdentifier(identifierToken, identifierToken.Value);
             Builder.TokenIndex += 1;
@@ -31,12 +35,14 @@ namespace BifyLang.Ast.Handlers
                 Builder.TokenIndex -= 1;
             }
 
-            AstNode bodyNode = Builder.HandleBody("Class");
-            VerifyClassBody((AstBlock)bodyNode);
-            Builder.CurrentNode = new AstClass(token, nameNode, bodyNode, parentNode);
+            AstNode bodyNode = Builder.HandleBody(kindTitle);
+            VerifyBody((AstBlock)bodyNode, kindLower, kindTitle);
+            Builder.CurrentNode = isStruct
+                ? new AstStruct(token, nameNode, bodyNode, parentNode)
+                : new AstClass(token, nameNode, bodyNode, parentNode);
         }
 
-        private void VerifyClassBody(AstBlock body)
+        private void VerifyBody(AstBlock body, string kindLower, string kindTitle)
         {
             int methodsCount = 0;
             foreach (AstNode child in body.ChildNodes)
@@ -50,7 +56,7 @@ namespace BifyLang.Ast.Handlers
                     if (methodsCount > 0)
                     {
                         Builder.Error(
-                            "Class attributes must be defined before methods in the class body.",
+                            $"{kindTitle} attributes must be defined before methods in the {kindLower} body.",
                             DiagnosticKind.Syntax,
                             child.Token
                         );
@@ -63,7 +69,7 @@ namespace BifyLang.Ast.Handlers
                 else
                 {
                     Builder.Error(
-                        $"Invalid statement in class body. Only methods and variables are allowed. " +
+                        $"Invalid statement in {kindLower} body. Only methods and variables are allowed. " +
                         $"Not a {child.GetType().Name.Replace("Ast", "").ToLower()}.",
                         DiagnosticKind.Syntax,
                         child.Token

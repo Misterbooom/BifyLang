@@ -11,12 +11,12 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
 {
     private readonly FunctionBodyEmitter _bodyEmitter = new(ctx);
 
-    
+
     public void EmitMethod(ClassMethod classMethod)
     {
         var parameters = new List<ParameterInfo>
         {
-            new("this", classMethod.DeclaringClass, false)
+            new("this", (BifyType)classMethod.DeclaringType, false, null)
         };
         parameters.AddRange(classMethod.Parameters);
 
@@ -35,6 +35,6 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
             isMethod: true,
             isDestructor: isDestructor,
             isConstructor: isConstructor,
-            declaringClass: classMethod.DeclaringClass);
+            declaringClass: classMethod.DeclaringType);
     }
 }

@@ -4,17 +4,22 @@ using System.Collections.Generic;
 using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Context;
+using BifyLang.CodeGen.Core.Module;
 using BifyLang.CodeGen.Core.Types.Data;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core.Class;
 
-public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
+public class ClassLayoutBuilder(CodeGenContext ctx) : LayoutBuilder(ctx)
 {
-    public void Build(ClassInfo[] classes)
+    private readonly List<(ClassType? Type, ClassInfo Info)> _built = [];
+
+    public  override void Declare(ModuleInfo[] modules)
     {
-        List<(ClassType? Type, ClassInfo Info)> built = [];
+        var dependency = new ClassDependencyResolver(_ctx);
+        var classes = dependency.Resolve(modules.Select(i => i.ModuleNode));
+        _built.Clear();
 
         foreach (var info in classes)
         {
@@ -24,16 +29,19 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
                 _ctx.CurrentLine = info.ClassNode.LineNumber;
                 try
                 {
-                    built.Add((DeclareOpaque(info), info));
+                    _built.Add((DeclareOpaque(info), info));
                 }
                 catch (BifyCompilationException)
                 {
-                    built.Add((null, info));
+                    _built.Add((null, info));
                 }
             }
         }
+    }
 
-        foreach (var (type, info) in built)
+    public override void Build(ModuleInfo[] modules)
+    {
+        foreach (var (type, info) in _built)
         {
             if (type == null) continue;
             var ownerCtx = _ctx.ModulesMap[info.ModuleName].ModuleContext;
@@ -60,10 +68,10 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
                 Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type, info.ClassNode);
         }
 
-        string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
+        string mangledName = NameMangler.GenerateTypeName(info.ModuleName, info.Name);
         var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent);
         _ctx.TypeRegistry.Register(mangledName, classType);
-        _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
+        _ctx.ModuleContext.TypesInfo[mangledName] = classType;
         return classType;
     }
 

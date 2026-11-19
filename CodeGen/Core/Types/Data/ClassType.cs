@@ -4,16 +4,17 @@ using LLVMSharp.Interop;
 
 namespace BifyLang.CodeGen.Core.Types.Data;
 
-public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LLVMTypeRef structType, string moduleName, ClassType? parent = null) : BifyType(name, pointerType)
+public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LLVMTypeRef structType, string moduleName, ClassType? parent = null) : ReferenceType(name, pointerType), ICompositeType
 {
     public LLVMTypeRef StructType { get; set; } = structType;
+    public LLVMTypeRef LlvmStructType => StructType;
     public readonly ClassType? Parent = parent;
     public LLVMValueRef VTableGlobal;
     public VTable VTable = new();
-    public Dictionary<string, ClassField> Fields = new();
-    public Dictionary<string, ClassMethod> Methods = new();
-    public readonly string FullName = fullName;
-    public readonly string ModuleName =  moduleName;
+    public Dictionary<string, ClassField> Fields { get; } = new();
+    public Dictionary<string, ClassMethod> Methods { get; } = new();
+    public string FullName { get; } = fullName;
+    public string ModuleName { get; } = moduleName;
     public bool IsSubclassOf(ClassType other)
     {
         var cur = this;

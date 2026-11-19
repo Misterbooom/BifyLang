@@ -13,18 +13,16 @@ namespace BifyLang.CodeGen.Core.Emitters.FlowControl;
 
 
 
-public sealed class BranchEmitter : IDisposable
+public sealed class BranchEmitter : CodeGenBase, IDisposable
 {
-    private readonly CodeGenContext _ctx;
     private readonly LLVMBasicBlockRef[] _condBlocks;
     private readonly LLVMBasicBlockRef? _elseBlock;
     private readonly LLVMBasicBlockRef _mergeBlock;
     private LLVMBasicBlockRef _lastBodyBlock;
     private int _currentBranchIndex;
 
-    public BranchEmitter(CodeGenContext ctx, int elseIfCount, bool hasElse)
+    public BranchEmitter(CodeGenContext ctx, int elseIfCount, bool hasElse) : base(ctx)
     {
-        _ctx = ctx;
         var fn = _ctx.FunctionEntry.Parent;
         _lastBodyBlock = _ctx.Builder.InsertBlock;
 

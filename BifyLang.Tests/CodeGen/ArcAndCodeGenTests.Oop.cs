@@ -20,7 +20,7 @@ public partial class ArcAndCodeGenTests
             dummyDtor,
             "@gc_releaseStrong(",
             "@gc_releaseWeak(",
-            "call void @main.Base_destructor(ptr %0)",
+            "call void @main.Base_destructor(ptr %this)",
             "ret void"
         );
 

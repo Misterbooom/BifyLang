@@ -7,15 +7,22 @@ namespace BifyLang.CodeGen.Core.Types.Data;
 
 public class BifyType
 {
+
     public string Name { get; private set; }
 
     public LLVMTypeRef Type { get; private set; }
+    public bool IsPoison { get; init; }
 
     public BifyType(string name, LLVMTypeRef type)
     {
         Name = name;
         Type = type;
     }
+
+    public virtual bool IsReference => false;
+
+    public bool IsArcAssignableFrom(BifyType valueType) =>
+        IsReference && (valueType.IsReference || valueType.Name == "null");
 
     public static BifyType CreateInt(CodeGenContext ctx)
     {
@@ -88,3 +95,5 @@ public class BifyType
     public override string ToString() =>
         $"{Name}:{GetType().Name}:{Type}";
 }
+
+

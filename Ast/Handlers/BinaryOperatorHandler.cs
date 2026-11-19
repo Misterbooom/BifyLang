@@ -11,7 +11,6 @@ namespace BifyLang.Ast.Handlers
 
         public override void HandleToken(Token token)
         {
-            
             _binaryOpToken = token;
 
             if (Builder.Nodes.Count == 0)
@@ -23,7 +22,8 @@ namespace BifyLang.Ast.Handlers
                 Token previousToken = Builder.GetPreviousToken();
                 if (previousToken != null)
                 {
-                    _isUnary = previousToken.Type == TokenType.LPAREN || TokenConfig.BinaryOperators.ContainsValue(previousToken.Type);
+                    _isUnary = previousToken.Type == TokenType.LPAREN ||
+                               TokenConfig.BinaryOperators.ContainsValue(previousToken.Type);
                 }
             }
 
@@ -35,7 +35,8 @@ namespace BifyLang.Ast.Handlers
                 {
                     token.Type = TokenType.POINTER;
                 }
-                Builder.CurrentNode = new AstUnaryOperator(token, operand,true);
+
+                Builder.CurrentNode = new AstUnaryOperator(token, operand, true);
                 return;
             }
 
@@ -54,12 +55,12 @@ namespace BifyLang.Ast.Handlers
                 {
                     newToken.Type = TokenType.POINTER;
                 }
-                Builder.CurrentNode = new AstUnaryOperator(newToken, right,true);
+
+                Builder.CurrentNode = new AstUnaryOperator(newToken, right, true);
             }
             else
             {
                 Builder.CurrentNode = new AstBinaryOp(token, left, right);
-
             }
         }
 
@@ -69,8 +70,8 @@ namespace BifyLang.Ast.Handlers
             while (!Builder.IsAtEnd())
             {
                 Token next = Builder.Peek();
-                
-                if (_binaryOpToken.Type == TokenType.MUL && next.Type == TokenType.ASSIGN )
+
+                if (_binaryOpToken.Type == TokenType.MUL && next.Type == TokenType.ASSIGN)
                 {
                     _isUnary = true;
                     break;
@@ -82,8 +83,10 @@ namespace BifyLang.Ast.Handlers
                 AstNode right = ParseRight(prec + 1);
                 left = new AstBinaryOp(op, left, right);
             }
+
             return left;
         }
+
         private bool CheckFunctionDeclaration()
         {
             return false;
@@ -112,7 +115,8 @@ namespace BifyLang.Ast.Handlers
                 TokenType.IDENTIFIER or TokenType.CONST => new IdentifierHandler(Builder).ParseIdentifier(token, true),
                 TokenType.NUMBER => NodeConverter.TokenToNode(token, Builder),
                 TokenType.LPAREN => ParseParenthesizedExpression(),
-                TokenType.SUB or TokenType.MUL or TokenType.INCREMENT or TokenType.DECREMENT or TokenType.NOT => HandleUnaryOperator(token),
+                TokenType.SUB or TokenType.MUL or TokenType.INCREMENT or TokenType.DECREMENT or TokenType.NOT =>
+                    HandleUnaryOperator(token),
                 TokenType.LBRACKET => new ArrayHandler(Builder).GetArrayNode(token),
                 TokenType.STRING or TokenType.CHAR => NodeConverter.TokenToNode(token, Builder),
                 TokenType.NEW => new NewHandler(Builder).ParseNewExpression(token),
@@ -128,11 +132,13 @@ namespace BifyLang.Ast.Handlers
                 {
                     baseNode.LineNumber = token.Line;
                 }
+
                 if (baseNode.ColumnNumber == 0)
                 {
                     baseNode.ColumnNumber = token.Column;
                 }
             }
+
             if (handlePostfix)
                 return ParsePostfix(baseNode);
             else
@@ -146,8 +152,10 @@ namespace BifyLang.Ast.Handlers
                 Token next = Builder.Peek();
                 if (next.Type == TokenType.LPAREN)
                 {
-                    var args = Builder.ParseTokens(Builder.GetConditionTokens());
-                    expr = new AstCall(next, expr, args);
+                    List<List<Token>> splitedTokens = TokensFormatter.SplitTokensByType(Builder.GetConditionTokens(), TokenType.COMMA);
+                    bool isPoison = false;
+                    var args = BuildArguments(splitedTokens, ref isPoison);
+                    expr = new AstCall(next, expr, args){IsPoison = isPoison};
                 }
                 else if (next.Type == TokenType.LBRACKET)
                 {
@@ -177,27 +185,134 @@ namespace BifyLang.Ast.Handlers
                 {
                     break;
                 }
+
                 if (expr.LineNumber == 0)
                 {
                     expr.LineNumber = next.Line;
                 }
+
                 if (expr.ColumnNumber == 0)
                 {
                     expr.ColumnNumber = next.Column;
                 }
+
                 Builder.TokenIndex++;
             }
+
             return expr;
         }
 
-        private AstNode  HandleUnaryOperator(Token opToken)
+        private AstNode[] BuildArguments(List<List<Token>> splitedTokens, ref bool isPoison)
+        {
+            int argIndex = 0;
+            List<AstNode> arguments = new();
+
+            foreach (var group in splitedTokens)
+            {
+                int beforeCount = Builder.Diagnostics.Diagnostics.Count;
+                try
+                {
+                    if (group.Count == 0)
+                    {
+                        Builder.Error($"Argument #{argIndex + 1}: Empty argument.", DiagnosticKind.Syntax, null);
+                        isPoison = true;
+                        argIndex++;
+                        continue;
+                    }
+
+                    bool isNamed = group.Count >= 2
+                                   && group[0].Type == TokenType.IDENTIFIER
+                                   && group[1].Type == TokenType.COLON;
+
+                    Token? nameToken = isNamed ? group[0] : null;
+                    List<Token> valueTokens = isNamed ? group.GetRange(2, group.Count - 2) : group;
+
+                    if (valueTokens.Count == 0)
+                    {
+                        Builder.Error(
+                            $"Argument #{argIndex + 1}: Expected expression after ':'.",
+                            DiagnosticKind.Syntax,
+                            group[1]
+                        );
+                        isPoison = true;
+                        argIndex++;
+                        continue;
+                    }
+
+                    AstBuilder b = new(valueTokens, Builder.Diagnostics, Builder.FilePath, true);
+                    AstNode? valueNode = b.BuildNode();
+
+                    if (valueNode == null)
+                    {
+                        if (Builder.Diagnostics.Diagnostics.Count == beforeCount)
+                        {
+                            Builder.Error(
+                                $"Argument #{argIndex + 1}: Invalid argument expression.",
+                                DiagnosticKind.Syntax,
+                                valueTokens[0]
+                            );
+                        }
+
+                        isPoison = true;
+                        argIndex++;
+                        continue;
+                    }
+
+                    if (valueNode.IsPoison)
+                    {
+                        isPoison = true;
+                    }
+
+                    AstNode argNode = nameToken != null
+                        ? new AstNamedArg(new AstIdentifier(nameToken, nameToken.Value), valueNode)
+                        : valueNode;
+
+                    arguments.Add(argNode);
+                }
+                catch (BifyCompilationException)
+                {
+                    if (Builder.Diagnostics.Diagnostics.Count == beforeCount && !group.Exists(t => t.IsPoison))
+                    {
+                        Builder.Error(
+                            $"Argument #{argIndex + 1}: Invalid argument expression.",
+                            DiagnosticKind.Syntax,
+                            group.Count > 0 ? group[0] : null
+                        );
+                    }
+
+                    isPoison = true;
+                }
+
+                argIndex++;
+            }
+
+            return arguments.ToArray();
+        }
+
+        private AstBinaryOp? ConnectArguments(AstNode[] argNodes)
+        {
+            AstBinaryOp? binaryOp = null;
+            Token commaToken = new(TokenType.COMMA, ",");
+
+            for (int i = 0; i < argNodes.Length; i++)
+            {
+                binaryOp = i == 0
+                    ? new AstBinaryOp(commaToken, argNodes[i], null)
+                    : new AstBinaryOp(commaToken, argNodes[i], binaryOp);
+            }
+
+            return binaryOp;
+        }
+
+        private AstNode HandleUnaryOperator(Token opToken)
         {
             AstNode operand = ParsePrimary();
             if (opToken.Type == TokenType.MUL)
             {
                 opToken.Type = TokenType.POINTER;
             }
-            return new AstUnaryOperator(opToken, operand,true);
+
+            return new AstUnaryOperator(opToken, operand, true);
         }
 
         private AstNode ParseParenthesizedExpression()
@@ -212,6 +327,7 @@ namespace BifyLang.Ast.Handlers
                 AstCast castNode = new(node.Token, node, valueNode);
                 return castNode;
             }
+
             return node;
         }
 

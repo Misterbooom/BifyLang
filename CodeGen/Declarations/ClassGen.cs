@@ -13,7 +13,7 @@ public class ClassGen(CodeGenContext ctx) : CodeGenBase(ctx)
 {
     public void EmitClass(AstClass classNode)
     {
-        string mangledName = NameMangler.GenerateClassName(_ctx.ModuleContext.Name, classNode.NameNode.Token.Value);
+        string mangledName = NameMangler.GenerateTypeName(_ctx.ModuleContext.Name, classNode.NameNode.Token.Value);
 
         if (!_ctx.TypeRegistry.TryGetType(mangledName, out var type))
             throw new Exception($"Cannot resolve type '{mangledName}' from TypeRegistry. ");

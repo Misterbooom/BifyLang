@@ -78,7 +78,7 @@ public class Scope(Scope? parent = null)
             if (sym.IsPoison || sym.Pointer.Handle == IntPtr.Zero)
                 continue;
 
-            if (sym.Name != "this" && sym.Type is ClassType)
+            if (sym.Name != "this" && sym.Type.IsReference)
             {
                 var val = ctx.Builder.BuildLoad2(sym.Type.Type, sym.Pointer, "cleanup_" + sym.Name);
                 if (sym.IsWeak)

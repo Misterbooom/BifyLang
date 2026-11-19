@@ -19,7 +19,11 @@ public static class FlagChecker
         "virtual",
         "override"
     ];
-
+    private static readonly HashSet<string> AllowedStructMethodFlags =
+    [
+        "public",
+        "private",
+    ];
     private static readonly HashSet<string> AllowedAttributeFlags =
     [
         "public",
@@ -29,7 +33,13 @@ public static class FlagChecker
         "mut",
         "val"
     ];
-
+    private static readonly HashSet<string> AllowedStructAttributeFlags =
+    [
+        "public",
+        "private",
+        "mut",
+        "val"
+    ];
     private static readonly HashSet<string> AllowedClassFlags =
     [
         "public",
@@ -98,6 +108,28 @@ public static class FlagChecker
             flags,
             AllowedClassFlags,
             "class",
+            out error
+        );
+    }
+
+    public static bool CheckStructAttributeFlags(IEnumerable<string> flags,
+        out string? error)
+    {
+        return Check(
+            flags,
+            AllowedStructAttributeFlags,
+            "struct",
+            out error
+        );
+    }
+
+    public static bool CheckStructMethodFlags(IEnumerable<string> flags,
+        out string? error)
+    {
+        return Check(
+            flags,
+            AllowedStructMethodFlags,
+            "struct method",
             out error
         );
     }

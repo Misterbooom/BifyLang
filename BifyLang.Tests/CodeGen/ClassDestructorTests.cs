@@ -24,7 +24,7 @@ public class ClassDestructorTests : BifyTestBase
         var item = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Item");
         Assert.That(item.VTable.Slots.Count, Is.EqualTo(1));
         Assert.That(item.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
-        Assert.That(item.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("Item"));
+        Assert.That(item.VTable.Slots[0].Method.DeclaringType.Name, Is.EqualTo("Item"));
         Assert.That(item.Methods["destructor"].VTableIndex, Is.EqualTo(0));
     }
 
@@ -45,7 +45,7 @@ public class ClassDestructorTests : BifyTestBase
         var res = (ClassType)m.Context.TypeRegistry.GetBifyType("main.Resource");
         Assert.That(res.VTable.Slots.Count, Is.EqualTo(1));
         Assert.That(res.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
-        Assert.That(res.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("Resource"));
+        Assert.That(res.VTable.Slots[0].Method.DeclaringType.Name, Is.EqualTo("Resource"));
         Assert.That(res.Methods["destructor"].VTableIndex, Is.EqualTo(0));
         Assert.That(res.Methods["destructor"].Body, Is.Not.Null);
     }
@@ -69,8 +69,8 @@ public class ClassDestructorTests : BifyTestBase
         var b = (ClassType)m.Context.TypeRegistry.GetBifyType("main.BaseResource");
         var d = (ClassType)m.Context.TypeRegistry.GetBifyType("main.DerivedResource");
 
-        Assert.That(b.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("BaseResource"));
-        Assert.That(d.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("DerivedResource"));
+        Assert.That(b.VTable.Slots[0].Method.DeclaringType.Name, Is.EqualTo("BaseResource"));
+        Assert.That(d.VTable.Slots[0].Method.DeclaringType.Name, Is.EqualTo("DerivedResource"));
         Assert.That(d.Methods["destructor"].VTableIndex, Is.EqualTo(0));
     }
 

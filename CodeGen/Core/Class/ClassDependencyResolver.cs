@@ -56,7 +56,7 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
 
             _ctx.CurrentLine = classNode.LineNumber;
             string rawClassName = classNode.NameNode.Token.Value;
-            string mangledName = NameMangler.GenerateClassName(module.Name, rawClassName);
+            string mangledName = NameMangler.GenerateTypeName(module.Name, rawClassName);
 
             if (_classes.ContainsKey(mangledName))
             {
@@ -83,9 +83,9 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
         return node switch
         {
             null => string.Empty,
-            AstIdentifier id => NameMangler.GenerateClassName(currentModuleName, id.Name),
+            AstIdentifier id => NameMangler.GenerateTypeName(currentModuleName, id.Name),
             AstMemberAccess { Left: AstIdentifier moduleId, Right: AstIdentifier classId }
-                => NameMangler.GenerateClassName(moduleId.Name, classId.Name),
+                => NameMangler.GenerateTypeName(moduleId.Name, classId.Name),
             AstMemberAccess
                 => ctx.Fail<string>("Invalid parent class reference.", DiagnosticKind.Syntax, node),
             _ => throw new NotSupportedException($"'{node.GetType().Name}' is not supported as a parent class node.")
@@ -153,7 +153,7 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
     {
         return string.Join(
             Environment.NewLine,
-            _compilationOrder.ConvertAll(c => $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateClassName(c.ModuleName,c.Name)]}")
+            _compilationOrder.ConvertAll(c => $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateTypeName(c.ModuleName,c.Name)]}")
         );
     }
 }

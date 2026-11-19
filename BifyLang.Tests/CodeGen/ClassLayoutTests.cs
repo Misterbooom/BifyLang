@@ -73,11 +73,11 @@ public class ClassLayoutTests : BifyTestBase
 
         Assert.That(dog.VTable.Slots.Count, Is.EqualTo(3));
         Assert.That(dog.VTable.Slots[0].MethodName, Is.EqualTo("destructor"));
-        Assert.That(dog.VTable.Slots[0].Method.DeclaringClass.Name, Is.EqualTo("Dog"));
+        Assert.That(dog.VTable.Slots[0].Method.DeclaringType.Name, Is.EqualTo("Dog"));
         Assert.That(dog.Methods["destructor"].VTableIndex, Is.EqualTo(0));
 
         Assert.That(dog.VTable.Slots[1].MethodName, Is.EqualTo("speak"));
-        Assert.That(dog.VTable.Slots[1].Method.DeclaringClass.Name, Is.EqualTo("Dog"));
+        Assert.That(dog.VTable.Slots[1].Method.DeclaringType.Name, Is.EqualTo("Dog"));
         Assert.That(dog.Methods["speak"].VTableIndex, Is.EqualTo(1));
 
         Assert.That(dog.VTable.Slots[2].MethodName, Is.EqualTo("bark"));
