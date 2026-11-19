@@ -50,9 +50,7 @@ public class FunctionGen(CodeGenContext ctx) : CodeGenBase(ctx)
         var mangledName = NameMangler.GenerateFunctionName(_ctx.ModuleContext.Name, functionName);
         var returnType = TypeResolver.Resolve(functionDecl.TypeNode, _ctx);
 
-        var pathChecker = new FunctionPathChecker(functionDecl, _ctx);
-        if (!pathChecker.AllPathsReturn && returnType.Type.Kind != LLVMTypeKind.LLVMVoidTypeKind)
-            Fail($"Not all execution paths return a value in function {mangledName}", DiagnosticKind.Type, functionDecl);
+        _ = new FunctionPathChecker(functionDecl, _ctx);
 
         var parameters = ParameterResolver.Resolve(functionDecl.ArgumentsNode, _ctx);
 
