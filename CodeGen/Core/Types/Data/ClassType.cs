@@ -10,6 +10,9 @@ public class ClassType(string name, string fullName, LLVMTypeRef pointerType, LL
     public readonly ClassType? Parent = parent;
     public LLVMValueRef VTableGlobal;
     public VTable VTable = new();
+    public int MinType { get; init; }
+    public int MaxType { get; init; }
+
     public Dictionary<string, ClassField> Fields = new();
     public Dictionary<string, ClassMethod> Methods = new();
     public readonly string FullName = fullName;

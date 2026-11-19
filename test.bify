@@ -1,11 +1,22 @@
-class Object{
+class Object {}
 
-}
-class Entity:Object{
-    
-}
+class Entity : Object {}
+class Player : Entity {}
+class Admin : Player {}
+class Enemy : Entity {}
+
+class Component : Object {}
+class Transform : Component {}
+class Renderer : Component {}
+
+class Service : Object {}
+
 class NoParent {}
+class NoParentChild : NoParent {}
+
+class AnotherRoot {}
+class AnotherChild : AnotherRoot {}
+
 public func main()->int {
-    val a = 33;
-    return a;
+    return 0;
 }

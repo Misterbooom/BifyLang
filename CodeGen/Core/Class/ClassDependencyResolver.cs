@@ -40,6 +40,7 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
                 CollectClasses(astModule);
             }
         }
+
         BifyDebug.Log(string.Join(
             Environment.NewLine,
             _invertedMap.Select(x => $"{x.Key ?? "noParent"}: [{string.Join(", ", x.Value)}]")
@@ -56,19 +57,24 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
             foreach (var root in noParent)
             {
                 int minId = NextId();
-                AssignTypeIds(_invertedMap[root]);
-                int maxId = GetId();
+                if (_invertedMap.TryGetValue(root, out var list))
+                {
+                    AssignTypeIds(list);
+                }
 
+                int maxId = GetId();
                 var classInfo = _compilationOrder.Single(i => i.MangledName == root);
                 classInfo.MinType = minId;
-                classInfo.MaxType =  maxId;
+                classInfo.MaxType = maxId;
             }
         }
+
         BifyDebug.Log(string.Join("\n", _compilationOrder));
 
 
         return _compilationOrder.ToArray();
     }
+
     private int NextId() => ++_typeId;
     private int GetId() => _typeId;
 
@@ -85,7 +91,8 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
 
             if (_classes.ContainsKey(mangledName))
             {
-                Error($"Class '{rawClassName}' already exists in module '{module.Name}'.", DiagnosticKind.Name, classNode);
+                Error($"Class '{rawClassName}' already exists in module '{module.Name}'.", DiagnosticKind.Name,
+                    classNode);
                 continue;
             }
 
@@ -191,17 +198,20 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
             {
                 AssignTypeIds(list);
             }
+
             int maxId = GetId();
             var classInfo = _compilationOrder.Single(i => i.MangledName == child);
             classInfo.MinType = minId;
-            classInfo.MaxType =  maxId;
+            classInfo.MaxType = maxId;
         }
     }
+
     public override string ToString()
     {
         return string.Join(
             Environment.NewLine,
-            _compilationOrder.ConvertAll(c => $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateClassName(c.ModuleName,c.Name)]}")
+            _compilationOrder.ConvertAll(c =>
+                $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateClassName(c.ModuleName, c.Name)]}")
         );
     }
 }

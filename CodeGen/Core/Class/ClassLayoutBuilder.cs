@@ -58,12 +58,18 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : CodeGenBase(ctx)
             if (_ctx.TypeRegistry.TryGetType(parentName, out var pType) && pType is ClassType cp)
                 parent = cp;
             else
-                Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type, info.ClassNode);
+                Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type,
+                    info.ClassNode);
         }
 
         string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
-        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent);
-        _ctx.TypeRegistry.Register(mangledName, classType);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent)
+        {
+            MinType = info.MinType,
+            MaxType = info.MaxType
+        };
+
+    _ctx.TypeRegistry.Register(mangledName, classType);
         _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
         return classType;
     }
