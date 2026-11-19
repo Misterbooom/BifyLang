@@ -24,8 +24,6 @@ public class MethodEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         bool isDestructor = classMethod.Name == DestructorSynthesizer.DestructorName;
         bool isConstructor = classMethod.Name == "constructor";
 
-        if (!isConstructor && !isDestructor)
-            _ = new FunctionPathChecker(returnType, classMethod.Body, _ctx);
 
         _bodyEmitter.Emit(
             classMethod.FunctionValue,

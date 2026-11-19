@@ -58,10 +58,21 @@ public class FunctionBodyEmitter(CodeGenContext ctx) : CodeGenBase(ctx)
         {
             EmitDestructorFieldCleanups(function, declaringClass as ClassType);
         }
-        else if (returnType.Type.Kind == LLVMTypeKind.LLVMVoidTypeKind &&
-            _ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
+        else if (_ctx.Builder.InsertBlock.Terminator.Handle == IntPtr.Zero)
         {
-            _ctx.Builder.BuildRetVoid();
+            if (returnType.Type.Kind == LLVMTypeKind.LLVMVoidTypeKind)
+            {
+                _ctx.Builder.BuildRetVoid();
+            }
+            else if (!_ctx.Builder.InsertBlock.HasPredecessors() &&
+                     _ctx.Builder.InsertBlock.Handle != entry.Handle)
+            {
+                _ctx.Builder.InsertBlock.Delete();
+            }
+            else
+            {
+                _ctx.Builder.BuildUnreachable();
+            }
         }
     }
 

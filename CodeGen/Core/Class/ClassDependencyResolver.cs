@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Context;
 using BifyLang.Exceptions;
@@ -19,12 +20,15 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
     private readonly Dictionary<string, VisitState> _states = [];
     private readonly Dictionary<string, string> _modulePaths = [];
     private readonly List<ClassInfo> _compilationOrder = [];
+    private readonly Dictionary<string, List<string>> _invertedMap = [];
+    private int _typeId;
 
     public ClassInfo[] Resolve(IEnumerable<AstModule> modules)
     {
         _classes.Clear();
         _inheritanceMap.Clear();
         _states.Clear();
+        _invertedMap.Clear();
         _modulePaths.Clear();
         _compilationOrder.Clear();
 
@@ -37,6 +41,10 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
             }
         }
 
+        BifyDebug.Log(string.Join(
+            Environment.NewLine,
+            _invertedMap.Select(x => $"{x.Key ?? "noParent"}: [{string.Join(", ", x.Value)}]")
+        ));
         VerifyInheritanceMap();
 
         foreach (var mangledName in _classes.Keys)
@@ -44,8 +52,31 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
             Visit(mangledName);
         }
 
+        if (_invertedMap.TryGetValue(string.Empty, out var noParent))
+        {
+            foreach (var root in noParent)
+            {
+                int minId = NextId();
+                if (_invertedMap.TryGetValue(root, out var list))
+                {
+                    AssignTypeIds(list);
+                }
+
+                int maxId = GetId();
+                var classInfo = _compilationOrder.Single(i => i.MangledName == root);
+                classInfo.MinType = minId;
+                classInfo.MaxType = maxId;
+            }
+        }
+
+        BifyDebug.Log(string.Join("\n", _compilationOrder));
+
+
         return _compilationOrder.ToArray();
     }
+
+    private int NextId() => ++_typeId;
+    private int GetId() => _typeId;
 
     private void CollectClasses(AstModule module)
     {
@@ -60,17 +91,26 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
 
             if (_classes.ContainsKey(mangledName))
             {
-                Error($"Class '{rawClassName}' already exists in module '{module.Name}'.", DiagnosticKind.Name, classNode);
+                Error($"Class '{rawClassName}' already exists in module '{module.Name}'.", DiagnosticKind.Name,
+                    classNode);
                 continue;
             }
 
             try
             {
                 string mangledParentName = ResolveParentName(_ctx, classNode.ParentNode, module.Name);
-                var classInfo = new ClassInfo(rawClassName, classNode, module.Name);
+                var classInfo = new ClassInfo(rawClassName, classNode, module.Name, mangledName);
+
 
                 _classes.Add(mangledName, classInfo);
                 _inheritanceMap.Add(mangledName, mangledParentName);
+                if (!_invertedMap.TryGetValue(mangledParentName, out var list))
+                {
+                    list = [];
+                    _invertedMap[mangledParentName] = list;
+                }
+
+                list.Add(mangledName);
             }
             catch (BifyCompilationException)
             {
@@ -149,11 +189,28 @@ public class ClassDependencyResolver(CodeGenContext ctx) : CodeGenBase(ctx)
         _compilationOrder.Add(_classes[mangledClassName]);
     }
 
+    private void AssignTypeIds(List<string> childs)
+    {
+        foreach (var child in childs)
+        {
+            int minId = NextId();
+            if (_invertedMap.TryGetValue(child, out var list))
+            {
+                AssignTypeIds(list);
+            }
+
+            int maxId = GetId();
+            var classInfo = _compilationOrder.Single(i => i.MangledName == child);
+            classInfo.MinType = minId;
+            classInfo.MaxType = maxId;
+        }
+    }
+
     public override string ToString()
     {
         return string.Join(
             Environment.NewLine,
-            _compilationOrder.ConvertAll(c => $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateTypeName(c.ModuleName,c.Name)]}")
+            _compilationOrder.ConvertAll(c => $"{c.ModuleName}.{c.Name}:{_inheritanceMap[NameMangler.GenerateClassName(c.ModuleName,c.Name)]}")
         );
     }
 }

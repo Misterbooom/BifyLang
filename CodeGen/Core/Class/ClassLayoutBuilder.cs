@@ -6,6 +6,7 @@ using BifyLang.Ast;
 using BifyLang.CodeGen.Core.Context;
 using BifyLang.CodeGen.Core.Module;
 using BifyLang.CodeGen.Core.Types.Data;
+using BifyLang.CodeGen.Core.Validators;
 using BifyLang.Exceptions;
 using LLVMSharp.Interop;
 
@@ -65,13 +66,19 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : LayoutBuilder(ctx)
             if (_ctx.TypeRegistry.TryGetType(parentName, out var pType) && pType is ClassType cp)
                 parent = cp;
             else
-                Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type, info.ClassNode);
+                Fail($"Class '{info.Name}' inherits from unknown class '{parentName}'.", DiagnosticKind.Type,
+                    info.ClassNode);
         }
 
-        string mangledName = NameMangler.GenerateTypeName(info.ModuleName, info.Name);
-        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent);
-        _ctx.TypeRegistry.Register(mangledName, classType);
-        _ctx.ModuleContext.TypesInfo[mangledName] = classType;
+        string mangledName = NameMangler.GenerateClassName(info.ModuleName, info.Name);
+        var classType = new ClassType(info.Name, mangledName, pointerType, structType, info.ModuleName, parent)
+        {
+            MinType = info.MinType,
+            MaxType = info.MaxType
+        };
+
+    _ctx.TypeRegistry.Register(mangledName, classType);
+        _ctx.ModuleContext.ClassesInfo[mangledName] = classType;
         return classType;
     }
 
@@ -167,6 +174,7 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : LayoutBuilder(ctx)
     {
         try
         {
+            _ = new FunctionPathChecker(funcDecl, _ctx);
             var method = ClassMemberCollector.CollectMethod(funcDecl, _ctx, classType);
             int vtableIndex = VTableBuilder.Apply(_ctx, classType.VTable, method, funcDecl);
             method.VTableIndex = vtableIndex;
@@ -194,7 +202,19 @@ public class ClassLayoutBuilder(CodeGenContext ctx) : LayoutBuilder(ctx)
         if (dtors.Count > 1)
             Error($"Class '{info.Name}' cannot have multiple destructors.", DiagnosticKind.Name, dtors[1]);
 
-        var method = ClassMemberCollector.CollectDestructorOrDefault(dtors.FirstOrDefault(), _ctx, classType);
+        var dtor = dtors.FirstOrDefault();
+        if (dtor != null)
+        {
+            try
+            {
+                _ = new FunctionPathChecker(dtor, _ctx);
+            }
+            catch (BifyCompilationException)
+            {
+            }
+        }
+
+        var method = ClassMemberCollector.CollectDestructorOrDefault(dtor, _ctx, classType);
         method.VTableIndex = VTableBuilder.ApplyDestructor(classType.VTable, method);
         classType.Methods[DestructorSynthesizer.DestructorName] = method;
     }

@@ -110,14 +110,52 @@ public class FunctionPathCheckerTests : BifyTestBase
         AssertSuccess("func getVal(x: int) -> int { switch (x) { case 1: return 10; case 2: return 20; default: return 0; } }");
     }
 
+    [Test]
+    public void PathCheck_SwitchAllReturnWithDeadBreakAfterReturn()
+    {
+        AssertSuccess("func getVal(x: int) -> int { switch (x) { case 1: return 10; break; default: return 0; break; } }");
+    }
+
+    [Test]
+    public void PathCheck_InfiniteWhileReturns_CompilesToValidLlvmIr()
+    {
+        AssertValidFunction("func loopForever() -> int { while (true) { return 1; } }", "loopForever");
+    }
+
+    [Test]
+    public void PathCheck_InfiniteForReturns_CompilesToValidLlvmIr()
+    {
+        AssertValidFunction("func loopForever() -> int { for (mut i: int = 0; true; i++) { return 1; } }", "loopForever");
+    }
+
+    [Test]
+    public void PathCheck_ClassMethodMissingReturn_ReportsDiagnosticAndRecovers()
+    {
+        BifyAssert.CompileError("""
+        class Calc {
+            public func bad() -> int {
+                val x: int = 1;
+            }
+            public func good() -> int {
+                return 2;
+            }
+        }
+        func main() -> int { return 0; }
+        """, DiagnosticKind.Type, "Not all execution paths return a value for int");
+    }
+
     [TestCase("func missing() -> int { val a: int = 5; }", "Not all execution paths return a value for int", TestName = "PathCheck_MissingReturnNonVoid")]
     [TestCase("func check(a: int) -> int { if (a > 0) { return a; } }", "Not all execution paths return a value for int", TestName = "PathCheck_IfWithoutElseFails")]
     [TestCase("func check(a: int) -> int { if (a > 0) { val x: int = 1; } else { return 2; } }", "Not all execution paths return a value for int", TestName = "PathCheck_IfElseBranchMissingReturn")]
     [TestCase("func getValue() -> int { return; }", "Expected 'int' but got 'void'", TestName = "PathCheck_EmptyReturnInNonVoid")]
+    [TestCase("func doWork() { return 42; }", "Cannot return a value from a 'void' function", TestName = "PathCheck_ValueReturnInVoidFails")]
+    [TestCase("func compute() -> int { return 10; return; }", "Expected 'int' but got 'void'", TestName = "PathCheck_InvalidDeadReturnAfterValidReturnFails")]
+    [TestCase("class BadCtor { constructor() { return 1; } }", "Cannot return a value from a 'void' function", TestName = "PathCheck_ValueReturnInConstructorFails")]
     [TestCase("func loop() -> int { while (true) { break; } }", "Not all execution paths return a value for int", TestName = "PathCheck_WhileTrueWithBreakDoesNotGuaranteeReturn")]
     [TestCase("func loop() -> int { for (mut i: int = 0; true; i = i + 1) { break; } }", "Not all execution paths return a value for int", TestName = "PathCheck_ForInfiniteWithBreakDoesNotGuaranteeReturn")]
     [TestCase("func loop() -> int { for (mut i: int = 0; i < 10; i = i + 1) { return 1; } }", "Not all execution paths return a value for int", TestName = "PathCheck_FiniteForDoesNotGuaranteeReturn")]
     [TestCase("func getVal(x: int) -> int { switch (x) { case 1: return 10; } }", "Not all execution paths return a value for int", TestName = "PathCheck_SwitchMissingDefaultFails")]
+    [TestCase("func getVal(x: int, y: int) -> int { switch (x) { case 1: if (y > 0) { break; } return 10; default: return 0; } }", "Not all execution paths return a value for int", TestName = "PathCheck_SwitchConditionalBreakBeforeReturnFails")]
     public void PathCheck_FailureCases(string code, string expectedSubstring)
     {
         AssertTypeError(code, expectedSubstring);
